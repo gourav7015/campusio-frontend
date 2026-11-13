@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+e2e/shots
+e2e/test-results
+test-results
+playwright-report
+*.log
+.DS_Store

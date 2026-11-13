@@ -1,0 +1,72 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApi } from '../../hooks/useApi.js';
+import { post, del, openFile } from '../../api/client.js';
+import { Async, Badge, Button, Card, ConfirmButton, Empty, Modal, PageHeader, Select, Tabs, useAction, fmtDateTime, label, DataTable } from '../../components/ui.jsx';
+import FormModal from '../../components/FormModal.jsx';
+
+const CATS = ['homework', 'attendance', 'examination', 'results', 'announcements', 'timetable', 'leave', 'fees', 'library', 'system'];
+const LINKS = { homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams', timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library' };
+
+export function NotificationsPage({ role, base }) {
+  const [cat, setCat] = useState('');
+  const [unread, setUnread] = useState(false);
+  const list = useApi(`${base}/notifications`, { category: cat, unread: unread ? 'true' : undefined, limit: 100 });
+  const nav = useNavigate();
+  const [run] = useAction();
+  const open = async (n) => { if (!n.readAt) { await post(`${base}/notifications/${n._id}/read`).catch(() => {}); list.reload(); } const to = LINKS[n.link?.type]; if (to) nav(`/${role}/${to}`); };
+  return (
+    <div className="stack">
+      <PageHeader title="Notifications" actions={<>
+        <Select value={cat} onChange={(e) => setCat(e.target.value)} options={CATS.map((c) => ({ value: c, label: label(c) }))} placeholder="All categories" aria-label="Category" />
+        <label className="row"><input type="checkbox" checked={unread} onChange={(e) => setUnread(e.target.checked)} /> Unread only</label>
+        <Button onClick={async () => { await run(() => post(`${base}/notifications/read-all`, {}), 'All marked as read'); list.reload(); }}>Mark all read</Button></>} />
+      <Card flush><Async state={list} empty={<Empty icon="🔔" title="No notifications" />}>{(d) => d.items.length ? (
+        <ul className="timeline" style={{ padding: '0 18px' }}>{d.items.map((n) => (
+          <li key={n._id} style={{ cursor: n.link?.type ? 'pointer' : 'default', opacity: n.readAt ? 0.7 : 1 }} onClick={() => open(n)}>
+            <span className="dotc" style={{ background: n.readAt ? 'var(--border)' : undefined }} /><div className="grow"><div className="bold">{n.title}</div><div className="small muted">{n.body}</div></div>
+            <div className="right small muted"><Badge>{label(n.category)}</Badge><div>{fmtDateTime(n.createdAt)}</div></div></li>))}</ul>) : <Empty icon="🔔" title="No notifications" />}</Async></Card>
+    </div>
+  );
+}
+
+export function AnnouncementsPage({ base, title = 'Announcements', canDelete }) {
+  const list = useApi(`${base}/announcements`);
+  const [open, setOpen] = useState(null);
+  const [run] = useAction();
+  const show = async (a) => { setOpen(a); if (!a.read) { await post(`${base}/announcements/${a._id}/read`).catch(() => {}); list.reload(); } };
+  return (
+    <div className="stack">
+      <PageHeader title={title} subtitle="Notices from your school" />
+      <Async state={list} empty={<Empty icon="📣" title="No announcements yet" />}>{(rows) => (
+        <div className="stack-sm">{rows.map((a) => (
+          <Card key={a._id}><div className="row between wrap"><div className="row"><b style={{ cursor: 'pointer' }} onClick={() => show(a)}>{a.title}</b> {!a.read && <Badge tone="primary">New</Badge>}<Badge>{a.category}</Badge></div><span className="muted small">{fmtDateTime(a.createdAt)}</span></div>
+            <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{(a.body || '').slice(0, 220)}{(a.body || '').length > 220 && '…'}</p>
+            {canDelete && a.mine && <div style={{ marginTop: 8 }}><ConfirmButton size="sm" variant="danger" message="Delete this notice? Students lose it and their notifications are removed." onConfirm={async () => { await run(() => del(`${base}/announcements/${a._id}`), 'Notice deleted'); list.reload(); }}>Delete (sent by mistake)</ConfirmButton></div>}
+            {a.attachmentFiles.length > 0 && <div style={{ marginTop: 8 }}>{a.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); run(() => openFile(f._id)); }}>📎 {f.originalName}</a>)}</div>}</Card>))}</div>)}</Async>
+      {open && <Modal title={open.title} onClose={() => setOpen(null)}><div className="small muted">{label(open.category)} · {fmtDateTime(open.createdAt)}</div><p style={{ whiteSpace: 'pre-wrap' }}>{open.body}</p></Modal>}
+    </div>
+  );
+}
+
+export function Communication() {
+  const [tab, setTab] = useState('announcements');
+  const msgs = useApi(tab === 'messages' ? '/api/teacher/messages' : null);
+  const classes = useApi('/api/teacher/classes');
+  const [modal, setModal] = useState(null);
+  const [run] = useAction();
+  const [bump, setBump] = useState(0);
+  return (
+    <div className="stack">
+      <PageHeader title="Communication" subtitle="School notices, notices to your classes, and messages to the administration" actions={<>
+        {tab === 'announcements' && <Button variant="primary" onClick={() => setModal('notice')}>+ Notice to my class</Button>}{tab === 'messages' && <Button variant="primary" onClick={() => setModal('msg')}>+ New message</Button>}</>} />
+      <Tabs tabs={[['announcements', 'Notices'], ['messages', 'Messages to admin']]} value={tab} onChange={setTab} />
+      {tab === 'announcements' ? <AnnouncementsPage key={bump} base="/api/teacher" title="Notices" canDelete /> : (
+        <Card flush><Async state={msgs} empty={<Empty icon="✉" title="You haven't sent any messages" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Subject', render: (m) => <b>{m.subject}</b> }, { label: 'Message', key: 'body' }, { label: 'Sent', render: (m) => fmtDateTime(m.createdAt) }, { label: 'Delivery', render: (m) => <Badge tone={m.status === 'read' ? 'green' : 'blue'}>{m.status === 'read' ? 'Read' : 'Delivered'}</Badge> },
+          { label: '', render: (m) => <ConfirmButton size="sm" variant="danger" message="Withdraw this message? It is removed from the admin's inbox." onConfirm={async () => { await run(() => del(`/api/teacher/messages/${m._id}`), 'Message withdrawn'); msgs.reload(); }}>Withdraw</ConfirmButton> }]} />}</Async></Card>)}
+      {modal === 'msg' && <FormModal title="Message the school administration" submitLabel="Send" fields={[{ name: 'subject', label: 'Subject', required: true }, { name: 'body', label: 'Message', type: 'textarea', required: true }]} onClose={() => setModal(null)} onSubmit={async (v) => { await post('/api/teacher/messages', v); msgs.reload(); return true; }} />}
+      {modal === 'notice' && <FormModal wide title="Send a notice to your class" submitLabel="Send notice" fields={[{ name: 'sectionId', label: 'Class', type: 'select', required: true, options: (classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` })) }, { name: 'category', label: 'Category', type: 'select', options: ['general', 'homework', 'examination', 'event'], default: 'general', required: true }, { name: 'title', label: 'Title', required: true, full: true }, { name: 'body', label: 'Message', type: 'textarea' }]}
+        onClose={() => setModal(null)} onSubmit={async (v) => { const { sectionId, ...rest } = v; await post('/api/teacher/announcements', { ...rest, sectionIds: [sectionId] }); setBump((b) => b + 1); return true; }}><p className="small muted" style={{ marginTop: 10 }}>Students of that class are notified immediately. If you send something wrong, delete it from the list and it disappears for everyone.</p></FormModal>}
+    </div>
+  );
+}

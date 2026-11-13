@@ -1,0 +1,182 @@
+import { useMemo, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useApi } from '../../hooks/useApi.js';
+import { patch, download, openFile } from '../../api/client.js';
+import { useAuth } from '../../auth/AuthContext.jsx';
+import { Async, Badge, Button, Card, DataTable, Empty, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtMoney, fmtPct, label, dayName } from '../../components/ui.jsx';
+import { TrendChart, BarsChart, DonutChart } from '../../components/Charts.jsx';
+
+const S = '/api/student';
+
+export function StudentExams() {
+  const sch = useApi(`${S}/exams/schedule`);
+  const [tab, setTab] = useState('upcoming');
+  return (
+    <div className="stack">
+      <PageHeader title="Examinations" subtitle="Dates are shown in your school's time zone" />
+      <Tabs tabs={[['upcoming', 'Upcoming'], ['completed', 'Completed']]} value={tab} onChange={setTab} />
+      <Card flush><Async state={sch} empty={<Empty icon="🧪" title="No examination schedule has been published" />}>{(rows) => {
+        const f = rows.filter((r) => (tab === 'upcoming' ? r.daysLeft >= 0 : r.daysLeft < 0));
+        return <DataTable rows={f} empty={tab === 'upcoming' ? 'No upcoming exams' : 'No completed exams yet'} columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
+          { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />; }}</Async></Card>
+    </div>
+  );
+}
+
+export function StudentResults() {
+  const [tab, setTab] = useState('mine');
+  return (
+    <div className="stack">
+      <PageHeader title="Results, report cards & class ranks" subtitle="Only published results are shown" />
+      <Tabs tabs={[['mine', 'My results'], ['class', 'All tests of my class']]} value={tab} onChange={setTab} />
+      {tab === 'mine' ? <MyResults /> : <ClassResults />}
+    </div>
+  );
+}
+
+function MyResults() {
+  const list = useApi(`${S}/results`);
+  const nav = useNavigate();
+  return (
+    <Card flush><Async state={list} empty={<Empty icon="🏅" title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
+      { label: 'Status', render: (r) => (r.status === 'published' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Upcoming</Badge>) }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" variant="primary" onClick={() => nav(`/student/results/${r.examId}`)}>View report card</Button> }]} />}</Async></Card>
+  );
+}
+
+/** Every test held for the student's class — attempted or not — with everyone's results and the student's rank. */
+function ClassResults() {
+  const list = useApi(`${S}/class-results`);
+  const [open, setOpen] = useState(null);
+  return (
+    <div className="stack">
+      <Card flush><Async state={list} empty={<Empty icon="🧪" title="No tests have been held for your class yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" onRowClick={(r) => r.status === 'published' && setOpen(r)} columns={[
+        { label: 'Test', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge><div className="small muted">{r.subjects.join(', ')}</div></> }, { label: 'Date', render: (r) => fmtDate(r.date, true) },
+        { label: 'Status', render: (r) => <Badge tone={r.status === 'published' ? 'green' : 'amber'}>{r.status === 'published' ? 'Results out' : r.status === 'upcoming' ? 'Upcoming' : 'Awaiting results'}</Badge> },
+        { label: 'My result', render: (r) => (r.status !== 'published' ? '—' : !r.hasResult ? <span className="muted">No result</span> : !r.attempted ? <Badge>Not attempted</Badge> : <><b>{fmtPct(r.myPercentage)}</b> <span className="muted small">{r.myGrade}</span></>) },
+        { label: 'Rank', render: (r) => (r.status === 'published' && r.hasResult ? <b>{r.myRank} <span className="muted small">of {r.classSize}</span></b> : '—') }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" onClick={() => setOpen(r)}>See everyone</Button> }]} />}</Async></Card>
+      {open && <LeaderboardModal exam={open} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+function LeaderboardModal({ exam, onClose }) {
+  const d = useApi(`${S}/class-results/${exam.examId}`);
+  return (
+    <Modal wide title={`${exam.name} — class results`} onClose={onClose}>
+      <Async state={d}>{(x) => !x.published ? <Empty title="Results are not out yet" /> : (<>
+        <div className="row wrap" style={{ marginBottom: 12 }}>{x.me ? <Badge tone="primary">Your rank: {x.me.rank} of {x.classSize}</Badge> : <Badge>You have no result in this test</Badge>}<Badge>Class average {x.average}%</Badge></div>
+        <div className="table-wrap"><table>
+          <thead><tr><th>Rank</th><th>Roll</th><th>Student</th>{x.subjects.map((s) => <th key={s.code}>{s.subject}<div className="small muted" style={{ textTransform: 'none', fontWeight: 400 }}>/{s.max}</div></th>)}<th>Total</th><th>%</th><th>Grade</th></tr></thead>
+          <tbody>{x.rows.map((r) => (
+            <tr key={r.studentId} style={r.isMe ? { background: 'var(--primary-50)', fontWeight: 600 } : undefined}><td>{r.attempted ? r.rank : <span title="Not attempted">{r.rank}</span>}</td><td>{r.rollNo}</td><td>{r.name} {r.isMe && <Badge tone="primary">You</Badge>} {!r.attempted && <Badge>Not attempted</Badge>}</td>
+              {x.subjects.map((s) => <td key={s.code}>{r.marks[s.code] ? (r.marks[s.code].absent ? 'AB' : r.marks[s.code].obtained ?? '—') : '—'}</td>)}<td>{r.attempted ? `${r.obtained}/${r.max}` : '—'}</td><td>{r.attempted ? fmtPct(r.percentage) : '—'}</td><td>{r.grade || '—'}</td></tr>))}</tbody></table></div></>)}</Async>
+    </Modal>
+  );
+}
+
+export function ResultDetail() {
+  const { examId } = useParams();
+  const r = useApi(`${S}/results/${examId}`);
+  const [run, busy] = useAction();
+  return (
+    <Async state={r}>{(x) => (
+      <div className="stack">
+        <PageHeader title={x.exam.name} subtitle={`${x.student.name} · Admission ${x.student.admissionNo}${x.version > 1 ? ` · Revised (version ${x.version})` : ''}`} actions={<><Link className="btn" to="/student/results">← All results</Link><Button variant="primary" loading={busy} onClick={() => run(() => download(`${S}/results/${examId}/pdf`, `report-card-${x.exam.name}.pdf`))}>Download PDF report card</Button></>} />
+        {x.correctionReason && <div className="alert info">This report card was revised: {x.correctionReason}</div>}
+        <div className="grid g4"><Stat value={fmtPct(x.percentage)} label="Overall percentage" tone="blue" /><Stat value={x.grade} label="Grade" /><Stat value={`${x.totalObtained} / ${x.totalMax}`} label="Total marks" /><Stat value={label(x.resultStatus)} label="Result" tone={x.resultStatus === 'pass' ? 'green' : 'red'} /></div>
+        <Card title="Subject-wise" flush><DataTable rows={x.subjects} rowKey="subject" columns={[{ label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Marks by field', render: (s) => (s.absent ? <Badge tone="red">Absent</Badge> : s.exempt ? 'Exempt' : (s.components || []).map((c) => `${c.label} ${c.value ?? '—'}/${c.max}`).join(' · ')) }, { label: 'Obtained', render: (s) => (s.exempt ? 'EX' : s.obtained ?? '—') }, { label: 'Max', key: 'max' }, { label: '%', render: (s) => fmtPct(s.percentage) }, { label: 'Grade', render: (s) => <Badge tone={s.passed ? 'green' : 'red'}>{s.grade}</Badge> }, { label: 'Teacher remarks', key: 'remarks' }]} /></Card>
+        <div className="grid g2"><Card title="Attendance summary"><div>Attendance: <b>{fmtPct(x.attendance.percentage)}</b> · {x.attendance.present} present of {x.attendance.workingDays} days</div></Card>
+          <Card title="Remarks"><div><b>Class teacher:</b> {x.teacherRemark || '—'}</div><div style={{ marginTop: 6 }}><b>Principal:</b> {x.principalRemark || '—'}</div></Card></div>
+      </div>)}</Async>
+  );
+}
+
+export function StudentPerformance() {
+  const [examId, setExamId] = useState('');
+  const p = useApi(`${S}/performance`, { examId });
+  return (
+    <div className="stack">
+      <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<Async state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={d.exams.map((e) => ({ value: e.id, label: e.name }))} aria-label="Examination" /> : null}</Async>} />
+      <Async state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty icon="📈" title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
+        <div className="grid g2">
+          <Card title="Examination performance trend"><TrendChart data={d.trend} x="exam" lines={[{ key: 'percentage', name: 'Percentage' }]} /></Card>
+          <Card title={`Subject-wise · ${d.latestExam?.name || ''}`}><BarsChart data={d.subjectWise} x="subject" bars={[{ key: 'percentage', name: 'Percentage', color: '#4f46e5' }]} domain={[0, 100]} unit="%" /></Card>
+          <Card title="Grade distribution"><DonutChart data={d.gradeDistribution} name="grade" value="count" /></Card>
+          <Card title="Attendance trend"><TrendChart data={d.attendanceTrend} x="month" lines={[{ key: 'percentage', name: 'Attendance %', color: '#16a34a' }]} /></Card>
+          <Card title="Personal improvement" className="g-full">{d.improvement.length ? <DataTable rows={d.improvement} rowKey="subject" columns={[{ label: 'Subject', key: 'subject' }, { label: 'Previous', render: (r) => `${r.previous}%` }, { label: 'Latest', render: (r) => `${r.latest}%` }, { label: 'Change', render: (r) => <Badge tone={r.change >= 0 ? 'green' : 'red'}>{r.change >= 0 ? '▲' : '▼'} {Math.abs(r.change)}%</Badge> }]} /> : <Empty title="Needs two published results to compare" />}</Card>
+        </div>))}</Async>
+    </div>
+  );
+}
+
+export function StudentCalendar() {
+  const [view, setView] = useState('month');
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [agendaEnd] = useState(() => new Date(Date.now() + 90 * 864e5).toLocaleDateString('en-CA'));
+  const [todayIso] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const ym = (d) => d.toLocaleDateString('en-CA').slice(0, 7);
+  const from = `${ym(anchor)}-01`;
+  const to = `${ym(anchor)}-${String(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+  const cal = useApi(`${S}/calendar`, { from: view === 'agenda' ? todayIso : from, to: view === 'agenda' ? agendaEnd : to });
+  const colour = { holiday: 'red', exam: 'amber', deadline: 'blue', event: 'primary', ptm: 'primary' };
+  const byDate = useMemo(() => { const m = new Map(); (cal.data || []).forEach((e) => { for (let d = new Date(`${e.date}T00:00:00`); d <= new Date(`${e.endDate || e.date}T00:00:00`); d.setDate(d.getDate() + 1)) { const k = d.toLocaleDateString('en-CA'); if (!m.has(k)) m.set(k, []); m.get(k).push(e); } }); return m; }, [cal.data]);
+  const days = useMemo(() => { const y = anchor.getFullYear(); const m = anchor.getMonth(); const n = new Date(y, m + 1, 0).getDate(); const offset = (new Date(y, m, 1).getDay() + 6) % 7; return { offset, list: Array.from({ length: n }, (_, i) => new Date(y, m, i + 1).toLocaleDateString('en-CA')) }; }, [anchor]);
+  const week = useMemo(() => { const d = new Date(anchor); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return x.toLocaleDateString('en-CA'); }); }, [anchor]);
+  const shift = (n) => { const d = new Date(anchor); if (view === 'week') d.setDate(d.getDate() + 7 * n); else d.setMonth(d.getMonth() + n); setAnchor(d); };
+  return (
+    <div className="stack">
+      <PageHeader title="School calendar" subtitle="Exams, holidays, events and homework deadlines" actions={view !== 'agenda' && <><Button onClick={() => shift(-1)}>←</Button><b>{anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><Button onClick={() => shift(1)}>→</Button></>} />
+      <Tabs tabs={[['month', 'Monthly'], ['week', 'Weekly'], ['agenda', 'Agenda']]} value={view} onChange={setView} />
+      <Async state={cal}>{(items) => (<Card>
+        {view === 'month' && <div className="cal" style={{ gap: 6 }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((x) => <div key={x} className="h">{x}</div>)}{Array.from({ length: days.offset }).map((_, i) => <div key={i} className="d blank" />)}
+          {days.list.map((d) => <div key={d} className="d" style={{ aspectRatio: 'auto', minHeight: 78, alignItems: 'start', justifyItems: 'start', padding: 6, overflow: 'hidden' }}><div className="small bold">{Number(d.slice(8))}</div>{(byDate.get(d) || []).slice(0, 2).map((e) => <Badge key={e.source + e.id} tone={colour[e.type]}>{e.title.slice(0, 16)}</Badge>)}{(byDate.get(d) || []).length > 2 && <span className="small muted">+{byDate.get(d).length - 2}</span>}</div>)}</div>}
+        {view === 'week' && <div className="stack-sm">{week.map((d) => <div key={d} className="period"><div className="time">{dayName(new Date(`${d}T00:00:00`).getDay() || 7).slice(0, 3)} {fmtDate(d)}</div><div className="grow">{(byDate.get(d) || []).map((e) => <div key={e.source + e.id}><Badge tone={colour[e.type]}>{label(e.type)}</Badge> {e.title}</div>)}{!(byDate.get(d) || []).length && <span className="muted small">Nothing scheduled</span>}</div></div>)}</div>}
+        {view === 'agenda' && (items.length ? <ul className="timeline">{items.map((e) => <li key={e.source + e.id}><span className="dotc" /><div className="grow"><b>{e.title}</b><div className="small muted">{fmtDate(e.date, true)}{e.endDate && e.endDate !== e.date ? ` – ${fmtDate(e.endDate)}` : ''} {e.description && `· ${e.description}`}</div></div><Badge tone={colour[e.type]}>{label(e.type)}</Badge></li>)}</ul> : <Empty icon="📅" title="Nothing coming up" />)}</Card>)}</Async>
+    </div>
+  );
+}
+
+export function StudentDocuments() {
+  const docs = useApi(`${S}/documents`);
+  const [run] = useAction();
+  return (
+    <div className="stack">
+      <PageHeader title="My documents" subtitle="Private to you and the school. Links expire after a few minutes." />
+      <Card flush><Async state={docs} empty={<Empty icon="📁" title="No documents have been added" >The school office uploads certificates and reports here.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Document', render: (d) => <b>{d.name}</b> }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Added', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button> }]} />}</Async></Card>
+    </div>
+  );
+}
+
+export function StudentSettings() {
+  const { user, refresh } = useAuth();
+  const [run, busy] = useAction();
+  const prefs = user.notificationPrefs || {};
+  const cats = ['homework', 'attendance', 'examination', 'results', 'announcements', 'timetable', 'fees', 'library'];
+  return (
+    <div className="stack" style={{ maxWidth: 720 }}>
+      <PageHeader title="Settings" />
+      <Card title="Language"><Select value={user.language || 'en'} onChange={async (e) => { await run(() => patch('/api/auth/preferences', { language: e.target.value }), 'Saved'); refresh(); }} options={[{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिन्दी' }]} aria-label="Language" /></Card>
+      <Card title="Notification preferences"><div className="stack-sm">{cats.map((c) => <label key={c} className="row between"><span>{label(c)}</span><input type="checkbox" checked={prefs[c] !== false} disabled={busy} onChange={async (e) => { await run(() => patch('/api/auth/preferences', { notificationPrefs: { [c]: e.target.checked } }), 'Saved'); refresh(); }} /></label>)}</div></Card>
+      <Card title="Account"><p className="muted">Your role and school are set by the school office and cannot be changed here.</p><div className="row"><Link className="btn" to="/account">Change password & manage devices</Link></div></Card>
+    </div>
+  );
+}
+
+export function StudentFees() {
+  const f = useApi(`${S}/fees`);
+  const [run] = useAction();
+  return (
+    <div className="stack">
+      <PageHeader title="Fee information" subtitle="Read-only. Payments are made at the school's finance desk." />
+      <Async state={f} empty={null}>{(d) => !d.charges.length ? <Empty icon="💰" title="No fees have been assigned to you yet" /> : (
+        <div className="stack">
+          <div className="grid g4"><Stat value={fmtMoney(d.totals.assigned)} label="Total fee assigned" sub={d.totals.concession ? `after ${fmtMoney(d.totals.concession)} concession` : undefined} /><Stat value={fmtMoney(d.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(d.totals.pending)} label="Pending" tone="amber" sub={d.totals.nextDue ? `Next due ${fmtDate(d.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(d.totals.overdue)} label="Overdue" tone={d.totals.overdue ? 'red' : undefined} /></div>
+          {d.advanceOffer?.eligible && <div className="alert ok">Pay all {d.advanceOffer.months} remaining months at the finance desk in one go and the school gives you <b>{d.advanceOffer.offer}</b>: you pay {fmtMoney(d.advanceOffer.payable)} instead of {fmtMoney(d.advanceOffer.payable + d.advanceOffer.discount)} (saving {fmtMoney(d.advanceOffer.discount)}).</div>}
+          <Card title="What you are charged for"><div className="row wrap">{d.categories.map((c) => <span key={c.name} className="chip">{c.name}{c.months ? ` (${c.months} months)` : ''}: <b>{fmtMoney(c.total)}</b></span>)}</div></Card>
+          <Card title="Dues & due dates" flush><DataTable rows={d.charges} empty="Nothing billed" columns={[{ label: 'What', render: (c) => <>{c.label} {c.kind === 'library_fine' && <Badge tone="amber">Library fine</Badge>}</> }, { label: 'Due date', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.net) }, { label: 'Paid', render: (c) => fmtMoney(c.paid) }, { label: 'Pending', render: (c) => <b>{fmtMoney(c.outstanding)}</b> }, { label: 'Status', render: (c) => (c.status === 'paid' ? <Badge tone="green">Paid</Badge> : c.overdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="amber">Pending</Badge>) }]} /></Card>
+          <Card title="Payment history" flush><DataTable rows={d.payments} empty="No payments yet" columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Amount', render: (p) => <span style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</span> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'For', render: (p) => p.allocations.join(', ') }, { label: '', render: (p) => (p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : null) },
+            { label: '', render: (p) => <Button size="sm" onClick={() => run(() => download(`${S}/fees/receipts/${p.id}.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button> }]} /></Card>
+        </div>)}</Async>
+    </div>
+  );
+}
