@@ -1,0 +1,9 @@
+# Only the public landing page and the policy pages may be indexed.
+# Every signed-in page holds school and student records and must never appear in a search engine.
+User-agent: *
+Disallow: /
+Allow: /$
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+Allow: /refunds

@@ -1,39 +1,87 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext.jsx';
-import { Shell } from './components/Layout.jsx';
+import { AppShell } from './shell/AppShell';
+
+// Development-only reference for the design system (not built into production).
+const Gallery = import.meta.env.DEV ? lazy(() => import('./design/Gallery')) : null;
 import { Spinner, ToastProvider } from './components/ui.jsx';
+import { DialogsProvider } from './design/ui';
+import NotFound from './pages/NotFound';
+const Privacy = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Terms })));
+const Cookies = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Cookies })));
+const Refunds = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Refunds })));
 import PortalLogin, { Landing, homeFor } from './pages/Login.jsx';
-import Account from './pages/shared/Account.jsx';
-import LibraryMine from './pages/shared/LibraryMine.jsx';
-import { NotificationsPage, AnnouncementsPage, Communication } from './pages/shared/Shared.jsx';
-import { PlatformDashboard, Schools, SchoolDetail, PlatformAudit } from './pages/platform/Platform.jsx';
-import AdminDashboard from './pages/admin/Dashboard.jsx';
-import { Years } from './pages/admin/Academics.jsx';
-import { ClassHub, ClassDetail } from './pages/admin/ClassHub.jsx';
-import SupportStaff from './pages/admin/SupportStaff.jsx';
-import StaffAttendance from './pages/admin/StaffAttendance.jsx';
-import StaffLeaveAdmin from './pages/admin/StaffLeave.jsx';
-import TransportLeave from './pages/transport/Leave.jsx';
-import TransportAttendance from './pages/transport/Attendance.jsx';
-import MyAttendance from './pages/teacher/MyAttendance.jsx';
-import { StaffDashboard, StaffAttendance as StaffMyAttendance, StaffLeave as StaffMyLeave, StaffPayslips, StaffProfile } from './pages/staff/Staff.jsx';
-import TransportDashboard from './pages/transport/Dashboard.jsx';
-import Buses from './pages/transport/Buses.jsx';
-import TransportStaff from './pages/transport/TransportStaff.jsx';
-import { Students, StudentDetail, Teachers, TeacherDetail } from './pages/admin/People.jsx';
-import { Timetable, LeaveAdmin } from './pages/admin/Operations.jsx';
-import { Exams as AdminExams, ExamDetail } from './pages/admin/Exams.jsx';
-import { AnnouncementsAdmin, Events, MessagesAdmin } from './pages/admin/Comms.jsx';
-import { Promotion, Import, Reports, Settings, Audit } from './pages/admin/Tools.jsx';
-import { AdminFees, AdminLibrary, AdminTransport, Staff } from './pages/admin/Views.jsx';
-import Payroll from './pages/admin/Payroll.jsx';
-import Salary from './pages/teacher/Salary.jsx';
-import { FinanceDashboard, FeeStructures, FeePolicy, StudentsDues, StudentAccount, Payments, FinanceReports } from './pages/finance/Finance.jsx';
-import { LibraryDashboard, Desk, Books, BookDetail, Loans, LibrarySettings, ByClass } from './pages/library/Library.jsx';
-import * as T1 from './pages/teacher/Teacher1.jsx';
-import * as T2 from './pages/teacher/Teacher2.jsx';
-import * as S1 from './pages/student/Student1.jsx';
-import * as S2 from './pages/student/Student2.jsx';
+const Account = lazy(() => import('./pages/shared/Account.jsx'));
+const LibraryMine = lazy(() => import('./pages/shared/LibraryMine.jsx'));
+const NotificationsPage = lazy(() => import('./pages/shared/Shared.jsx').then((m) => ({ default: m.NotificationsPage })));
+const AnnouncementsPage = lazy(() => import('./pages/shared/Shared.jsx').then((m) => ({ default: m.AnnouncementsPage })));
+const Communication = lazy(() => import('./pages/shared/Shared.jsx').then((m) => ({ default: m.Communication })));
+const PlatformDashboard = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.PlatformDashboard })));
+const Schools = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.Schools })));
+const SchoolDetail = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.SchoolDetail })));
+const PlatformAudit = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.PlatformAudit })));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const Years = lazy(() => import('./pages/admin/Academics.jsx').then((m) => ({ default: m.Years })));
+const ClassHub = lazy(() => import('./pages/admin/ClassHub.jsx').then((m) => ({ default: m.ClassHub })));
+const ClassDetail = lazy(() => import('./pages/admin/ClassHub.jsx').then((m) => ({ default: m.ClassDetail })));
+const SupportStaff = lazy(() => import('./pages/admin/SupportStaff.jsx'));
+const StaffAttendance = lazy(() => import('./pages/admin/StaffAttendance.jsx'));
+const StaffLeaveAdmin = lazy(() => import('./pages/admin/StaffLeave.jsx'));
+const TransportLeave = lazy(() => import('./pages/transport/Leave.jsx'));
+const TransportAttendance = lazy(() => import('./pages/transport/Attendance.jsx'));
+const MyAttendance = lazy(() => import('./pages/teacher/MyAttendance.jsx'));
+const StaffDashboard = lazy(() => import('./pages/staff/Staff.jsx').then((m) => ({ default: m.StaffDashboard })));
+const StaffMyAttendance = lazy(() => import('./pages/staff/Staff.jsx').then((m) => ({ default: m.StaffAttendance })));
+const StaffMyLeave = lazy(() => import('./pages/staff/Staff.jsx').then((m) => ({ default: m.StaffLeave })));
+const StaffPayslips = lazy(() => import('./pages/staff/Staff.jsx').then((m) => ({ default: m.StaffPayslips })));
+const StaffProfile = lazy(() => import('./pages/staff/Staff.jsx').then((m) => ({ default: m.StaffProfile })));
+const TransportDashboard = lazy(() => import('./pages/transport/TransportDashboard'));
+const Buses = lazy(() => import('./pages/transport/Buses.jsx'));
+const TransportStaff = lazy(() => import('./pages/transport/TransportStaff.jsx'));
+const Students = lazy(() => import('./pages/admin/People.jsx').then((m) => ({ default: m.Students })));
+const StudentDetail = lazy(() => import('./pages/admin/People.jsx').then((m) => ({ default: m.StudentDetail })));
+const Teachers = lazy(() => import('./pages/admin/People.jsx').then((m) => ({ default: m.Teachers })));
+const TeacherDetail = lazy(() => import('./pages/admin/People.jsx').then((m) => ({ default: m.TeacherDetail })));
+const Timetable = lazy(() => import('./pages/admin/Operations.jsx').then((m) => ({ default: m.Timetable })));
+const LeaveAdmin = lazy(() => import('./pages/admin/Operations.jsx').then((m) => ({ default: m.LeaveAdmin })));
+const AdminExams = lazy(() => import('./pages/admin/Exams.jsx').then((m) => ({ default: m.Exams })));
+const ExamDetail = lazy(() => import('./pages/admin/Exams.jsx').then((m) => ({ default: m.ExamDetail })));
+const AnnouncementsAdmin = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.AnnouncementsAdmin })));
+const Events = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.Events })));
+const MessagesAdmin = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.MessagesAdmin })));
+const Promotion = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Promotion })));
+const Import = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Import })));
+const Reports = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Reports })));
+const Settings = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Settings })));
+const Audit = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Audit })));
+const AdminFees = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.AdminFees })));
+const AdminLibrary = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.AdminLibrary })));
+const AdminTransport = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.AdminTransport })));
+const Staff = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.Staff })));
+const Payroll = lazy(() => import('./pages/admin/Payroll.jsx'));
+const Salary = lazy(() => import('./pages/teacher/Salary.jsx'));
+const FinanceDashboard = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FinanceDashboard })));
+const FeeStructures = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FeeStructures })));
+const FeePolicy = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FeePolicy })));
+const StudentsDues = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.StudentsDues })));
+const StudentAccount = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.StudentAccount })));
+const Payments = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.Payments })));
+const FinanceReports = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FinanceReports })));
+const LibraryDashboard = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.LibraryDashboard })));
+const Desk = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.Desk })));
+const Books = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.Books })));
+const BookDetail = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.BookDetail })));
+const Loans = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.Loans })));
+const LibrarySettings = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.LibrarySettings })));
+const ByClass = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.ByClass })));
+const T1 = { Attendance: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.Attendance }))), ClassWorkspace: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.ClassWorkspace }))), Classes: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.Classes }))), StudentView: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.StudentView }))), Subjects: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.Subjects }))), TeacherTimetable: lazy(() => import('./pages/teacher/Teacher1.jsx').then((m) => ({ default: m.TeacherTimetable }))) };
+const T2 = { Exams: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Exams }))), Homework: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Homework }))), Leave: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Leave }))), MarksSheet: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.MarksSheet }))), Materials: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Materials }))), Performance: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Performance }))), Profile: lazy(() => import('./pages/teacher/Teacher2.jsx').then((m) => ({ default: m.Profile }))) };
+const S1 = { StudentAttendance: lazy(() => import('./pages/student/Student1.jsx').then((m) => ({ default: m.StudentAttendance }))), StudentHomework: lazy(() => import('./pages/student/Student1.jsx').then((m) => ({ default: m.StudentHomework }))), StudentMaterials: lazy(() => import('./pages/student/Student1.jsx').then((m) => ({ default: m.StudentMaterials }))), StudentProfile: lazy(() => import('./pages/student/Student1.jsx').then((m) => ({ default: m.StudentProfile }))), StudentTimetable: lazy(() => import('./pages/student/Student1.jsx').then((m) => ({ default: m.StudentTimetable }))) };
+const S2 = { ResultDetail: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.ResultDetail }))), StudentCalendar: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentCalendar }))), StudentDocuments: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentDocuments }))), StudentExams: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentExams }))), StudentFees: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentFees }))), StudentPerformance: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentPerformance }))), StudentResults: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentResults }))), StudentSettings: lazy(() => import('./pages/student/Student2.jsx').then((m) => ({ default: m.StudentSettings }))) };
 
 const AREA = { super_admin: 'platform', school_admin: 'admin', teacher: 'teacher', student: 'student', finance: 'finance', library: 'library', transport: 'transport', staff: 'staff' };
 
@@ -50,24 +98,26 @@ function Guard({ roles, area, children }) {
   return children;
 }
 
-const AccountShell = () => { const { user } = useAuth(); return <Shell area={AREA[user.role]} />; };
+const AccountShell = () => { const { user } = useAuth(); return <AppShell area={AREA[user.role]} />; };
 
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Spinner />;
   return (
-    <ToastProvider>
-      <Routes>
+    <ToastProvider><DialogsProvider>
+      <Suspense fallback={<Spinner />}><Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
+        {Gallery && <Route path="/design" element={<Suspense fallback={null}><Gallery /></Suspense>} />}
         <Route path="/login" element={<Navigate to="/" replace />} />
         {['student', 'teacher', 'finance', 'library', 'transport', 'staff', 'admin', 'platform'].map((p) => <Route key={p} path={`/${p}/login`} element={<PortalLogin portal={p} />} />)}
         <Route element={user ? <AccountShell /> : <Navigate to="/" replace />}><Route path="/account" element={<Account />} /></Route>
 
-        <Route path="/platform" element={<Guard roles={['super_admin']}><Shell area="platform" /></Guard>}>
+        <Route path="/platform" element={<Guard roles={['super_admin']}><AppShell area="platform" /></Guard>}>
           <Route index element={<PlatformDashboard />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} />
         </Route>
 
-        <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><Shell area="admin" /></Guard>}>
+        <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><AppShell area="admin" /></Guard>}>
           <Route index element={<AdminDashboard />} /><Route path="years" element={<Years />} /><Route path="classes" element={<ClassHub />} /><Route path="classes/:sectionId" element={<ClassDetail />} />
           <Route path="students" element={<Students />} /><Route path="students/:id" element={<StudentDetail />} /><Route path="teachers" element={<Teachers />} /><Route path="teachers/:id" element={<TeacherDetail />} /><Route path="assignments" element={<Navigate to="/admin/classes?tab=subjects" replace />} /><Route path="staff" element={<Staff />} />
           <Route path="timetable" element={<Timetable />} /><Route path="attendance" element={<Navigate to="/admin/classes?tab=attendance" replace />} /><Route path="learning" element={<Navigate to="/admin/classes?tab=homework" replace />} /><Route path="exams" element={<AdminExams />} /><Route path="exams/:id" element={<ExamDetail />} /><Route path="leave" element={<LeaveAdmin />} />
@@ -77,39 +127,39 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage role="admin" base="/api/school" />} />
         </Route>
 
-        <Route path="/finance" element={<Guard roles={['finance']}><Shell area="finance" /></Guard>}>
+        <Route path="/finance" element={<Guard roles={['finance']}><AppShell area="finance" /></Guard>}>
           <Route index element={<FinanceDashboard />} /><Route path="structures" element={<FeeStructures />} /><Route path="policy" element={<FeePolicy />} /><Route path="students" element={<StudentsDues />} /><Route path="students/:id" element={<StudentAccount />} /><Route path="payments" element={<Payments />} /><Route path="reports" element={<FinanceReports />} />
         </Route>
 
-        <Route path="/transport" element={<Guard roles={['transport']}><Shell area="transport" /></Guard>}>
+        <Route path="/transport" element={<Guard roles={['transport']}><AppShell area="transport" /></Guard>}>
           <Route index element={<TransportDashboard base="/api/transport" links={{ buses: '/transport/buses' }} />} /><Route path="buses" element={<Buses base="/api/transport" />} /><Route path="staff" element={<TransportStaff base="/api/transport" />} /><Route path="attendance" element={<TransportAttendance base="/api/transport" />} /><Route path="leave" element={<TransportLeave base="/api/transport" />} />
         </Route>
 
-        <Route path="/staff" element={<Guard roles={['staff']}><Shell area="staff" /></Guard>}>
+        <Route path="/staff" element={<Guard roles={['staff']}><AppShell area="staff" /></Guard>}>
           <Route index element={<StaffDashboard />} /><Route path="attendance" element={<StaffMyAttendance />} /><Route path="leave" element={<StaffMyLeave />} /><Route path="payslips" element={<StaffPayslips />} /><Route path="profile" element={<StaffProfile />} />
         </Route>
 
-        <Route path="/library" element={<Guard roles={['library']}><Shell area="library" /></Guard>}>
+        <Route path="/library" element={<Guard roles={['library']}><AppShell area="library" /></Guard>}>
           <Route index element={<LibraryDashboard />} /><Route path="desk" element={<Desk />} /><Route path="books" element={<Books />} /><Route path="books/:id" element={<BookDetail />} /><Route path="loans" element={<Loans />} /><Route path="classes" element={<ByClass />} /><Route path="settings" element={<LibrarySettings />} />
         </Route>
 
-        <Route path="/teacher" element={<Guard roles={['teacher']}><Shell area="teacher" /></Guard>}>
-          <Route index element={<T1.TeacherDashboard />} /><Route path="timetable" element={<T1.TeacherTimetable />} /><Route path="classes" element={<T1.Classes />} /><Route path="classes/:sectionId" element={<T1.ClassWorkspace />} /><Route path="students/:id" element={<T1.StudentView />} />
+        <Route path="/teacher" element={<Guard roles={['teacher']}><AppShell area="teacher" /></Guard>}>
+          <Route index element={<TeacherDashboard />} /><Route path="timetable" element={<T1.TeacherTimetable />} /><Route path="classes" element={<T1.Classes />} /><Route path="classes/:sectionId" element={<T1.ClassWorkspace />} /><Route path="students/:id" element={<T1.StudentView />} />
           <Route path="subjects" element={<T1.Subjects />} /><Route path="attendance" element={<T1.Attendance />} /><Route path="homework" element={<T2.Homework />} /><Route path="materials" element={<T2.Materials />} />
           <Route path="exams" element={<T2.Exams />} /><Route path="exams/:examSubjectId/:sectionId" element={<T2.MarksSheet />} /><Route path="marks" element={<Navigate to="/teacher/exams" replace />} /><Route path="performance" element={<T2.Performance />} />
           <Route path="salary" element={<Salary />} /><Route path="my-attendance" element={<MyAttendance />} /><Route path="communication" element={<Communication />} /><Route path="announcements" element={<AnnouncementsPage base="/api/teacher" />} /><Route path="messages" element={<Communication />} /><Route path="library" element={<LibraryMine base="/api/teacher" />} /><Route path="leave" element={<T2.Leave />} /><Route path="profile" element={<T2.Profile />} />
           <Route path="notifications" element={<NotificationsPage role="teacher" base="/api/teacher" />} />
         </Route>
 
-        <Route path="/student" element={<Guard roles={['student']}><Shell area="student" /></Guard>}>
-          <Route index element={<S1.StudentDashboard />} /><Route path="profile" element={<S1.StudentProfile />} /><Route path="timetable" element={<S1.StudentTimetable />} /><Route path="attendance" element={<S1.StudentAttendance />} />
+        <Route path="/student" element={<Guard roles={['student']}><AppShell area="student" /></Guard>}>
+          <Route index element={<StudentDashboard />} /><Route path="profile" element={<S1.StudentProfile />} /><Route path="timetable" element={<S1.StudentTimetable />} /><Route path="attendance" element={<S1.StudentAttendance />} />
           <Route path="homework" element={<S1.StudentHomework />} /><Route path="materials" element={<S1.StudentMaterials />} /><Route path="exams" element={<S2.StudentExams />} /><Route path="results" element={<S2.StudentResults />} /><Route path="results/:examId" element={<S2.ResultDetail />} />
           <Route path="performance" element={<S2.StudentPerformance />} /><Route path="calendar" element={<S2.StudentCalendar />} /><Route path="announcements" element={<AnnouncementsPage base="/api/student" />} /><Route path="fees" element={<S2.StudentFees />} /><Route path="library" element={<LibraryMine base="/api/student" />} /><Route path="documents" element={<S2.StudentDocuments />} /><Route path="settings" element={<S2.StudentSettings />} />
           <Route path="notifications" element={<NotificationsPage role="student" base="/api/student" />} />
         </Route>
 
-        <Route path="*" element={<Navigate to={user ? homeFor(user.role) : '/'} replace />} />
-      </Routes>
-    </ToastProvider>
+        <Route path="*" element={<NotFound />} />
+      </Routes></Suspense>
+    </DialogsProvider></ToastProvider>
   );
 }

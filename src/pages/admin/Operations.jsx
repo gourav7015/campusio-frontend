@@ -4,6 +4,7 @@ import { useLookups } from '../../hooks/useLookups.js';
 import { post, patch, del } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, statusTone, fmtDate, fmtDateTime, dayName, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import { useDialogs } from '../../design/ui';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 
@@ -32,10 +33,10 @@ export function Timetable() {
   return (
     <div className="stack">
       <PageHeader title="Timetable" subtitle="Teacher, room and section conflicts are checked automatically" actions={<Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={L.sectionOptions} aria-label="Section" />} />
-      {unresolved.data?.length > 0 && <div className="alert">⚠ {unresolved.data.length} period(s) have no teacher because an assignment ended: {unresolved.data.slice(0, 4).map((u) => `${u.section} ${u.period} (${u.subject})`).join(', ')}. Click the period in the grid to assign a teacher.</div>}
+      {unresolved.data?.length > 0 && <div className="alert">{unresolved.data.length} period(s) have no teacher because an assignment ended: {unresolved.data.slice(0, 4).map((u) => `${u.section} ${u.period} (${u.subject})`).join(', ')}. Click the period in the grid to assign a teacher.</div>}
       <Tabs tabs={[['grid', 'Weekly grid'], ['periods', 'Period timings'], ['subs', 'Substitutions']]} value={tab} onChange={setTab} />
       {tab === 'grid' && (
-        <Card flush>{!lessons.length ? <Empty icon="⏰" title="Define period timings first" /> : (
+        <Card flush>{!lessons.length ? <Empty title="Define period timings first" /> : (
           <div className="table-wrap"><table>
             <thead><tr><th>Period</th>{days.map((d) => <th key={d}>{dayName(d)}</th>)}</tr></thead>
             <tbody>{(periods.data || []).map((p) => p.type === 'break'
@@ -96,6 +97,7 @@ function SubstituteModal({ L, onClose, onDone }) {
 
 // ───────────── Attendance (school-wide) ─────────────
 export function AttendanceAdmin() {
+  const dlg = useDialogs();
   const [date, setDate] = useState(today());
   const ov = useApi('/api/school/attendance/overview', { date });
   const queries = useApi('/api/school/attendance/queries', { status: 'open' });
@@ -111,13 +113,14 @@ export function AttendanceAdmin() {
           { label: 'Present', render: (r) => r.totals ? r.totals.present + r.totals.late : '—' }, { label: 'Absent', render: (r) => r.totals?.absent ?? '—' }, { label: 'Leave', render: (r) => r.totals ? r.totals.leave + r.totals.excused : '—' }, { label: 'Submitted', render: (r) => fmtDateTime(r.submittedAt) },
           { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r)}>Open register</Button> }]} /></Card></>)}</Async>
       <Card title="Open attendance queries from students" flush><Async state={queries} empty={<div className="empty">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date, true) }, { label: 'Message', key: 'message' },
-        { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = prompt('Reply to the student'); if (!response) return; await run(() => post(`/api/school/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
+        { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = await dlg.prompt('Reply to the student', { title: 'Answer the query', required: true }); if (!response) return; await run(() => post(`/api/school/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
       {open && <RegisterModal sectionId={open.sectionId} title={`${open.className} ${open.section}`} date={date} onClose={() => { setOpen(null); ov.reload(); }} />}
     </div>
   );
 }
 
 export function RegisterModal({ sectionId, title, date, onClose }) {
+  const dlg = useDialogs();
   const reg = useApi('/api/school/attendance/register', { sectionId, date });
   const [run] = useAction();
   const [rows, setRows] = useState(null);
@@ -134,7 +137,7 @@ export function RegisterModal({ sectionId, title, date, onClose }) {
         <div className="table-wrap"><table><thead><tr><th>Roll</th><th>Student</th><th>Status</th></tr></thead><tbody>{list.map((s) => (
           <tr key={s.studentId}><td>{s.rollNo}</td><td>{s.name} {s.corrected && <Badge tone="amber">corrected</Badge>}</td><td>
             {d.canEdit ? <div className="status-seg">{['present', 'absent', 'late', 'leave'].map((st) => <button key={st} className={`${s.status === st ? 'on' : ''} ${st}`} onClick={() => setStatus(s.studentId, st)}>{label(st)}</button>)}</div>
-              : <div className="row"><Badge tone={statusTone(s.status)}>{label(s.status) || 'Not marked'}</Badge>{d.canCorrect && <select aria-label={`Correct ${s.name}`} value="" onChange={async (e) => { const status = e.target.value; if (!status) return; const reason = prompt('Reason for this correction (required)'); if (!reason) return; await run(() => post('/api/school/attendance/correct', { sectionId, date, studentId: s.studentId, status, reason }), 'Correction recorded'); reg.reload(); }} style={{ width: 130 }}><option value="">Correct…</option>{['present', 'absent', 'late', 'leave', 'excused'].filter((x) => x !== s.status).map((x) => <option key={x} value={x}>{label(x)}</option>)}</select>}</div>}
+              : <div className="row"><Badge tone={statusTone(s.status)}>{label(s.status) || 'Not marked'}</Badge>{d.canCorrect && <select aria-label={`Correct ${s.name}`} value="" onChange={async (e) => { const status = e.target.value; if (!status) return; const reason = await dlg.prompt('Reason for this correction (required)', { title: 'Correct attendance', required: true }); if (!reason) return; await run(() => post('/api/school/attendance/correct', { sectionId, date, studentId: s.studentId, status, reason }), 'Correction recorded'); reg.reload(); }} style={{ width: 130 }}><option value="">Correct…</option>{['present', 'absent', 'late', 'leave', 'excused'].filter((x) => x !== s.status).map((x) => <option key={x} value={x}>{label(x)}</option>)}</select>}</div>}
           </td></tr>))}</tbody></table></div></>)}</Async>
     </Modal>
   );

@@ -3,6 +3,7 @@ import { useApi } from '../hooks/useApi.js';
 import { post } from '../api/client.js';
 import { Async, Badge, Button, Card, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
 import FormModal from './FormModal.jsx';
+import { useDialogs } from '../design/ui';
 
 /** The leave desk for one group of staff: decide applications, and record a leave for someone who cannot apply themselves. */
 export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
@@ -10,8 +11,9 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
   const list = useApi(base, { status: status === 'all' ? undefined : status });
   const staff = useApi(canEdit ? staffBase : null, { limit: 200 });
   const [modal, setModal] = useState(false); const [run] = useAction();
+  const dlg = useDialogs();
   const decide = async (l, decision) => {
-    const remark = decision === 'reject' ? window.prompt('Reason for rejecting (the person will see it)') : '';
+    const remark = decision === 'reject' ? await dlg.prompt('Reason for rejecting (the person will see it)', { title: 'Reject leave', required: true }) : '';
     if (decision === 'reject' && !remark) return;
     await run(() => post(`${base}/${l._id}/decide`, { decision, ...(remark ? { remark } : {}) }), decision === 'approve' ? 'Approved' : 'Rejected'); list.reload();
   };

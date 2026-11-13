@@ -3,8 +3,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { post, del } from '../../api/client.js';
 import { useApi } from '../../hooks/useApi.js';
-import { Button, Card, Field, Input, PageHeader, useAction, Async, fmtDateTime, Badge } from '../../components/ui.jsx';
+import { Button, Card, Field, PageHeader, useAction, Async, fmtDateTime, Badge } from '../../components/ui.jsx';
 import { homeFor } from '../Login.jsx';
+import { PasswordInput } from '../../design/ui';
 
 export default function Account() {
   const { user, markPasswordChanged } = useAuth();
@@ -26,9 +27,9 @@ export default function Account() {
       <PageHeader title="Password & sessions" subtitle={forced ? 'You must set a new password before continuing.' : 'Keep your account secure'} />
       <Card title="Change password">
         <form className="stack" onSubmit={save}>
-          <Field label="Current password"><Input type="password" autoComplete="current-password" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} required /></Field>
-          <Field label="New password" hint="At least 8 characters with a letter and a number"><Input type="password" autoComplete="new-password" value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} required minLength={8} /></Field>
-          <Field label="Confirm new password"><Input type="password" autoComplete="new-password" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} required /></Field>
+          <Field label="Current password"><PasswordInput autoComplete="current-password" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} required /></Field>
+          <Field label="New password" hint="At least 10 characters with a letter and a number; not a common password"><PasswordInput autoComplete="new-password" value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} required minLength={8} /></Field>
+          <Field label="Confirm new password"><PasswordInput autoComplete="new-password" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} required /></Field>
           {mismatch && <div className="alert">Passwords do not match</div>}
           <div><Button variant="primary" type="submit" loading={busy}>Update password</Button></div>
         </form>

@@ -109,7 +109,7 @@ export function Reports() {
       <Async state={rep}>{(r) => (<>
         <div className="grid g2">
           <Card title="Class strength"><BarsChart data={merged} x="name" bars={[{ key: 'students', name: 'Students' }]} /></Card>
-          <Card title="Attendance by section (year to date)"><BarsChart data={merged.filter((m) => m.attendance != null)} x="name" bars={[{ key: 'attendance', name: 'Attendance %', color: '#16a34a' }]} domain={[0, 100]} unit="%" /></Card>
+          <Card title="Attendance by section (year to date)"><BarsChart data={merged.filter((m) => m.attendance != null)} x="name" bars={[{ key: 'attendance', name: 'Attendance %', color: 'rgb(var(--c-success))' }]} domain={[0, 100]} unit="%" /></Card>
         </div>
         <Card title="Result averages" flush><DataTable rows={r.results} rowKey="exam" empty="No published results yet" columns={[{ label: 'Class', key: 'className' }, { label: 'Exam', key: 'exam' }, { label: 'Students', key: 'students' }, { label: 'Average %', key: 'average' }]} /></Card></>)}</Async>
       <Card title="Attendance export"><div className="row wrap"><Select value={sectionId} onChange={(e) => setSectionId(e.target.value)} options={L.sectionOptions} placeholder="Choose section" aria-label="Section" /><Button disabled={!sectionId} onClick={() => run(() => download('/api/school/export/attendance.csv', 'attendance.csv', { sectionId }))}>Download CSV</Button></div></Card>
@@ -150,7 +150,7 @@ export function Settings() {
           <table><thead><tr><th>Minimum %</th><th>Grade</th><th /></tr></thead><tbody>{data.grading.scale.map((b, i) => <tr key={i}>
             <td><Input type="number" value={b.min} onChange={(e) => set({ grading: { ...data.grading, scale: data.grading.scale.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)) } })} /></td>
             <td><Input value={b.grade} onChange={(e) => set({ grading: { ...data.grading, scale: data.grading.scale.map((x, j) => (j === i ? { ...x, grade: e.target.value } : x)) } })} /></td>
-            <td><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: data.grading.scale.filter((_, j) => j !== i) } })} disabled={data.grading.scale.length <= 2}>✕</Button></td></tr>)}</tbody></table>
+            <td><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: data.grading.scale.filter((_, j) => j !== i) } })} disabled={data.grading.scale.length <= 2}>Remove</Button></td></tr>)}</tbody></table>
           <div><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: [...data.grading.scale, { min: 0, grade: '' }] } })}>+ Add band</Button></div>
         </div></Card>
         <Card title="Teacher leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.leaveBalances[k]} onChange={(e) => set({ leaveBalances: { ...data.leaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div>

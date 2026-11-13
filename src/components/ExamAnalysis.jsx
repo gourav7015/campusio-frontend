@@ -12,10 +12,10 @@ const tone = (p) => (p == null ? '' : p >= 75 ? 'green' : p >= 50 ? 'blue' : p >
 export default function ExamAnalysis({ classId, sectionId }) {
   const nav = useNavigate();
   const q = useApi(classId || sectionId ? '/api/school/analysis/exams' : null, { classId: sectionId ? undefined : classId, sectionId: sectionId || undefined });
-  if (!classId && !sectionId) return <Empty icon="🧪" title="Choose a class to see its exam analysis" />;
+  if (!classId && !sectionId) return <Empty title="Choose a class to see its exam analysis" />;
   return (
     <Async state={q}>{(d) => {
-      if (!d.students.length) return <Empty icon="👥" title="No students in this class this year" />;
+      if (!d.students.length) return <Empty title="No students in this class this year" />;
       const subjects = [...new Set(d.exams.flatMap((e) => e.subjects.map((s) => s.subject)))].sort();
       return (
         <div className="stack">
@@ -25,7 +25,7 @@ export default function ExamAnalysis({ classId, sectionId }) {
             <Stat value={d.summary.classAverage != null ? `${d.summary.classAverage}%` : '—'} label="Class average" tone="green" />
             <Stat value={d.summary.needsAttention} label="Need attention" sub={`average below ${d.summary.passMark + 10}%`} tone={d.summary.needsAttention ? 'amber' : 'green'} />
           </div>
-          {d.examsHeld === 0 ? <Empty icon="🧪" title="No results published yet" >Marks appear here after the teachers enter them and the exam is published.</Empty> : (<>
+          {d.examsHeld === 0 ? <Empty title="No results published yet" >Marks appear here after the teachers enter them and the exam is published.</Empty> : (<>
             <div className="grid g2">
               <Card title="Average by exam"><BarsChart data={d.exams.map((e) => ({ exam: e.name, Average: e.average, 'Pass %': e.passPercent }))} x="exam" bars={[{ key: 'Average' }, { key: 'Pass %' }]} domain={[0, 100]} unit="%" /></Card>
               <Card title="Exams held" flush><DataTable rows={d.exams} rowKey="id" columns={[

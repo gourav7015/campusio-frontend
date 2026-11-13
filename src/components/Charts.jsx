@@ -1,7 +1,8 @@
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ScatterChart, Scatter } from 'recharts';
 
-export const PALETTE = ['#4f46e5', '#16a34a', '#d97706', '#dc2626', '#0891b2', '#9333ea', '#db2777', '#65a30d'];
-const axis = { stroke: 'var(--muted)', fontSize: 12, tickLine: false, axisLine: false };
+/** Series colours come from the design tokens; the first colour leads, the rest are kept apart by hue. */
+export const PALETTE = ['rgb(var(--c-primary))', 'rgb(var(--c-success))', 'rgb(var(--c-warning))', 'rgb(var(--c-danger))', 'rgb(var(--c-fg-3))', 'rgb(var(--c-tone))', 'rgb(var(--c-fg-2))', 'rgb(var(--c-border-strong))'];
+const axis = { stroke: 'var(--muted)', fontSize: 12, tickLine: false, axisLine: false, tick: { fill: 'var(--muted)' } };
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** Show ISO dates (2026-11-05) as "5 Nov" and months (2026-11) as "Nov 26". */
 export const tick = (v) => {
@@ -20,7 +21,7 @@ export function TrendChart({ data, x, lines, height = 240, domain = [0, 100], un
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey={x} {...axis} tickFormatter={tick} /><YAxis domain={domain} {...axis} tickFormatter={(v) => `${v}${unit}`} />
         <Tooltip formatter={(v) => `${v}${unit}`} contentStyle={{ borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }} />
-        {lines.length > 1 && <Legend />}
+        {lines.length > 1 && <Legend wrapperStyle={{ color: 'var(--text)' }} />}
         {lines.map((l, i) => <Line key={l.key} type="monotone" dataKey={l.key} name={l.name || l.key} stroke={l.color || PALETTE[i]} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />)}
       </LineChart>
     </ResponsiveContainer>
@@ -35,7 +36,7 @@ export function BarsChart({ data, x, bars, height = 240, domain, stacked, unit =
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey={x} {...axis} tickFormatter={tick} /><YAxis domain={domain} allowDecimals={false} {...axis} />
         <Tooltip formatter={(v) => `${v}${unit}`} contentStyle={{ borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }} />
-        {bars.length > 1 && <Legend />}
+        {bars.length > 1 && <Legend wrapperStyle={{ color: 'var(--text)' }} />}
         {bars.map((b, i) => <Bar key={b.key} dataKey={b.key} name={b.name || b.key} fill={b.color || PALETTE[i]} stackId={stacked ? 's' : undefined} radius={[5, 5, 0, 0]} />)}
       </BarChart>
     </ResponsiveContainer>

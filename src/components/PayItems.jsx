@@ -14,7 +14,7 @@ export default function PayItems({ title, items, onChange, basic }) {
           <Select aria-label={`${title} type ${i + 1}`} value={it.kind} onChange={(e) => set(i, { kind: e.target.value })} options={[{ value: 'fixed', label: '₹ fixed' }, { value: 'percent', label: '% of basic' }]} />
           <Input aria-label={`${title} value ${i + 1}`} type="number" min="0" step="any" placeholder="Value" value={it.value} onChange={(e) => set(i, { value: e.target.value })} style={{ maxWidth: 110 }} />
           <span className="muted" style={{ minWidth: 80 }}>= ₹{amount(it).toLocaleString('en-IN')}</span>
-          <Button size="sm" type="button" variant="danger" aria-label={`Remove ${title} ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>✕</Button>
+          <Button size="sm" type="button" variant="danger" aria-label={`Remove ${title} ${i + 1}`} onClick={() => onChange(items.filter((_, j) => j !== i))}>Remove</Button>
         </div>
       ))}
     </div>

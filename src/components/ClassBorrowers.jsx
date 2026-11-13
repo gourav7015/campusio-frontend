@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
-import { Async, Badge, Card, DataTable, Select, Stat, fmtDate } from './ui.jsx';
+import { Async, Badge, Card, DataTable, Empty, Select, Stat, fmtDate } from './ui.jsx';
 
 /** Class-wise library view: pick a class (and section), then see who has borrowed a book this year, who holds one now, and who never has. */
 export default function ClassBorrowers({ base, sectionId: fixedSection }) {
@@ -17,7 +17,7 @@ export default function ClassBorrowers({ base, sectionId: fixedSection }) {
           <Select aria-label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} placeholder="All sections" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!classId} />
         </div>
       )}
-      {!sid && !classId ? <div className="empty"><div className="big">📚</div><div className="bold">Choose a class to see who has borrowed books</div></div> : (
+      {!sid && !classId ? <Empty title="Choose a class to see who has borrowed books" /> : (
         <Async state={q}>{(d) => (<>
           <div className="grid g4">
             <Stat value={`${d.summary.borrowedAny} / ${d.summary.students}`} label="Borrowed a book this year" tone="green" />

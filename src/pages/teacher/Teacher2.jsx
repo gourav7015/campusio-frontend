@@ -7,6 +7,8 @@ import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Inp
 import { TrendChart, BarsChart, ScatterPlot } from '../../components/Charts.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import { parseCsv } from '../../lib.js';
+import { useDialogs } from '../../design/ui';
+import { safeHref } from '../../design/lib/url';
 
 const T = '/api/teacher';
 const today = () => new Date().toLocaleDateString('en-CA');
@@ -20,6 +22,7 @@ function useMyAssignments() {
 
 // ───────────── Homework ─────────────
 export function Homework() {
+  const dlg = useDialogs();
   const [sp, setSp] = useSearchParams();
   const [tab, setTab] = useState('all');
   const list = useApi(`${T}/homework`, { tab });
@@ -42,7 +45,7 @@ export function Homework() {
     <div className="stack">
       <PageHeader title="Homework & assignments" subtitle="Publish work for the classes you teach" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Create homework</Button>} />
       <Tabs tabs={[['all', 'All'], ['draft', 'Draft'], ['published', 'Published'], ['scheduled', 'Scheduled'], ['completed', 'Completed'], ['archived', 'Archived']]} value={tab} onChange={setTab} />
-      <Card flush><Async state={list} empty={<Empty icon="📝" title="No homework here" />}>{(rows) => <DataTable rows={rows} onRowClick={setDetail} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{label(h.effectiveStatus)}</Badge> },
+      <Card flush><Async state={list} empty={<Empty title="No homework here" />}>{(rows) => <DataTable rows={rows} onRowClick={setDetail} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{label(h.effectiveStatus)}</Badge> },
         { label: '', render: (h) => <div className="row" onClick={(e) => e.stopPropagation()}>
           {h.effectiveStatus === 'draft' && <Button size="sm" variant="primary" onClick={() => act(h, 'publish')}>Publish</Button>}{h.effectiveStatus === 'published' && <Button size="sm" onClick={() => act(h, 'unpublish')}>Unpublish</Button>}
           {h.effectiveStatus !== 'archived' && <Button size="sm" onClick={() => setModal(h)}>Edit</Button>}{h.effectiveStatus !== 'archived' && <Button size="sm" onClick={() => act(h, 'archive')}>Archive</Button>}
@@ -53,10 +56,10 @@ export function Homework() {
           if (modal._id) { await patch(`${T}/homework/${modal._id}`, v); list.reload(); return true; }
           const { pair, publishAt, ...rest } = v; const [sectionId, subjectId] = pair.split('|');
           const h = await post(`${T}/homework`, { ...rest, sectionId, subjectId, ...(rest.status === 'scheduled' && publishAt ? { publishAt: new Date(publishAt).toISOString() } : {}) });
-          list.reload(); target.current = h._id; if (window.confirm('Homework saved. Add an attachment now?')) fileRef.current.click(); return true; }} />}
+          list.reload(); target.current = h._id; if ((await dlg.confirm('Homework saved. Add an attachment now?', { title: 'Add an attachment?', confirmLabel: 'Add attachment' }))) fileRef.current.click(); return true; }} />}
       {detail && <Modal title={detail.title} wide onClose={() => setDetail(null)} footer={detail.effectiveStatus !== 'archived' ? <Button onClick={() => { target.current = detail._id; fileRef.current.click(); }}>Add attachment</Button> : null}>
         <dl className="kv"><dt>Class</dt><dd>{detail.className} {detail.section} · {detail.subject}</dd><dt>Type</dt><dd>{label(detail.type)}</dd><dt>Assigned</dt><dd>{fmtDate(detail.assignedDate, true)}</dd><dt>Due</dt><dd>{fmtDate(detail.dueDate, true)}</dd><dt>Status</dt><dd><Badge tone={statusTone(detail.effectiveStatus)}>{label(detail.effectiveStatus)}</Badge></dd><dt>Description</dt><dd>{detail.description || '—'}</dd><dt>Instructions</dt><dd>{detail.instructions || '—'}</dd>
-          <dt>Attachments</dt><dd>{detail.attachmentFiles.length ? detail.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>📎 {f.originalName}</a>) : '—'}</dd></dl>
+          <dt>Attachments</dt><dd>{detail.attachmentFiles.length ? detail.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>) : '—'}</dd></dl>
         <h3 style={{ margin: '14px 0 6px' }}>Edit history</h3><ul className="timeline">{[...detail.editHistory].reverse().map((e, i) => <li key={i}><span className="dotc" /><div className="small">{fmtDateTime(e.at)} — {e.byName || 'Teacher'}: {e.changes.join(', ')}</div></li>)}</ul></Modal>}
     </div>
   );
@@ -79,8 +82,8 @@ export function Materials() {
         <div className="card-b row wrap"><Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value })} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} placeholder="All sections" aria-label="Section" />
           <Select value={f.subjectId} onChange={(e) => setF({ ...f, subjectId: e.target.value })} options={(subjects.data || []).map((s) => ({ value: s.subjectId, label: s.name }))} placeholder="All subjects" aria-label="Subject" />
           <Select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} options={['draft', 'published', 'unpublished', 'archived'].map((s) => ({ value: s, label: label(s) }))} placeholder="Any status" aria-label="Status" /></div>
-        <Async state={list} empty={<Empty icon="📎" title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Class', render: (m) => `${m.className} ${m.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Type', key: 'materialType' }, { label: 'Uploaded', render: (m) => fmtDate(m.createdAt, true) }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{label(m.status)}</Badge> },
-          { label: '', render: (m) => <div className="row">{m.file && <Button size="sm" onClick={() => run(() => openFile(m.file._id))}>Preview</Button>}{m.externalUrl && <a className="btn sm" href={m.externalUrl} target="_blank" rel="noopener noreferrer">Open link</a>}
+        <Async state={list} empty={<Empty title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Class', render: (m) => `${m.className} ${m.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Type', key: 'materialType' }, { label: 'Uploaded', render: (m) => fmtDate(m.createdAt, true) }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{label(m.status)}</Badge> },
+          { label: '', render: (m) => <div className="row">{m.file && <Button size="sm" onClick={() => run(() => openFile(m.file._id))}>Preview</Button>}{m.externalUrl && <a className="btn sm" href={safeHref(m.externalUrl)} target="_blank" rel="noopener noreferrer">Open link</a>}
             {m.status !== 'published' && m.status !== 'archived' && <Button size="sm" variant="primary" onClick={() => act(m, 'publish')}>Publish</Button>}{m.status === 'published' && <Button size="sm" onClick={() => act(m, 'unpublish')}>Unpublish</Button>}
             {m.fileId && m.status !== 'archived' && <Button size="sm" onClick={() => { replaceId.current = m._id; fileRef.current.click(); }}>Replace file</Button>}{m.status !== 'archived' && <Button size="sm" onClick={() => act(m, 'archive')}>Archive</Button>}</div> }]} />}</Async>
       </Card>
@@ -170,7 +173,7 @@ export function Exams() {
     <div className="stack">
       <PageHeader title="Examinations & marks" subtitle="Exams for your classes and subjects — add your own tests, enter marks, and follow them through approval" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add exam</Button>} />
       <Tabs tabs={[['all', 'All'], ['todo', 'Marks to enter'], ['done', 'Submitted / done'], ['mine', 'Tests I added']]} value={tab} onChange={setTab} />
-      <Card flush><Async state={list} empty={<Empty icon="🧪" title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
+      <Card flush><Async state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
         { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge tone={r.type === 'surprise_test' ? 'amber' : r.createdByMe ? 'blue' : ''}>{label(r.type)}</Badge></> }, { label: 'Class', render: (r) => `${r.className} ${r.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) },
         { label: 'Marks fields', render: (r) => componentsText(r.components) }, { label: 'Max', key: 'max' }, { label: 'Deadline', render: (r) => <>{fmtDate(r.deadline)} {r.overdue && <Badge tone="red">Overdue</Badge>}</> }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> },
         { label: '', render: (r) => <div className="row"><Button size="sm" variant={EDITABLE.includes(r.status) ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{EDITABLE.includes(r.status) ? 'Enter marks' : 'View'}</Button>
@@ -182,6 +185,7 @@ export function Exams() {
 }
 
 export function MarksSheet() {
+  const dlg = useDialogs();
   const { examSubjectId, sectionId } = useParams();
   const sheet = useApi(`${T}/marks/sheet`, { examSubjectId, sectionId });
   const [rows, setRows] = useState(null);
@@ -221,7 +225,7 @@ export function MarksSheet() {
     const data = parsed.map((r) => ({ admissionNo: r.admissionNo || undefined, rollNo: r.rollNo ? Number(r.rollNo) : undefined, values: Object.fromEntries(comps.map((c) => [c.key, byHeader(r, c)]).filter(([, v]) => v !== undefined)), absent: /^(1|true|yes|ab)$/i.test(r.absent || '') || undefined, remarks: r.remarks || undefined }));
     const dry = await run(() => post(`${T}/marks/import`, { examSubjectId, sectionId, rows: data, dryRun: true }));
     e.target.value = ''; if (!dry) return;
-    if (dry.errors.length && !window.confirm(`${dry.errors.length} row(s) have problems:\n${dry.errors.slice(0, 5).map((x) => `Row ${x.row}: ${x.error}`).join('\n')}\n\nImport the ${dry.valid} valid row(s) anyway?`)) return;
+    if (dry.errors.length && !(await dlg.confirm(`${dry.errors.length} row(s) have problems:\n${dry.errors.slice(0, 5).map((x) => `Row ${x.row}: ${x.error}`).join('\n')}\n\nImport the ${dry.valid} valid row(s) anyway?`))) return;
     await run(() => post(`${T}/marks/import`, { examSubjectId, sectionId, rows: data, skipInvalid: true }), (r) => `${r.applied} row(s) imported`); sheet.reload();
   };
   if (sheet.loading && !d) return <Spinner />;
@@ -263,7 +267,7 @@ export function Performance() {
     <div className="stack">
       <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />
       <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts & insights']]} value={tab} onChange={setTab} />
-      {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty icon="📈" title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
+      {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
         <Card title={`${mine?.className || ''} ${mine?.section || ''} — ${m.scope === 'overall' ? 'overall results (you are the class teacher)' : 'your subject only'}`} flush>
           <div className="table-wrap"><table>
             <thead><tr><th>Roll</th><th>Student</th>{m.exams.map((e) => <th key={e.id}>{e.name}<div className="small muted" style={{ textTransform: 'none', fontWeight: 400 }}>{label(e.type)}{e.date ? ` · ${fmtDate(e.date)}` : ''}</div></th>)}<th>Average</th></tr></thead>
@@ -272,10 +276,10 @@ export function Performance() {
                 {m.exams.map((e) => { const c = s.scores[e.id]; return <td key={e.id}>{c ? <><b>{c.percentage != null ? `${c.percentage}%` : '—'}</b> <span className="muted small">{c.grade || ''}</span><div className="small" style={{ color: c.result === 'fail' ? 'var(--red)' : 'var(--muted)' }}>{c.obtained}/{c.max}</div></> : <span className="muted">—</span>}</td>; })}
                 <td><b>{s.average != null ? `${s.average}%` : '—'}</b></td></tr>))}</tbody></table></div>
         </Card>)}</Async>}
-      {tab === 'analytics' && <Async state={analytics}>{(d) => d.sampleSize === 0 ? <Empty icon="📈" title="No published results yet" /> : (
+      {tab === 'analytics' && <Async state={analytics}>{(d) => d.sampleSize === 0 ? <Empty title="No published results yet" /> : (
         <div className="stack">
           <div className="grid g2"><Card title="Average marks by examination"><BarsChart data={d.averageByExam} x="exam" bars={[{ key: 'average', name: 'Average %' }]} domain={[0, 100]} unit="%" /></Card>
-            <Card title="Performance distribution"><BarsChart data={d.distribution} x="range" bars={[{ key: 'count', name: 'Students', color: '#0891b2' }]} /></Card></div>
+            <Card title="Performance distribution"><BarsChart data={d.distribution} x="range" bars={[{ key: 'count', name: 'Students', color: 'rgb(var(--c-primary))' }]} /></Card></div>
           <div className="grid g2"><Card title="Subject-wise score trend"><TrendChart data={[...new Set(d.subjectTrend.flatMap((s) => s.points.map((x) => x.exam)))].map((exam) => ({ exam, ...Object.fromEntries(d.subjectTrend.map((s) => [s.subject, s.points.find((x) => x.exam === exam)?.average ?? null])) }))} x="exam" lines={d.subjectTrend.map((s) => ({ key: s.subject }))} /></Card>
             {d.attendanceVsPerformance && <Card title="Attendance vs academic performance"><ScatterPlot data={d.attendanceVsPerformance} x="attendance" y="average" xLabel="Attendance %" yLabel="Average %" /></Card>}</div>
           <Card title="Students who may need support" flush><DataTable rows={d.needsAttention} rowKey="studentId" empty="No one flagged 🎉" columns={[{ label: 'Student', render: (s) => <Link to={`/teacher/students/${s.studentId}`}>{s.name}</Link> }, { label: 'Average', render: (s) => fmtPct(s.average) }, { label: 'Attendance', render: (s) => fmtPct(s.attendance) }]} /><div className="card-b small muted">Private to you. Flagged when the average is close to the pass mark or attendance is below 75%.</div></Card>

@@ -30,7 +30,7 @@ export function AttendancePanel({ o }) {
 }
 
 export function ExamsPanel({ o }) {
-  if (!o.exams.length) return <Empty icon="🧪" title="No published results yet" />;
+  if (!o.exams.length) return <Empty title="No published results yet" />;
   return (
     <div className="stack">
       <Card title="Performance across exams"><BarsChart data={o.exams.map((e) => ({ exam: e.exam, Percentage: e.percentage }))} x="exam" bars={[{ key: 'Percentage' }]} domain={[0, 100]} unit="%" /></Card>
@@ -71,7 +71,7 @@ export function LibraryPanel({ o }) {
 }
 
 export function BusCard({ bus }) {
-  if (!bus) return <Empty icon="🚌" title="Does not use the school bus" />;
+  if (!bus) return <Empty title="Does not use the school bus" />;
   return (
     <div className="grid g2">
       <Card title={`Bus ${bus.busNo}`}><dl className="kv"><dt>Route</dt><dd>{bus.routeName || '—'}</dd><dt>Registration</dt><dd>{bus.registrationNo || '—'}</dd><dt>Boarding stop</dt><dd><b>{bus.stop || '—'}</b></dd>

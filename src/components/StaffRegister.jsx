@@ -3,6 +3,7 @@ import { useApi } from '../hooks/useApi.js';
 import { post, put } from '../api/client.js';
 import { Async, Badge, Button, Card, DataTable, Input, Modal, Select, Stat, Tabs, useAction } from './ui.jsx';
 import { parseCsv } from '../lib.js';
+import { useDialogs } from '../design/ui';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const STATUSES = ['present', 'late', 'half_day', 'absent', 'leave'];
@@ -41,8 +42,9 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
   const entries = rows.filter((r) => edits[r.personId]).map((r) => ({ personId: r.personId, status: r.status, ...(r.remark ? { remark: r.remark } : {}), ...(edits[r.personId].checkIn !== undefined || edits[r.personId].checkOut !== undefined ? { checkIn: r.checkIn || null, checkOut: r.checkOut || null } : {}) }));
   const t = (s) => rows.filter((r) => r.status === s).length;
   const save = (submit) => run(() => put(`${base}/register`, { group, date, submit, entries }), submit ? 'Register submitted' : 'Draft saved').then((x) => x && reload());
+  const dlg = useDialogs();
   const correct = async (r, status) => {
-    const reason = window.prompt(`Why is ${r.name} being changed to ${NAME[status]}? (recorded)`);
+    const reason = await dlg.prompt(`Why is ${r.name} being changed to ${NAME[status]}? (recorded)`, { title: 'Reason for the change', required: true });
     if (!reason) return;
     await run(() => post(`${base}/correct`, { group, date, personId: r.personId, status, reason }), 'Correction recorded'); reload();
   };
@@ -51,7 +53,7 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
     <div className="stack">
       <div className="row between wrap">
         <div className="row"><Input type="date" aria-label="Date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />{d.session && <Badge tone={d.session.status === 'submitted' ? 'green' : 'amber'}>{d.session.status === 'submitted' ? 'Submitted' : 'Draft'}</Badge>}{canEdit && <Button size="sm" onClick={() => setImporting(true)}>Import from attendance machine</Button>}</div>
-        {editable && <div className="row"><Button onClick={() => save(false)} loading={busy} disabled={!entries.length}>Save draft</Button><Button variant="primary" loading={busy} onClick={() => window.confirm('Submit this register? It will be locked, and everyone not marked is recorded as present.') && save(true)}>Submit register</Button></div>}
+        {editable && <div className="row"><Button onClick={() => save(false)} loading={busy} disabled={!entries.length}>Save draft</Button><Button variant="primary" loading={busy} onClick={async () => { if (await dlg.confirm('Submit this register? It will be locked, and everyone not marked is recorded as present.', { confirmLabel: 'Submit register' })) save(true); }}>Submit register</Button></div>}
       </div>
       {d.blocked && <div className="alert info">{d.blocked === 'future' ? 'Attendance cannot be taken for a future date.' : d.blocked === 'not_working_day' ? 'This is not a working day for the school.' : `This date is a holiday (${d.blocked.split(':')[1]}).`}</div>}
       <div className="grid g4"><Stat value={rows.length} label="People" /><Stat value={t('present') + t('late')} label="Present" sub={t('late') ? `${t('late')} late` : undefined} tone="green" /><Stat value={t('absent') + t('half_day')} label="Absent / half day" sub={`${t('absent')} absent · ${t('half_day')} half day`} tone={t('absent') ? 'red' : t('half_day') ? 'amber' : 'green'} /><Stat value={t('leave')} label="On leave" tone="blue" /></div>

@@ -8,7 +8,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 export async function signIn(page, portal, loginId, password, { expectFail = false } = {}) {
   await page.goto(`/${portal}/login`);
   await page.getByLabel('Login id').fill(loginId);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   if (!expectFail) await page.waitForURL((u) => !/\/login$/.test(u.pathname));
 }

@@ -15,7 +15,7 @@ export function StudentExams() {
     <div className="stack">
       <PageHeader title="Examinations" subtitle="Dates are shown in your school's time zone" />
       <Tabs tabs={[['upcoming', 'Upcoming'], ['completed', 'Completed']]} value={tab} onChange={setTab} />
-      <Card flush><Async state={sch} empty={<Empty icon="🧪" title="No examination schedule has been published" />}>{(rows) => {
+      <Card flush><Async state={sch} empty={<Empty title="No examination schedule has been published" />}>{(rows) => {
         const f = rows.filter((r) => (tab === 'upcoming' ? r.daysLeft >= 0 : r.daysLeft < 0));
         return <DataTable rows={f} empty={tab === 'upcoming' ? 'No upcoming exams' : 'No completed exams yet'} columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
           { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />; }}</Async></Card>
@@ -38,7 +38,7 @@ function MyResults() {
   const list = useApi(`${S}/results`);
   const nav = useNavigate();
   return (
-    <Card flush><Async state={list} empty={<Empty icon="🏅" title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
+    <Card flush><Async state={list} empty={<Empty title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
       { label: 'Status', render: (r) => (r.status === 'published' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Upcoming</Badge>) }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" variant="primary" onClick={() => nav(`/student/results/${r.examId}`)}>View report card</Button> }]} />}</Async></Card>
   );
 }
@@ -49,7 +49,7 @@ function ClassResults() {
   const [open, setOpen] = useState(null);
   return (
     <div className="stack">
-      <Card flush><Async state={list} empty={<Empty icon="🧪" title="No tests have been held for your class yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" onRowClick={(r) => r.status === 'published' && setOpen(r)} columns={[
+      <Card flush><Async state={list} empty={<Empty title="No tests have been held for your class yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" onRowClick={(r) => r.status === 'published' && setOpen(r)} columns={[
         { label: 'Test', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge><div className="small muted">{r.subjects.join(', ')}</div></> }, { label: 'Date', render: (r) => fmtDate(r.date, true) },
         { label: 'Status', render: (r) => <Badge tone={r.status === 'published' ? 'green' : 'amber'}>{r.status === 'published' ? 'Results out' : r.status === 'upcoming' ? 'Upcoming' : 'Awaiting results'}</Badge> },
         { label: 'My result', render: (r) => (r.status !== 'published' ? '—' : !r.hasResult ? <span className="muted">No result</span> : !r.attempted ? <Badge>Not attempted</Badge> : <><b>{fmtPct(r.myPercentage)}</b> <span className="muted small">{r.myGrade}</span></>) },
@@ -97,12 +97,12 @@ export function StudentPerformance() {
   return (
     <div className="stack">
       <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<Async state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={d.exams.map((e) => ({ value: e.id, label: e.name }))} aria-label="Examination" /> : null}</Async>} />
-      <Async state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty icon="📈" title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
+      <Async state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
         <div className="grid g2">
           <Card title="Examination performance trend"><TrendChart data={d.trend} x="exam" lines={[{ key: 'percentage', name: 'Percentage' }]} /></Card>
-          <Card title={`Subject-wise · ${d.latestExam?.name || ''}`}><BarsChart data={d.subjectWise} x="subject" bars={[{ key: 'percentage', name: 'Percentage', color: '#4f46e5' }]} domain={[0, 100]} unit="%" /></Card>
+          <Card title={`Subject-wise · ${d.latestExam?.name || ''}`}><BarsChart data={d.subjectWise} x="subject" bars={[{ key: 'percentage', name: 'Percentage', color: 'rgb(var(--c-primary))' }]} domain={[0, 100]} unit="%" /></Card>
           <Card title="Grade distribution"><DonutChart data={d.gradeDistribution} name="grade" value="count" /></Card>
-          <Card title="Attendance trend"><TrendChart data={d.attendanceTrend} x="month" lines={[{ key: 'percentage', name: 'Attendance %', color: '#16a34a' }]} /></Card>
+          <Card title="Attendance trend"><TrendChart data={d.attendanceTrend} x="month" lines={[{ key: 'percentage', name: 'Attendance %', color: 'rgb(var(--c-success))' }]} /></Card>
           <Card title="Personal improvement" className="g-full">{d.improvement.length ? <DataTable rows={d.improvement} rowKey="subject" columns={[{ label: 'Subject', key: 'subject' }, { label: 'Previous', render: (r) => `${r.previous}%` }, { label: 'Latest', render: (r) => `${r.latest}%` }, { label: 'Change', render: (r) => <Badge tone={r.change >= 0 ? 'green' : 'red'}>{r.change >= 0 ? '▲' : '▼'} {Math.abs(r.change)}%</Badge> }]} /> : <Empty title="Needs two published results to compare" />}</Card>
         </div>))}</Async>
     </div>
@@ -131,7 +131,7 @@ export function StudentCalendar() {
         {view === 'month' && <div className="cal" style={{ gap: 6 }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((x) => <div key={x} className="h">{x}</div>)}{Array.from({ length: days.offset }).map((_, i) => <div key={i} className="d blank" />)}
           {days.list.map((d) => <div key={d} className="d" style={{ aspectRatio: 'auto', minHeight: 78, alignItems: 'start', justifyItems: 'start', padding: 6, overflow: 'hidden' }}><div className="small bold">{Number(d.slice(8))}</div>{(byDate.get(d) || []).slice(0, 2).map((e) => <Badge key={e.source + e.id} tone={colour[e.type]}>{e.title.slice(0, 16)}</Badge>)}{(byDate.get(d) || []).length > 2 && <span className="small muted">+{byDate.get(d).length - 2}</span>}</div>)}</div>}
         {view === 'week' && <div className="stack-sm">{week.map((d) => <div key={d} className="period"><div className="time">{dayName(new Date(`${d}T00:00:00`).getDay() || 7).slice(0, 3)} {fmtDate(d)}</div><div className="grow">{(byDate.get(d) || []).map((e) => <div key={e.source + e.id}><Badge tone={colour[e.type]}>{label(e.type)}</Badge> {e.title}</div>)}{!(byDate.get(d) || []).length && <span className="muted small">Nothing scheduled</span>}</div></div>)}</div>}
-        {view === 'agenda' && (items.length ? <ul className="timeline">{items.map((e) => <li key={e.source + e.id}><span className="dotc" /><div className="grow"><b>{e.title}</b><div className="small muted">{fmtDate(e.date, true)}{e.endDate && e.endDate !== e.date ? ` – ${fmtDate(e.endDate)}` : ''} {e.description && `· ${e.description}`}</div></div><Badge tone={colour[e.type]}>{label(e.type)}</Badge></li>)}</ul> : <Empty icon="📅" title="Nothing coming up" />)}</Card>)}</Async>
+        {view === 'agenda' && (items.length ? <ul className="timeline">{items.map((e) => <li key={e.source + e.id}><span className="dotc" /><div className="grow"><b>{e.title}</b><div className="small muted">{fmtDate(e.date, true)}{e.endDate && e.endDate !== e.date ? ` – ${fmtDate(e.endDate)}` : ''} {e.description && `· ${e.description}`}</div></div><Badge tone={colour[e.type]}>{label(e.type)}</Badge></li>)}</ul> : <Empty title="Nothing coming up" />)}</Card>)}</Async>
     </div>
   );
 }
@@ -142,7 +142,7 @@ export function StudentDocuments() {
   return (
     <div className="stack">
       <PageHeader title="My documents" subtitle="Private to you and the school. Links expire after a few minutes." />
-      <Card flush><Async state={docs} empty={<Empty icon="📁" title="No documents have been added" >The school office uploads certificates and reports here.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Document', render: (d) => <b>{d.name}</b> }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Added', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button> }]} />}</Async></Card>
+      <Card flush><Async state={docs} empty={<Empty title="No documents have been added" >The school office uploads certificates and reports here.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Document', render: (d) => <b>{d.name}</b> }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Added', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button> }]} />}</Async></Card>
     </div>
   );
 }
@@ -168,7 +168,7 @@ export function StudentFees() {
   return (
     <div className="stack">
       <PageHeader title="Fee information" subtitle="Read-only. Payments are made at the school's finance desk." />
-      <Async state={f} empty={null}>{(d) => !d.charges.length ? <Empty icon="💰" title="No fees have been assigned to you yet" /> : (
+      <Async state={f} empty={null}>{(d) => !d.charges.length ? <Empty title="No fees have been assigned to you yet" /> : (
         <div className="stack">
           <div className="grid g4"><Stat value={fmtMoney(d.totals.assigned)} label="Total fee assigned" sub={d.totals.concession ? `after ${fmtMoney(d.totals.concession)} concession` : undefined} /><Stat value={fmtMoney(d.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(d.totals.pending)} label="Pending" tone="amber" sub={d.totals.nextDue ? `Next due ${fmtDate(d.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(d.totals.overdue)} label="Overdue" tone={d.totals.overdue ? 'red' : undefined} /></div>
           {d.advanceOffer?.eligible && <div className="alert ok">Pay all {d.advanceOffer.months} remaining months at the finance desk in one go and the school gives you <b>{d.advanceOffer.offer}</b>: you pay {fmtMoney(d.advanceOffer.payable)} instead of {fmtMoney(d.advanceOffer.payable + d.advanceOffer.discount)} (saving {fmtMoney(d.advanceOffer.discount)}).</div>}

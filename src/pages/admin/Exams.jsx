@@ -7,6 +7,7 @@ import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Inp
 import FormModal from '../../components/FormModal.jsx';
 import { ComponentsEditor, cleanComponents, componentsText } from '../../components/Marks.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
+import { useDialogs } from '../../design/ui';
 
 export const EXAM_TYPES = [['unit_test', 'Unit test'], ['class_test', 'Class test'], ['surprise_test', 'Surprise test'], ['half_yearly', 'Half-yearly'], ['annual', 'Annual'], ['practical', 'Practical'], ['other', 'Other']].map(([value, label]) => ({ value, label }));
 
@@ -45,7 +46,7 @@ function ExamList() {
   return (
     <div className="stack">
       <PageHeader title="Examinations" subtitle="Create exams, set the schedule, review teachers' marks and publish results" actions={<Button variant="primary" onClick={() => setModal(true)}>+ New examination</Button>} />
-      <Card flush><Async state={list} empty={<Empty icon="🧪" title="No examinations yet" />}>{(rows) => <DataTable rows={rows} onRowClick={(e) => nav(`/admin/exams/${e._id}`)} columns={[
+      <Card flush><Async state={list} empty={<Empty title="No examinations yet" />}>{(rows) => <DataTable rows={rows} onRowClick={(e) => nav(`/admin/exams/${e._id}`)} columns={[
         { label: 'Examination', render: (e) => <><b>{e.name}</b> <Badge>{label(e.type)}</Badge>{e.createdByName && <div className="small muted">Added by {e.createdByName}</div>}</> }, { label: 'Classes', render: (e) => e.classNames.join(', ') }, { label: 'Dates', render: (e) => (e.startDate ? `${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}` : '—') }, { label: 'Subjects', key: 'subjectCount' },
         { label: 'Schedule', render: (e) => <Badge tone={e.schedulePublished ? 'green' : 'amber'}>{e.schedulePublished ? 'Published' : 'Draft'}</Badge> },
         { label: 'Marks', render: (e) => Object.entries(e.sheetStatus).map(([k, v]) => <Badge key={k} tone={statusTone(k)}>{v} {label(k)}</Badge>) },
@@ -122,14 +123,15 @@ function ExamSubjectModal({ exam, L, row, onClose, onSave }) {
 }
 
 function SheetReview({ sheet, onClose, run }) {
+  const dlg = useDialogs();
   const d = useApi(`/api/school/sheets/${sheet._id}`);
   const [reason, setReason] = useState('');
   const [status, setStatus] = useState(sheet.status);
   const act = async (a, body) => { const r = await run(() => post(`/api/school/sheets/${sheet._id}/${a}`, body), 'Done'); if (r) { setStatus(r.status); d.reload(); } };
   const correct = async (row, comps) => {
-    const reasonTxt = prompt('Reason for correcting this published mark (required)'); if (!reasonTxt) return;
+    const reasonTxt = await dlg.prompt('Reason for correcting this published mark (required)', { title: 'Correct a published mark', required: true }); if (!reasonTxt) return;
     const values = {};
-    for (const c of comps) { const nv = prompt(`${c.label} (max ${c.max})`, row.values?.[c.key] ?? ''); if (nv === null) return; if (nv !== '') values[c.key] = Number(nv); }
+    for (const c of comps) { const nv = await dlg.prompt(`${c.label} (max ${c.max})`, { title: 'New mark', defaultValue: String(row.values?.[c.key] ?? ''), multiline: false }); if (nv === null) return; if (nv !== '') values[c.key] = Number(nv); }
     const out = await run(() => post(`/api/school/marks/${row._id}/correct`, { values, reason: reasonTxt }), 'Correction applied — a new report-card version was issued'); if (out) d.reload();
   };
   return (

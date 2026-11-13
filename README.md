@@ -1,4 +1,4 @@
-# School ERP — Frontend (web app)
+# Campusio — Frontend (web app)
 
 React 18 + Vite web app for the eight school portals. The API lives in its own repository (`school-erp-backend`); this app only talks to it over HTTP.
 
@@ -42,3 +42,7 @@ src/pages/{platform,admin,teacher,student,finance,library,shared}   one folder p
 src/components  src/api  src/hooks  src/auth                        shared UI, API client, lookups, auth
 e2e/                                                                 Playwright browser tests
 ```
+
+## Design system
+
+See [docs/DESIGN.md](docs/DESIGN.md) for tokens, components, portal personalities and the redesign phases. In development, `/design` shows every component.

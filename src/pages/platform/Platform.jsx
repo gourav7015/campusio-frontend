@@ -2,35 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
 import { post, put, patch } from '../../api/client.js';
+import { FilterBar, ListCard } from '../../design/ui';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import {
   Async, Badge, Button, Card, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDateTime, statusTone, label, ConfirmButton,
 } from '../../components/ui.jsx';
 
-export function PlatformDashboard() {
-  const stats = useApi('/api/platform/stats');
-  const schools = useApi('/api/platform/schools');
-  return (
-    <div className="stack">
-      <PageHeader title="Platform overview" subtitle="Every school on the platform" actions={<Link className="btn primary" to="/platform/schools">Manage schools</Link>} />
-      <Async state={stats}>{(s) => (
-        <div className="grid g4">
-          <Stat value={s.schools} label="Schools" sub={`${s.activeSchools} active`} /><Stat value={s.students} label="Active students" tone="blue" />
-          <Stat value={s.teachers} label="Active teachers" tone="green" /><Stat value={s.schoolAdmins} label="School admins" />
-          <Stat value={s.subscriptions.active} label="Paid subscriptions" tone="green" /><Stat value={s.subscriptions.trial} label="On trial" tone="amber" />
-          <Stat value={s.subscriptions.expiringSoon} label="Expiring in 30 days" tone="amber" /><Stat value={s.subscriptions.expired} label="Expired" tone="red" />
-        </div>)}</Async>
-      <Card title="Schools" flush>
-        <Async state={schools} empty={<div className="empty">No schools yet</div>}>{(rows) => (
-          <DataTable rows={rows.slice(0, 8)} columns={[
-            { label: 'School', render: (s) => <Link to={`/platform/schools/${s._id}`}>{s.name}</Link> }, { label: 'Code', key: 'code' },
-            { label: 'Students', render: (s) => `${s.studentCount} / ${s.subscription?.studentLimit ?? '—'}` }, { label: 'Teachers', render: (s) => `${s.teacherCount} / ${s.subscription?.teacherLimit ?? '—'}` },
-            { label: 'Plan', render: (s) => <Badge tone={statusTone(s.subscription?.status)}>{s.subscription?.plan} · {s.subscription?.status}</Badge> }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{s.status}</Badge> },
-          ]} />)}</Async>
-      </Card>
-    </div>
-  );
-}
+export { default as PlatformDashboard } from './PlatformDashboard';
 
 function NewSchool({ onClose, onDone }) {
   const f = useForm({ name: '', code: '', board: '', address: '', phone: '', plan: 'starter', status: 'trial', studentLimit: 500, teacherLimit: 50, expiresOn: '', adminName: '', adminEmail: '' });
@@ -68,8 +46,8 @@ export function Schools() {
   return (
     <div className="stack">
       <PageHeader title="Schools" subtitle="Create schools, their administrators and subscriptions" actions={<Button variant="primary" onClick={() => setShow(true)}>+ New school</Button>} />
-      <Card flush>
-        <div className="card-b"><Input placeholder="Search by name or code" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search schools" /></div>
+      <ListCard>
+        <FilterBar search={q} onSearch={setQ} searchLabel="Search schools" placeholder="Search by name or code" />
         <Async state={schools} empty={<div className="empty">No schools found</div>}>{(rows) => (
           <DataTable rows={rows} columns={[
             { label: 'School', render: (s) => <Link to={`/platform/schools/${s._id}`}><b>{s.name}</b></Link> }, { label: 'Code', key: 'code' },
@@ -77,7 +55,7 @@ export function Schools() {
             { label: 'Students', render: (s) => `${s.studentCount}/${s.subscription?.studentLimit ?? '—'}` }, { label: 'Teachers', render: (s) => `${s.teacherCount}/${s.subscription?.teacherLimit ?? '—'}` },
             { label: 'Subscription', render: (s) => <Badge tone={statusTone(s.subscription?.status)}>{s.subscription?.status}</Badge> }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{s.status}</Badge> },
           ]} />)}</Async>
-      </Card>
+      </ListCard>
       {show && <NewSchool onClose={() => setShow(false)} onDone={(o) => { setShow(false); schools.reload(); if (o.admin) setCreds({ loginId: o.admin.loginId, temporaryPassword: o.admin.temporaryPassword }); }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="School administrator created" />
     </div>

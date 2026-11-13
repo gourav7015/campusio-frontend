@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
 import { del, patch, post } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 
 const tone = (s) => ({ active: 'green', maintenance: 'amber', retired: '' }[s] || '');
 const blank = { busNo: '', registrationNo: '', vehicleModel: '', capacity: 40, status: 'active', routeName: '', startTime: '', endTime: '', monthlyFare: '', stops: [], driverId: '', conductorId: '', insuranceExpiry: '', fitnessExpiry: '', pollutionExpiry: '', notes: '' };
@@ -18,7 +18,7 @@ export default function Buses({ base, readOnly = false }) {
     <div className="stack">
       <PageHeader title="Buses" subtitle={readOnly ? 'Managed by the Transport officer. You can see everything here, but buses and riders are changed from the Transport desk.' : 'Vehicles, their driver and conductor, routes and stops, and the students who ride each bus. Students see their own bus on their portal.'}
         actions={!readOnly && <Button variant="primary" onClick={() => setEdit({ ...blank })}>+ Add bus</Button>} />
-      <Async state={list} empty={<div className="empty"><div className="big">🚌</div><div className="bold">No buses yet</div></div>}>{(rows) => {
+      <Async state={list} empty={<Empty title="No buses yet" />}>{(rows) => {
         const riders = rows.reduce((n, b) => n + b.students, 0); const seats = rows.filter((b) => b.status === 'active').reduce((n, b) => n + b.capacity, 0);
         const alerts = rows.flatMap((b) => b.alerts.map((a) => ({ bus: b.busNo, ...a })));
         return (<>
@@ -81,7 +81,7 @@ function BusModal({ base, bus, onClose, onSaved }) {
               <Input aria-label={`Pick-up time ${i + 1}`} type="time" value={s.pickupTime || ''} onChange={(e) => stop(i, 'pickupTime', e.target.value)} style={{ maxWidth: 130 }} />
               <Input aria-label={`Drop time ${i + 1}`} type="time" value={s.dropTime || ''} onChange={(e) => stop(i, 'dropTime', e.target.value)} style={{ maxWidth: 130 }} />
               <Input aria-label={`Fare ${i + 1}`} type="number" min="0" placeholder="₹ fare" value={s.fare ?? ''} onChange={(e) => stop(i, 'fare', e.target.value)} style={{ maxWidth: 110 }} />
-              <Button size="sm" variant="danger" type="button" aria-label={`Remove stop ${i + 1}`} onClick={() => set('stops', f.stops.filter((_, j) => j !== i))}>✕</Button>
+              <Button size="sm" variant="danger" type="button" aria-label={`Remove stop ${i + 1}`} onClick={() => set('stops', f.stops.filter((_, j) => j !== i))}>Remove</Button>
             </div>))}
         </div>
       </div>

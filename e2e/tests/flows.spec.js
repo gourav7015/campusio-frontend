@@ -43,13 +43,13 @@ test('only the class teacher takes attendance; submitted registers are locked; t
   const problems = watch(page);
   // Gupta teaches English in 8-A but is not a class teacher of any section he/she can mark: no attendance desk for subject-only teachers
   await signIn(page, 'teacher', 'khan@gps.test', 'Teach@12345');
-  await expect(page.getByRole('button', { name: /Mark attendance/ })).toHaveCount(0); // Khan is not a class teacher
+  await expect(page.getByRole('link', { name: /Mark attendance/ })).toHaveCount(0); // Khan is not a class teacher
   await page.goto('/teacher/attendance');
   await expect(page.getByText('You are not a class teacher')).toBeVisible();
   await signOut(page);
 
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345'); // class teacher of 8-A
-  await expect(page.getByRole('button', { name: /Mark attendance/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Mark attendance/ })).toBeVisible();
   await page.goto('/teacher/attendance');
   await expect(page.getByLabel('Class and section').locator('option')).toHaveText(['Class 8 A']); // only his own section
   await expect(page.getByRole('row').nth(1)).toBeVisible();
@@ -77,8 +77,10 @@ test('only the class teacher takes attendance; submitted registers are locked; t
   await page.goto('/admin/classes?tab=attendance'); // attendance lives inside Classes & sections
   await page.getByRole('row').filter({ hasText: 'Class 8 A' }).getByRole('button', { name: 'Open register' }).click();
   const select = page.getByRole('dialog').getByRole('row').nth(1).locator('select');
-  page.once('dialog', (d) => d.accept('Parent brought a note')); // the admin must give a reason
   await select.selectOption('late');
+  const why = page.getByRole('dialog', { name: 'Correct attendance' }); // the admin must give a reason
+  await why.getByRole('textbox').fill('Parent brought a note');
+  await why.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Correction recorded')).toBeVisible();
   await expect(page.getByRole('dialog').getByText('corrected').first()).toBeVisible();
   await page.keyboard.press('Escape');
@@ -113,7 +115,6 @@ test('teacher publishes homework → student sees it, with a notification', asyn
   const problems = watch(page);
   const title = `Algebra drill ${uid}`;
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
-  page.on('dialog', (d) => d.dismiss());
   await page.goto('/teacher/homework');
   await page.getByRole('button', { name: '+ Create homework' }).click();
   await page.getByLabel('Title').fill(title);
@@ -122,6 +123,7 @@ test('teacher publishes homework → student sees it, with a notification', asyn
   await page.getByLabel('Visibility').selectOption('published');
   await page.getByLabel('Description').fill('Questions 1 to 20');
   await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('dialog', { name: 'Add an attachment?' }).getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('cell', { name: title })).toBeVisible();
   await signOut(page);
 
@@ -132,7 +134,7 @@ test('teacher publishes homework → student sees it, with a notification', asyn
   await expect(page.getByRole('dialog')).toContainText('Questions 1 to 20');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Notifications' }).click();
-  await expect(page.locator('.pop').getByText(new RegExp(`${title}|Mathematics homework`)).first()).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Notifications' }).getByText(new RegExp(`${title}|Mathematics homework`)).first()).toBeVisible();
   await signOut(page);
   expect(problems.filter((p) => !p.includes('dialog'))).toEqual([]);
 });
@@ -255,8 +257,8 @@ test('a wrongly sent class notice can be deleted: it disappears for students', a
   await signOut(page);
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
   await page.goto('/teacher/communication');
-  page.once('dialog', (d) => d.accept());
   await page.locator('section', { hasText: title }).getByRole('button', { name: /Delete/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Notice deleted')).toBeVisible();
   await expect(page.getByText(title)).toHaveCount(0);
   await signOut(page);
@@ -272,8 +274,8 @@ test('a wrongly sent class notice can be deleted: it disappears for students', a
   await page.getByLabel('Title').fill(`Admin mistake ${uid}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: `Admin mistake ${uid}` })).toBeVisible();
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('row').filter({ hasText: `Admin mistake ${uid}` }).getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Announcement deleted')).toBeVisible();
   await expect(page.getByRole('cell', { name: `Admin mistake ${uid}` })).toHaveCount(0);
 });
@@ -322,7 +324,7 @@ test('finance: collect a payment (receipt), concession, reversal; the student se
   // collect a partial payment by UPI
   await page.getByRole('button', { name: 'Collect payment' }).click();
   await page.getByLabel(/Amount/).fill('1000');
-  await page.getByLabel('Mode').selectOption('upi');
+  await page.getByLabel('Mode', { exact: true }).selectOption('upi');
   await page.getByLabel(/Reference/).fill(`UPI-${uid}`);
   const download = page.waitForEvent('download').catch(() => null);
   await page.getByRole('dialog').getByRole('button', { name: /^Collect/ }).click();
@@ -462,6 +464,7 @@ test('library: add a book, issue and return it at the desk; student sees it; fin
   await page.getByRole('tab', { name: 'Search the catalogue' }).click();
   await page.getByLabel('Search catalogue').fill('Wings');
   await expect(page.getByRole('row').filter({ hasText: 'Wings of Fire' })).toContainText('available');
+  await page.waitForLoadState('networkidle'); // let the search finish before signing out (a request that lands after sign-out is a 401)
   await signOut(page);
   // return it on time: no fine
   await signIn(page, 'library', 'library@gps.test', 'Library@12345');
@@ -518,8 +521,8 @@ test('payroll: admin defines a level, sets a salary, generates, adjusts, approve
   await page.getByRole('button', { name: 'Save adjustments' }).click();
   await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('₹1,17,000');
   // teachers cannot see a draft
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Approve' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Approved').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Adjust' })).toHaveCount(0); // locked once approved
   // the bank file lists who can be paid by transfer (Kamla has a bank account on record) and who still needs details
@@ -618,8 +621,8 @@ test('staff attendance: admin marks teachers and staff, the officer marks the cr
   await page.getByRole('group', { name: 'Status of Rajesh Sharma' }).getByRole('button', { name: 'Absent' }).click();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page.getByText('Draft saved')).toBeVisible();
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Submit register' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit register' }).click();
   await expect(page.getByText('Register submitted')).toBeVisible();
   await expect(page.getByText('Submitted', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Submit register' })).toHaveCount(0); // locked
@@ -630,8 +633,8 @@ test('staff attendance: admin marks teachers and staff, the officer marks the cr
   await expect(page.getByText('Kamla Devi')).toBeVisible();
   await expect(page.getByText('Ramesh Driver')).toHaveCount(0); // transport staff are not the admin's register
   await page.getByRole('group', { name: 'Status of Kamla Devi' }).getByRole('button', { name: 'Absent' }).click();
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Submit register' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit register' }).click();
   await expect(page.getByText('Register submitted')).toBeVisible();
   // everyone with a salary is on payroll: teachers, general staff and transport staff
   await page.goto('/admin/payroll?tab=salaries');
@@ -645,8 +648,8 @@ test('staff attendance: admin marks teachers and staff, the officer marks the cr
   await page.getByLabel('Date').fill(day);
   await expect(page.getByText('Harish Driver')).toBeVisible();
   await page.getByRole('group', { name: 'Status of Mahesh Conductor' }).getByRole('button', { name: 'Half day' }).click();
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Submit register' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit register' }).click();
   await expect(page.getByText('Register submitted')).toBeVisible();
   await signOut(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
@@ -854,8 +857,10 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await page.getByRole('cell', { name }).click();
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByLabel('Reason').fill('Moving abroad');
-  page.once('dialog', (d) => { expect(d.message()).toMatch(/unpaid fees/); d.dismiss(); });
   await page.getByRole('dialog').getByRole('button', { name: 'Withdraw', exact: true }).click();
+  const warn = page.getByRole('dialog', { name: 'Withdraw anyway?' });
+  await expect(warn).toContainText('unpaid fees');
+  await warn.getByRole('button', { name: 'Cancel' }).click();
   await page.keyboard.press('Escape');
   await signOut(page);
 
@@ -867,7 +872,7 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await page.getByLabel('New password', { exact: true }).fill('weak');
   await page.getByLabel('Confirm new password').fill('weak');
   await page.getByRole('button', { name: 'Update password' }).click();
-  await expect(page.getByText(/at least 8 characters/i).last()).toBeVisible();
+  await expect(page.getByText(/at least 10 characters/i).last()).toBeVisible();
   await page.getByLabel('New password', { exact: true }).fill('Brand-new-pass1');
   await page.getByLabel('Confirm new password').fill('Brand-new-pass1');
   await page.getByRole('button', { name: 'Update password' }).click();

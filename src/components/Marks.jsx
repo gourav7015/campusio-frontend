@@ -17,7 +17,7 @@ export function ComponentsEditor({ value, onChange, locked }) {
         <div key={i} className="row">
           <div className="grow"><Input aria-label={`Field ${i + 1} name`} placeholder="Field name, e.g. Written" value={c.label} disabled={locked} onChange={(e) => set(i, { label: e.target.value })} /></div>
           <Input aria-label={`Field ${i + 1} maximum`} type="number" min="1" style={{ width: 110 }} placeholder="Max" value={c.max} disabled={locked} onChange={(e) => set(i, { max: e.target.value === '' ? '' : Number(e.target.value) })} />
-          {!locked && <Button type="button" size="sm" disabled={value.length <= 1} onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label={`Remove field ${i + 1}`}>✕</Button>}
+          {!locked && <Button type="button" size="sm" disabled={value.length <= 1} onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label={`Remove field ${i + 1}`}>Remove</Button>}
         </div>))}
       <div className="row between small"><span className="muted">Total maximum: <b>{total}</b></span>{!locked && value.length < 8 && <Button type="button" size="sm" onClick={() => onChange([...value, { label: '', max: 10 }])}>+ Add field</Button>}</div>
     </div>

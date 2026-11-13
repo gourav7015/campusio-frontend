@@ -265,7 +265,7 @@ function AdjustModal({ slip, onClose, onSaved }) {
             <Input aria-label={`Name ${i + 1}`} placeholder="Name" value={r.label} onChange={(e) => set(i, { label: e.target.value })} />
             <Input aria-label={`Amount ${i + 1}`} type="number" min="0" placeholder="₹" value={r.amount} onChange={(e) => set(i, { amount: e.target.value })} style={{ maxWidth: 110 }} />
             <Input aria-label={`Reason ${i + 1}`} placeholder="Reason" value={r.reason} onChange={(e) => set(i, { reason: e.target.value })} />
-            <Button size="sm" variant="danger" aria-label={`Remove adjustment ${i + 1}`} onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</Button>
+            <Button size="sm" variant="danger" aria-label={`Remove adjustment ${i + 1}`} onClick={() => setRows(rows.filter((_, j) => j !== i))}>Remove</Button>
           </div>
         ))}
         <div><Button size="sm" onClick={() => setRows([...rows, { label: '', type: 'earning', amount: '', reason: '' }])}>+ Add adjustment</Button></div>

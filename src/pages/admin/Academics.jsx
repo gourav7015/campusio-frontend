@@ -48,7 +48,7 @@ export function Classes() {
       <PageHeader title="Classes & sections" subtitle="A class is the grade (Class 8). A section is a group within it (A, B, C) for one academic year. Open a section for its students, attendance, homework, subject teachers, exam analysis and library." actions={<>
         <Select value={yid || ''} onChange={(e) => setYearId(e.target.value)} options={L.yearOptions} aria-label="Academic year" />
         <Button onClick={() => setModal({ t: 'class' })} disabled={!availableGrades.length}>+ Class</Button><Button variant="primary" onClick={() => setModal({ t: 'section' })} disabled={!L.classes.length || !yid}>+ Section</Button></>} />
-      <div className="grid g2">
+      <div className="grid g-side">
         <Card title="Classes" flush><DataTable rows={L.classes} empty="No classes yet" columns={[
           { label: 'Class', render: (c) => <b>{c.name}</b> }, { label: 'Status', render: (c) => <Badge tone={statusTone(c.status)}>{c.status}</Badge> },
           { label: '', render: (c) => <div className="row"><Button size="sm" onClick={async () => { await run(() => patch(`/api/school/classes/${c._id}`, { status: c.status === 'active' ? 'archived' : 'active' }), c.status === 'active' ? 'Class archived' : 'Class restored'); L.reload(); }}>{c.status === 'active' ? 'Archive' : 'Restore'}</Button>

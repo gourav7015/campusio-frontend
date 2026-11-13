@@ -1,33 +1,17 @@
 import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
 import { patch, post } from '../../api/client.js';
-import { Async, Badge, Button, Card, DataTable, PageHeader, Stat, useAction, fmtDate, fmtMoney, label, statusTone } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, DataTable, PageHeader, Stat, useAction, fmtDate, label, statusTone } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import Heatmap from '../../components/Heatmap.jsx';
 import PunchCard from '../../components/PunchCard.jsx';
 import { BarsChart } from '../../components/Charts.jsx';
 import Salary from '../teacher/Salary.jsx';
+import { useDialogs } from '../../design/ui';
 
 const S = '/api/staff';
 
-export function StaffDashboard() {
-  const d = useApi(`${S}/dashboard`);
-  return (
-    <div className="stack">
-      <Async state={d}>{(x) => (<>
-        <PageHeader title={`Hello, ${x.name}`} subtitle={`${x.designation || 'Staff'} · ${fmtDate(x.today, true)}`} />
-        <PunchCard base={S} />
-        <div className="grid g4">
-          <Stat value={x.attendance.percentage != null ? `${x.attendance.percentage}%` : '—'} label="Attendance this year" tone="green" sub={`${x.attendance.absent} absent · ${x.attendance.half_day} half day`} />
-          <Stat value={x.balances.casual.remaining} label="Casual leave left" sub={`of ${x.balances.casual.allowance}`} tone="blue" />
-          <Stat value={x.balances.sick.remaining} label="Sick leave left" sub={`of ${x.balances.sick.allowance}`} tone="blue" />
-          <Stat value={x.pendingLeave} label="Leave waiting for approval" tone={x.pendingLeave ? 'amber' : ''} />
-        </div>
-        {x.lastPayslip && <Card title="Latest payslip"><div className="row between"><span>{new Date(`${x.lastPayslip.month}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })} — <b>{fmtMoney(x.lastPayslip.net)}</b> <Badge tone={x.lastPayslip.status === 'paid' ? 'green' : 'amber'}>{label(x.lastPayslip.status)}</Badge></span></div></Card>}
-      </>)}</Async>
-    </div>
-  );
-}
+export { default as StaffDashboard } from './StaffDashboard';
 
 export function StaffAttendance() {
   const q = useApi(`${S}/my-attendance`);
@@ -51,6 +35,7 @@ export function StaffAttendance() {
 }
 
 export function StaffLeave() {
+  const dlg = useDialogs();
   const q = useApi(`${S}/leave`);
   const [modal, setModal] = useState(false); const [run] = useAction();
   return (
@@ -61,7 +46,7 @@ export function StaffLeave() {
         <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[
           { label: 'Type', render: (l) => label(l.leaveType) }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' },
           { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{label(l.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
-          { label: '', render: (l) => ['submitted', 'approved'].includes(l.status) && <Button size="sm" onClick={async () => { if (window.confirm('Cancel this leave?')) { await run(() => post(`${S}/leave/${l._id}/cancel`), 'Cancelled'); q.reload(); } }}>Cancel</Button> },
+          { label: '', render: (l) => ['submitted', 'approved'].includes(l.status) && <Button size="sm" onClick={async () => { if ((await dlg.confirm('Cancel this leave?'))) { await run(() => post(`${S}/leave/${l._id}/cancel`), 'Cancelled'); q.reload(); } }}>Cancel</Button> },
         ]} /></Card>
         {modal && <FormModal title="Apply for leave" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true, default: 'casual', hint: 'Unpaid leave is deducted from your salary for those days.' }, { name: 'startDate', label: 'Start date', type: 'date', required: true }, { name: 'endDate', label: 'End date', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
           onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${S}/leave`, v); q.reload(); return true; }} />}

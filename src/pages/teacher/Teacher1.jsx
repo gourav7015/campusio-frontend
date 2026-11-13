@@ -2,52 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post } from '../../api/client.js';
-import { Async, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Stat, Tabs, Input, useAction, fmtDate, fmtDateTime, fmtPct, greeting, dayName, statusTone, label } from '../../components/ui.jsx';
-import { TrendChart, BarsChart } from '../../components/Charts.jsx';
+import { Async, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Stat, Tabs, Input, useAction, fmtDate, fmtDateTime, fmtPct, dayName, statusTone, label } from '../../components/ui.jsx';
+import { BarsChart } from '../../components/Charts.jsx';
 import { DayList, WeekGrid } from '../../components/Timetable.jsx';
 import RegisterEditor from '../../components/Register.jsx';
-import { useAuth } from '../../auth/AuthContext.jsx';
+import { useDialogs } from '../../design/ui';
 
 const T = '/api/teacher';
 const todayStr = () => new Date().toLocaleDateString('en-CA');
-
-export function TeacherDashboard() {
-  const d = useApi(`${T}/dashboard`);
-  const nav = useNavigate();
-  const { user } = useAuth();
-  return (
-    <Async state={d}>{(x) => (
-      <div className="stack">
-        <PageHeader title={`${greeting()}, ${x.greeting.name}`} subtitle={`${new Date(x.greeting.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} · ${x.greeting.working ? `${x.today.length} period(s) today` : 'Not a working day'}${x.greeting.firstUpcoming ? ` · Next: ${x.greeting.firstUpcoming.startTime} ${x.greeting.firstUpcoming.subject} ${x.greeting.firstUpcoming.sectionLabel || ''}` : ''}`} />
-        <div className="row wrap">
-          {x.permissions.takeAttendance && <Button variant="primary" onClick={() => nav('/teacher/attendance')}>✅ Mark attendance</Button>}<Button onClick={() => nav('/teacher/homework?new=1')}>📝 Create homework</Button><Button onClick={() => nav('/teacher/materials?new=1')}>📎 Upload material</Button>
-          <Button onClick={() => nav('/teacher/exams')}>✍ Exams & marks</Button><Button onClick={() => nav('/teacher/timetable')}>🗓 Timetable</Button><Button onClick={() => nav('/teacher/classes')}>🏫 My classes</Button>
-        </div>
-        <div className="grid g4">
-          <Stat value={x.cards.assignedStudents} label="Assigned students" sub="Across assigned sections" tone="blue" /><Stat value={x.cards.assignedClasses} label="Assigned classes" sub="This academic year" />
-          <Stat value={x.cards.pendingAttendance} label="Pending attendance" sub="Registers not submitted" tone={x.cards.pendingAttendance ? 'amber' : 'green'} /><Stat value={x.cards.activeAssignments} label="Active assignments" sub="Published, not yet due" />
-        </div>
-        <div className="grid g-main">
-          <Card title="Today's timetable"><DayList rows={x.today} showSection actions={(r) => <Link className="btn sm" to={`/teacher/classes/${r.sectionId}`}>Open class</Link>} /></Card>
-          <Card title="Attendance overview"><div className="grid g2"><div><div className="muted small">Students</div><b>{x.attendance.totalStudents}</b></div><div><div className="muted small">Present today</div><b>{x.attendance.present + x.attendance.late}</b></div><div><div className="muted small">Absent</div><b>{x.attendance.absent}</b></div><div><div className="muted small">Leave</div><b>{x.attendance.leave}</b></div></div>
-            <div style={{ marginTop: 14 }} className="small muted">Weekly attendance %</div><TrendChart data={x.attendance.trend} x="date" lines={[{ key: 'percentage', name: 'Attendance' }]} height={170} /></Card>
-        </div>
-        <div className="grid g3">
-          <Card title="Homework"><div className="stack-sm"><div className="row between"><span>Published</span><b>{x.homework.published}</b></div><div className="row between"><span>Draft</span><b>{x.homework.draft}</b></div><div className="row between"><span>Scheduled</span><b>{x.homework.scheduled}</b></div><div className="row between"><span>Recently past due</span><b>{x.homework.overdue}</b></div>
-            <hr style={{ border: 0, borderTop: '1px solid var(--border)', width: '100%' }} /><div className="small muted">Upcoming deadlines</div>{x.homework.upcomingDeadlines.length ? x.homework.upcomingDeadlines.map((h) => <div key={h.id} className="row between"><span>{h.title}</span><Badge>{fmtDate(h.dueDate)}</Badge></div>) : <span className="muted small">None</span>}</div></Card>
-          <Card title="Examinations"><div className="stack-sm"><div className="row between"><span>Marks awaiting submission</span><b>{x.exams.awaitingSubmission}</b></div><div className="row between"><span>Returned for correction</span><b style={{ color: x.exams.returned ? 'var(--red)' : undefined }}>{x.exams.returned}</b></div><div className="row between"><span>Completed entries</span><b>{x.exams.completed}</b></div>
-            <hr style={{ border: 0, borderTop: '1px solid var(--border)', width: '100%' }} /><div className="small muted">Upcoming exams</div>{x.exams.upcoming.length ? x.exams.upcoming.map((e) => <div key={e.examSubjectId + e.sectionId} className="row between"><span>{e.exam} · {e.subject} {e.className?.replace('Class ', '')}-{e.section}</span><Badge>{fmtDate(e.date)}</Badge></div>) : <span className="muted small">None scheduled</span>}
-            {x.exams.deadlines.map((e) => <div key={e.examSubjectId + e.sectionId + 'd'} className="small">⏰ Marks due {fmtDate(e.deadline)} — {e.subject} {e.section}</div>)}</div></Card>
-          <Card title="Average marks by examination"><BarsChart data={x.performance.averageByExam} x="exam" bars={[{ key: 'average', name: 'Average %' }]} domain={[0, 100]} height={200} unit="%" /></Card>
-        </div>
-        <div className="grid g2">
-          <Card title="Recent activity">{x.activity.length ? <ul className="timeline">{x.activity.map((a) => <li key={a.id}><span className="dotc" /><div className="grow"><div>{a.summary}</div><div className="small muted">{fmtDateTime(a.at)}</div></div></li>)}</ul> : <Empty title="Nothing yet" />}</Card>
-          <Card title="School announcements" action={<Link to="/teacher/communication">All</Link>}>{x.announcements.length ? <ul className="timeline">{x.announcements.map((a) => <li key={a._id}><span className="dotc" /><div><b>{a.title}</b> {!a.read && <Badge tone="primary">New</Badge>}<div className="small muted">{fmtDateTime(a.createdAt)}</div></div></li>)}</ul> : <Empty title="No announcements" />}</Card>
-        </div>
-        <span hidden>{user.id}</span>
-      </div>)}</Async>
-  );
-}
 
 export function TeacherTimetable() {
   const [date, setDate] = useState(todayStr());
@@ -68,7 +30,7 @@ export function Classes() {
   return (
     <div className="stack">
       <PageHeader title="My classes" subtitle="Only the classes and sections assigned to you" />
-      <Card flush><Async state={list} empty={<Empty icon="🏫" title="No classes assigned yet" >The school admin assigns classes to you.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="sectionId" onRowClick={(c) => nav(`/teacher/classes/${c.sectionId}`)} columns={[
+      <Card flush><Async state={list} empty={<Empty title="No classes assigned yet" >The school admin assigns classes to you.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="sectionId" onRowClick={(c) => nav(`/teacher/classes/${c.sectionId}`)} columns={[
         { label: 'Class', render: (c) => <b>{c.className}</b> }, { label: 'Section', key: 'section' }, { label: 'Subjects', render: (c) => c.subjects.map((s) => s.name).join(', ') || '—' }, { label: 'Students', key: 'students' }, { label: 'Role', render: (c) => <Badge tone={c.isClassTeacher ? 'primary' : ''}>{c.role}</Badge> }]} />}</Async></Card>
     </div>
   );
@@ -133,7 +95,7 @@ export function Subjects() {
   return (
     <div className="stack">
       <PageHeader title="My subjects" subtitle="Each subject with the sections you teach it in" />
-      <Async state={list} empty={<Empty icon="📚" title="No subjects assigned yet" />}>{(rows) => rows.map((s) => (
+      <Async state={list} empty={<Empty title="No subjects assigned yet" />}>{(rows) => rows.map((s) => (
         <Card key={s.subjectId} title={`${s.name} (${s.code})`} action={<span className="muted small">{s.assignmentCount} teaching assignment(s) · {s.academicYear}</span>}>
           <div className="grid g3"><div><div className="muted small">Assigned sections</div>{s.assignments.map((a) => <Link key={a.sectionId} className="chip" style={{ margin: 2 }} to={`/teacher/classes/${a.sectionId}`}>{a.className} {a.section}</Link>)}</div>
             <div><div className="muted small">Weekly periods</div><b>{s.weeklyPeriods}</b><div className="muted small" style={{ marginTop: 8 }}>Exam structure</div>{s.examStructure ? `Theory ${s.examStructure.theory} · Practical ${s.examStructure.practical} · Internal ${s.examStructure.internal} · Pass ${s.examStructure.passMarks}` : '—'}</div>
@@ -144,6 +106,7 @@ export function Subjects() {
 }
 
 export function Attendance() {
+  const dlg = useDialogs();
   const classes = useApi(`${T}/classes`);
   const mine = (classes.data || []).filter((c) => c.isClassTeacher);
   const params = new URLSearchParams(window.location.search);
@@ -158,10 +121,10 @@ export function Attendance() {
       <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit — a submitted register is locked." actions={mine.length > 0 && <>
         <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class and section" />
         <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></>} />
-      {classes.loading ? null : !mine.length ? <Empty icon="✅" title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}
+      {classes.loading ? null : !mine.length ? <Empty title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}
       {mine.length > 0 && <div className="grid g2">
         <Card title="Recent registers" flush><Async state={hist} empty={<div className="empty small">No registers yet</div>}>{(rows) => <DataTable rows={rows.slice(0, 8)} columns={[{ label: 'Date', render: (r) => <a href="#!" onClick={(e) => { e.preventDefault(); setDate(r.date); }}>{fmtDate(r.date, true)}</a> }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }]} />}</Async></Card>
-        <Card title="Attendance queries from your students" flush><Async state={queries} empty={<div className="empty small">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date) }, { label: 'Message', key: 'message' }, { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = prompt('Reply to the student'); if (!response) return; await run(() => post(`${T}/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
+        <Card title="Attendance queries from your students" flush><Async state={queries} empty={<div className="empty small">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date) }, { label: 'Message', key: 'message' }, { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = await dlg.prompt('Reply to the student', { title: 'Answer the query', required: true }); if (!response) return; await run(() => post(`${T}/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
       </div>}
     </div>
   );

@@ -1,0 +1,87 @@
+/*
+ * Design tokens, Apple-inspired. Colours are "r g b" channels so Tailwind can add opacity (bg-primary/10).
+ *
+ * Light: background #F5F5F7, surface #FFFFFF, secondary surface #F0F0F2, text #1D1D1F, secondary text #86868B,
+ *        accent #0071E3, border #D2D2D7, success #248A3D, warning #B7791F, danger #D70015.
+ * Dark:  background #151516, surface #222224, secondary surface #2C2C2E, text #F5F5F7, secondary text #98989D,
+ *        accent #2997FF, border #38383A, success #30D158, warning #FFD60A, danger #FF453A.
+ *
+ * Contrast adjustments (WCAG AA is a stated requirement), kept as separate tokens so the specified values stay intact:
+ *   --c-fg-3      the specified secondary text; used for placeholders, icons and captions that carry no required information.
+ *   --c-fg-2      #6E6E73, used for secondary text people must read (5.1:1 on white; #86868B is 3.6:1).
+ *   --c-*-ink     darker success/warning for text on light surfaces.
+ *   --c-border-strong  #8E8E93 for form-control edges (3.3:1); --c-border stays the specified hairline for dividers.
+ */
+:root {
+  --c-bg: 245 245 247; --c-surface: 255 255 255; --c-muted: 240 240 242;
+  --c-fg: 29 29 31; --c-fg-2: 104 104 109; --c-fg-3: 134 134 139;
+  --c-border: 210 210 215; --c-border-strong: 142 142 147;
+  --c-primary: 0 113 227; --c-primary-soft: 232 242 253; --c-primary-ink: 0 102 204;
+  --c-navy: 29 29 31; --c-navy-soft: 245 245 247;
+  --c-success: 36 138 61; --c-success-soft: 232 245 236; --c-success-ink: 30 118 52;
+  --c-warning: 183 121 31; --c-warning-soft: 253 244 225; --c-warning-ink: 133 85 8;
+  --c-danger: 215 0 21; --c-danger-soft: 253 232 234; --c-danger-ink: 215 0 21;
+  --c-tone: var(--c-primary); --c-tone-soft: var(--c-primary-soft); --c-tone-ink: var(--c-primary-ink);
+  --c-on-accent: 255 255 255; --c-tone-fg: 255 255 255;
+  --c-shadow: 0 0 0;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --sidebar-w: 264px; --sidebar-w-collapsed: 72px; --header-h: 56px;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --c-bg: 21 21 22; --c-surface: 34 34 36; --c-muted: 44 44 46;
+  --c-fg: 245 245 247; --c-fg-2: 152 152 157; --c-fg-3: 142 142 147;
+  --c-border: 56 56 58; --c-border-strong: 99 99 102;
+  /* #2997FF is for text and accents on dark; buttons keep #0071E3 so white text on them stays readable (4.7:1). */
+  --c-primary: 0 113 227; --c-primary-soft: 16 42 74; --c-primary-ink: 41 151 255;
+  --c-navy: 10 10 11; --c-navy-soft: 44 44 46;
+  --c-success: 48 209 88; --c-success-soft: 20 52 30; --c-success-ink: 48 209 88;
+  --c-warning: 255 214 10; --c-warning-soft: 58 48 8; --c-warning-ink: 255 214 10;
+  --c-danger: 255 69 58; --c-danger-soft: 66 24 22; --c-danger-ink: 255 105 97;
+  /* dark accents are bright, so text placed on them is near-black (white on #FF453A is only 3.4:1) */
+  --c-on-accent: 10 10 11; --c-tone-fg: 10 10 11;
+  --c-shadow: 0 0 0;
+  color-scheme: dark;
+}
+
+/* Each portal keeps the shared system and carries one tone: brand mark, active navigation, identity moments. */
+[data-portal='platform'] { --c-tone: 29 29 31; --c-tone-soft: 232 232 237; --c-tone-ink: 29 29 31; }
+[data-portal='admin'] { --c-tone: 0 113 227; --c-tone-soft: 232 242 253; --c-tone-ink: 0 102 204; }
+[data-portal='teacher'] { --c-tone: 0 122 112; --c-tone-soft: 226 247 244; --c-tone-ink: 0 105 96; }
+[data-portal='student'] { --c-tone: 0 113 227; --c-tone-soft: 232 242 253; --c-tone-ink: 0 102 204; }
+[data-portal='parent'] { --c-tone: 191 90 0; --c-tone-soft: 253 240 224; --c-tone-ink: 150 70 0; }
+[data-portal='staff'] { --c-tone: 90 90 95; --c-tone-soft: 238 238 241; --c-tone-ink: 90 90 95; }
+[data-portal='finance'] { --c-tone: 36 138 61; --c-tone-soft: 232 245 236; --c-tone-ink: 30 118 52; }
+[data-portal='transport'] { --c-tone: 175 82 0; --c-tone-soft: 253 238 222; --c-tone-ink: 140 65 0; }
+[data-portal='library'] { --c-tone: 90 80 180; --c-tone-soft: 238 236 250; --c-tone-ink: 75 66 160; }
+:root[data-theme='dark'] [data-portal='platform'] { --c-tone: 245 245 247; --c-tone-soft: 58 58 60; --c-tone-ink: 245 245 247; }
+:root[data-theme='dark'] [data-portal='admin'], :root[data-theme='dark'] [data-portal='student'] { --c-tone: 41 151 255; --c-tone-soft: 16 42 74; --c-tone-ink: 41 151 255; }
+:root[data-theme='dark'] [data-portal='teacher'] { --c-tone: 64 200 190; --c-tone-soft: 16 54 52; --c-tone-ink: 64 200 190; }
+:root[data-theme='dark'] [data-portal='parent'] { --c-tone: 255 159 10; --c-tone-soft: 66 44 8; --c-tone-ink: 255 159 10; }
+:root[data-theme='dark'] [data-portal='staff'] { --c-tone: 174 174 178; --c-tone-soft: 58 58 60; --c-tone-ink: 174 174 178; }
+:root[data-theme='dark'] [data-portal='finance'] { --c-tone: 48 209 88; --c-tone-soft: 20 52 30; --c-tone-ink: 48 209 88; }
+:root[data-theme='dark'] [data-portal='transport'] { --c-tone: 255 159 10; --c-tone-soft: 66 44 8; --c-tone-ink: 255 159 10; }
+:root[data-theme='dark'] [data-portal='library'] { --c-tone: 157 150 255; --c-tone-soft: 44 40 84; --c-tone-ink: 157 150 255; }
+
+/* Names the pre-redesign pages still use. They resolve to the tokens above, so old and new screens match. */
+:root {
+  --bg: rgb(var(--c-bg)); --surface: rgb(var(--c-surface)); --surface-2: rgb(var(--c-muted)); --border: rgb(var(--c-border));
+  --text: rgb(var(--c-fg)); --muted: rgb(var(--c-fg-2));
+  --primary: rgb(var(--c-primary-ink)); --primary-600: rgb(var(--c-primary)); --primary-50: rgb(var(--c-primary-soft));
+  --green: rgb(var(--c-success-ink)); --green-50: rgb(var(--c-success-soft));
+  --red: rgb(var(--c-danger-ink)); --red-50: rgb(var(--c-danger-soft));
+  --amber: rgb(var(--c-warning-ink)); --amber-50: rgb(var(--c-warning-soft));
+  --blue: rgb(var(--c-primary-ink)); --blue-50: rgb(var(--c-primary-soft)); --grey-50: rgb(var(--c-muted));
+  --shadow: 0 1px 2px rgb(var(--c-shadow) / .04); --radius: 14px; --sidebar: var(--sidebar-w);
+}
+
+/* Switching theme fades every surface together instead of snapping. The class is added for a moment by useTheme. */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+    transition: background-color .28s var(--ease), color .28s var(--ease), border-color .28s var(--ease), fill .28s var(--ease), stroke .28s var(--ease), box-shadow .28s var(--ease) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

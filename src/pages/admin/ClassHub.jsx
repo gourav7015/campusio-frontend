@@ -36,7 +36,7 @@ function HomeworkByDay() {
       <PageHeader title="Homework by day" subtitle="Choose a class and section to see what every subject set on a day." actions={<>
         <Select aria-label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setSectionId(''); }} placeholder="Choose a class" options={L.classOptions} />
         <Select aria-label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} placeholder="Choose a section" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!classId} /></>} />
-      {sectionId ? <HomeworkDay sectionId={sectionId} /> : <Empty icon="📝" title="Choose a class and section" />}
+      {sectionId ? <HomeworkDay sectionId={sectionId} /> : <Empty title="Choose a class and section" />}
     </div>
   );
 }

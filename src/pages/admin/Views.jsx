@@ -7,7 +7,7 @@ import FormModal from '../../components/FormModal.jsx';
 import { FinanceDashboard, FeeStructures, FeePolicy, StudentsDues, Payments, FinanceReports } from '../finance/Finance.jsx';
 import { LibraryDashboard, Books, Loans } from '../library/Library.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
-import TransportDashboard from '../transport/Dashboard.jsx';
+import TransportDashboard from '../transport/TransportDashboard';
 import Buses from '../transport/Buses.jsx';
 import TransportStaff from '../transport/TransportStaff.jsx';
 import TransportAttendance from '../transport/Attendance.jsx';
@@ -57,7 +57,7 @@ export function Staff() {
   return (
     <div className="stack">
       <PageHeader title="Finance & library staff" subtitle="People who run the fee desk and the library. They see only their own desk — never marks, attendance or school settings." actions={<Button variant="primary" onClick={() => setModal(true)}>+ Add staff</Button>} />
-      <Card flush><Async state={list} empty={<Empty icon="🧑‍💼" title="No staff accounts yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Name', render: (u) => <b>{u.name}</b> }, { label: 'Desk', render: (u) => <Badge tone={u.role === 'finance' ? 'green' : u.role === 'transport' ? 'amber' : 'blue'}>{label(u.role)}</Badge> }, { label: 'Login id', key: 'loginId' }, { label: 'Last sign-in', render: (u) => fmtDateTime(u.lastLoginAt) }, { label: 'Status', render: (u) => <Badge tone={statusTone(u.status === 'active' ? 'active' : 'rejected')}>{u.status}</Badge> },
+      <Card flush><Async state={list} empty={<Empty title="No staff accounts yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Name', render: (u) => <b>{u.name}</b> }, { label: 'Desk', render: (u) => <Badge tone={u.role === 'finance' ? 'green' : u.role === 'transport' ? 'amber' : 'blue'}>{label(u.role)}</Badge> }, { label: 'Login id', key: 'loginId' }, { label: 'Last sign-in', render: (u) => fmtDateTime(u.lastLoginAt) }, { label: 'Status', render: (u) => <Badge tone={statusTone(u.status === 'active' ? 'active' : 'rejected')}>{u.status}</Badge> },
         { label: '', render: (u) => <div className="row"><Button size="sm" onClick={async () => { const r = await run(() => post(`/api/school/staff/${u._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button><Button size="sm" onClick={async () => { await run(() => patch(`/api/school/staff/${u._id}`, { status: u.status === 'active' ? 'disabled' : 'active' }), 'Updated'); list.reload(); }}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button></div> }]} />}</Async></Card>
       {modal && <FormModal title="Add staff member" fields={[{ name: 'name', label: 'Full name', required: true }, { name: 'email', label: 'Email (login id)', type: 'email', required: true }, { name: 'role', label: 'Desk', type: 'select', required: true, options: [{ value: 'finance', label: 'Finance (fees & receipts)' }, { value: 'library', label: 'Library (books & loans)' }, { value: 'transport', label: 'Transport (buses, drivers & riders)' }] }]} onClose={() => setModal(false)} onSubmit={async (v) => { const r = await post('/api/school/staff', v); list.reload(); setCreds(r); return true; }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Staff account" />

@@ -3,12 +3,12 @@ import { Badge, Empty, cls, dayName, fmtDate } from './ui.jsx';
 /** One day's periods as cards: current / next / completed, free periods and breaks included. */
 export function DayList({ rows, showTeacher, showSection, empty = 'No scheduled classes', actions }) {
   const lessons = (rows || []);
-  if (!lessons.some((r) => !r.isBreak && !r.free)) return <Empty icon="🗓" title={empty} />;
+  if (!lessons.some((r) => !r.isBreak && !r.free)) return <Empty title={empty} />;
   return (
     <div className="stack-sm">{lessons.map((r, i) => (
       <div key={i} className={cls('period', r.isBreak ? 'break' : r.free ? 'free' : r.status)}>
         <div className="time">{r.startTime}–{r.endTime}</div>
-        {r.isBreak ? <div className="grow">☕ {r.period}</div> : r.free ? <div className="grow">Free period · {r.period}</div> : (
+        {r.isBreak ? <div className="grow">{r.period}</div> : r.free ? <div className="grow">Free period · {r.period}</div> : (
           <div className="grow">
             <div className="bold">{r.subject || 'Teacher to be assigned'} {showSection && r.sectionLabel && <span className="muted">· {r.sectionLabel}</span>}</div>
             <div className="small muted">{[r.period, showTeacher && r.teacher, r.room && `Room ${r.room}`, r.studentCount != null && `${r.studentCount} students`].filter(Boolean).join(' · ')}

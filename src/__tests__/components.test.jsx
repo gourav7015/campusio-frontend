@@ -88,7 +88,7 @@ describe('FormModal', () => {
   it('closes on Escape', () => {
     const onClose = vi.fn();
     render(<ToastProvider><FormModal title="X" onClose={onClose} onSubmit={vi.fn()} fields={[]} /></ToastProvider>);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 });

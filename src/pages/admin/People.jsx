@@ -9,6 +9,7 @@ import {
 import { TeacherSummary, ClassesPanel as TeacherClasses, AttendancePanel as TeacherAttendance, SalaryPanel as TeacherSalary, LibraryPanel as TeacherLibrary } from '../../components/TeacherOverview.jsx';
 import { SummaryStrip, AttendancePanel, ExamsPanel, HomeworkPanel, FeesPanel, LibraryPanel, BusCard } from '../../components/StudentOverview.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import { FilterBar, ListCard, ListFooter, useDialogs } from '../../design/ui';
 
 function AdmitStudent({ L, onClose, onDone }) {
   const f = useForm({ name: '', dob: '', gender: '', sectionId: '', admissionNo: '', rollNo: '', phone: '', address: '', house: '', gName: '', gRel: 'Father', gPhone: '', gEmail: '' });
@@ -52,19 +53,18 @@ export function Students() {
   return (
     <div className="stack">
       <PageHeader title="Students" subtitle="Admissions create the student, the section enrolment and the login together" actions={<Button variant="primary" onClick={() => setAdmit(true)} disabled={!L.sectionOptions.length}>+ Admit student</Button>} />
-      <Card flush>
-        <div className="card-b row wrap">
-          <div className="grow"><Input placeholder="Search name, admission no, guardian" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} aria-label="Search students" /></div>
+      <ListCard>
+        <FilterBar search={q} onSearch={(v) => { setQ(v); setPage(1); }} searchLabel="Search students" placeholder="Search name, admission no, guardian">
           <Select value={sectionId} onChange={(e) => { setSectionId(e.target.value); setPage(1); }} options={L.sectionOptions} placeholder="All sections" aria-label="Section" />
           <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={['active', 'withdrawn', 'transferred_out', 'completed', 'archived'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />
-        </div>
+        </FilterBar>
         <Async state={list}>{(d) => (<>
           <DataTable rows={d.items} empty="No students match" onRowClick={(s) => nav(`/admin/students/${s._id}`)} columns={[
             { label: 'Adm. no', key: 'admissionNo' }, { label: 'Name', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => s.enrolment ? `${s.enrolment.className} ${s.enrolment.section}` : <Badge>Not enrolled</Badge> },
             { label: 'Roll', render: (s) => s.enrolment?.rollNo ?? '—' }, { label: 'Guardian', render: (s) => s.guardians?.[0]?.name }, { label: 'Phone', render: (s) => s.guardians?.[0]?.phone }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{label(s.status)}</Badge> },
           ]} />
-          <div className="card-b row between"><span className="muted small">{d.total} student(s)</span><div className="row"><Button size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button><span className="small">Page {page}</span><Button size="sm" disabled={page * 25 >= d.total} onClick={() => setPage(page + 1)}>Next</Button></div></div></>)}</Async>
-      </Card>
+          <ListFooter total={d.total} noun="student" page={page} pageSize={25} onPage={setPage} /></>)}</Async>
+      </ListCard>
       {admit && <AdmitStudent L={L} onClose={() => setAdmit(false)} onDone={(o) => { setAdmit(false); list.reload(); setCreds(o.credentials); }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Student admitted" />
     </div>
@@ -72,6 +72,7 @@ export function Students() {
 }
 
 export function StudentDetail() {
+  const dlg = useDialogs();
   const { id } = useParams();
   const nav = useNavigate();
   const [tab, setTab] = useState('profile');
@@ -114,7 +115,7 @@ export function StudentDetail() {
               <select aria-label="Document type" defaultValue="birth_certificate" onChange={(e) => { docType.current = e.target.value; }} style={{ width: 190 }}>{['birth_certificate', 'transfer_certificate', 'admission_form', 'report_card', 'other'].map((t) => <option key={t} value={t}>{label(t)}</option>)}</select>
               <input type="file" hidden ref={fileRef} onChange={async (e) => { const file = e.target.files[0]; if (!file) return; const fd = new FormData(); fd.append('docType', docType.current); fd.append('file', file); await run(() => upload(`/api/school/students/${id}/documents`, fd), 'Uploaded'); e.target.value = ''; docs.reload(); }} />
               <Button size="sm" variant="primary" loading={busy} onClick={() => fileRef.current.click()}>Upload</Button></div>} flush>
-              <Async state={docs} empty={<Empty icon="📁" title="No documents uploaded" />}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Name', key: 'name' }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Uploaded', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <div className="row"><Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button><ConfirmButton size="sm" variant="danger" message="Delete this document?" onConfirm={async () => { await run(() => del(`/api/school/documents/${d.id}`), 'Deleted'); docs.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>)}
+              <Async state={docs} empty={<Empty title="No documents uploaded" />}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Name', key: 'name' }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Uploaded', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <div className="row"><Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button><ConfirmButton size="sm" variant="danger" message="Delete this document?" onConfirm={async () => { await run(() => del(`/api/school/documents/${d.id}`), 'Deleted'); docs.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>)}
           {modal === 'edit' && <FormModal wide title="Edit student" initial={st} fields={[{ name: 'name', label: 'Name', required: true }, { name: 'admissionNo', label: 'Admission number', required: true }, { name: 'dob', label: 'Date of birth', type: 'date', required: true }, { name: 'gender', label: 'Gender', type: 'select', options: ['male', 'female', 'other'] }, { name: 'phone', label: 'Phone' }, { name: 'house', label: 'House' }, { name: 'address', label: 'Address' }]}
             onClose={() => setModal(null)} onSubmit={async (v) => { await patch(`/api/school/students/${id}`, { ...v, guardians: st.guardians }); s.reload(); return true; }} />}
           {modal === 'transfer' && <FormModal title="Move to another section" submitLabel="Move student" fields={[{ name: 'toSectionId', label: 'New section', type: 'select', required: true, options: L.sectionOptions.filter((o) => o.value !== active?.sectionId) }, { name: 'effectiveDate', label: 'Effective from', type: 'date' }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
@@ -124,7 +125,7 @@ export function StudentDetail() {
               try { await post(`/api/school/students/${id}/withdraw`, v); } catch (e) {
                 if (e.details?.code !== 'CLEARANCE_REQUIRED') throw e;
                 const parts = [e.details.openLoans?.length ? `library books not returned: ${e.details.openLoans.map((l) => l.book).join(', ')}` : null, e.details.pendingDues > 0 ? `unpaid fees: ₹${e.details.pendingDues}` : null].filter(Boolean).join('\n');
-                if (!window.confirm(`This student is not cleared:\n${parts}\n\nWithdraw anyway? The dues stay on record with Finance.`)) return false;
+                if (!(await dlg.confirm(`This student is not cleared:\n${parts}\n\nWithdraw anyway? The dues stay on record with Finance.`, { title: 'Withdraw anyway?', confirmLabel: 'Withdraw anyway', danger: true }))) return false;
                 await post(`/api/school/students/${id}/withdraw`, { ...v, overrideClearance: true });
               }
               s.reload(); return true; }}><p className="small muted" style={{ marginTop: 12 }}>The student's records are kept and their login is disabled. Library books and unpaid fees are checked first.</p></FormModal>}
@@ -159,12 +160,12 @@ export function Teachers() {
   return (
     <div className="stack">
       <PageHeader title="Teachers" subtitle="Teacher profiles and logins. Subjects and sections are assigned under Teacher assignments." actions={<Button variant="primary" onClick={() => setModal(true)}>+ Add teacher</Button>} />
-      <Card flush>
-        <div className="card-b row wrap"><div className="grow"><Input placeholder="Search name, employee id, email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search teachers" /></div>
-          <Select value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} aria-label="Status" /></div>
+      <ListCard>
+        <FilterBar search={q} onSearch={setQ} searchLabel="Search teachers" placeholder="Search name, employee id, email">
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} aria-label="Status" /></FilterBar>
         <Async state={list}>{(d) => <DataTable rows={d.items} empty="No teachers yet" onRowClick={(t) => nav(`/admin/teachers/${t._id}`)} columns={[
           { label: 'Emp. id', key: 'employeeId' }, { label: 'Name', render: (t) => <b>{t.name}</b> }, { label: 'Subjects', render: (t) => (t.subjectIds || []).map((s) => s.name).join(', ') || '—' }, { label: 'Login', render: (t) => t.account?.loginId }, { label: 'Phone', key: 'phone' }, { label: 'Status', render: (t) => <Badge tone={statusTone(t.status)}>{t.status}</Badge> }]} />}</Async>
-      </Card>
+      </ListCard>
       {modal && <FormModal wide title="Add teacher" fields={teacherFields()} onClose={() => setModal(false)}
         onSubmit={async (v) => { const { subjectsText, ...rest } = v; const out = await post('/api/school/teachers', { ...nestPerson(rest), subjects: splitSubjects(subjectsText) }); list.reload(); setCreds(out.credentials); return true; }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Teacher created" />
@@ -173,6 +174,7 @@ export function Teachers() {
 }
 
 export function TeacherDetail() {
+  const dlg = useDialogs();
   const { id } = useParams();
   const t = useApi(`/api/school/teachers/${id}`);
   const tt = useApi('/api/school/timetable/entries', { teacherId: id });
@@ -189,7 +191,7 @@ export function TeacherDetail() {
           {x.status === 'active' ? <ConfirmButton variant="danger" message="Deactivate this teacher? Their login is disabled and all open assignments end today. Past records stay with them." onConfirm={async () => {
             let r;
             try { r = await post(`/api/school/teachers/${id}/deactivate`, {}); } catch (e) {
-              if (e.details?.code === 'CLEARANCE_REQUIRED' && window.confirm(`${e.message}\n\nBooks still out: ${e.details.openLoans.map((l) => l.book).join(', ')}\n\nDeactivate anyway?`)) r = await run(() => post(`/api/school/teachers/${id}/deactivate`, { overrideClearance: true }));
+              if (e.details?.code === 'CLEARANCE_REQUIRED' && (await dlg.confirm(`${e.message}\n\nBooks still out: ${e.details.openLoans.map((l) => l.book).join(', ')}\n\nDeactivate anyway?`))) r = await run(() => post(`/api/school/teachers/${id}/deactivate`, { overrideClearance: true }));
               else { await run(async () => { throw e; }); return; }
             }
             if (r) { alert(r.unresolvedPeriods ? `Teacher deactivated. ${r.unresolvedPeriods} timetable period(s) now need a new teacher.` : 'Teacher deactivated'); t.reload(); }

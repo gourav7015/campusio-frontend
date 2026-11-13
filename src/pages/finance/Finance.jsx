@@ -5,32 +5,15 @@ import { post, put, del, download } from '../../api/client.js';
 import {
   Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, useDebounced, fmtDate, fmtMoney, label, } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
-import { BarsChart, DonutChart } from '../../components/Charts.jsx';
+import { FilterBar, ListCard } from '../../design/ui';
+import { BarsChart } from '../../components/Charts.jsx';
 
 const MODES = [['cash', 'Cash'], ['upi', 'UPI'], ['cheque', 'Cheque'], ['bank_transfer', 'Bank transfer'], ['card', 'Card'], ['other', 'Other']].map(([value, l]) => ({ value, label: l }));
 const today = () => new Date().toLocaleDateString('en-CA');
 /** Finance screens are shared with the School Admin's view-only window (readOnly hides every action). */
 const ctxOf = (readOnly) => ({ base: readOnly ? '/api/school/finance' : '/api/finance', path: readOnly ? '/admin/fees' : '/finance' });
 
-export function FinanceDashboard({ readOnly }) {
-  const { base, path } = ctxOf(readOnly);
-  const d = useApi(`${base}/dashboard`);
-  return (
-    <Async state={d}>{(x) => (
-      <div className="stack">
-        <PageHeader title="Fees overview" subtitle={readOnly ? 'View-only for the School Admin. Collections are handled by the Finance desk.' : `Collections and dues · ${fmtDate(x.today, true)}`} actions={!readOnly && <Link className="btn primary" to="/finance/students">Collect a payment</Link>} />
-        <div className="grid g4"><Stat value={fmtMoney(x.collectedToday)} label="Collected today" sub={`${x.receiptsToday} receipt(s)`} tone="green" /><Stat value={fmtMoney(x.collectedMonth)} label="Collected this month" tone="blue" /><Stat value={fmtMoney(x.pending)} label="Total pending" tone="amber" /><Stat value={fmtMoney(x.overdue)} label="Overdue" sub={`${x.defaulters} student(s)`} tone={x.overdue ? 'red' : undefined} /></div>
-        <div className="grid g-main">
-          <Card title="Collection, last 14 days"><BarsChart data={x.trend} x="date" bars={[{ key: 'amount', name: 'Collected', color: '#16a34a' }]} unit="" /></Card>
-          <Card title="This month by mode">{x.modes.length ? <DonutChart data={x.modes.map((m) => ({ name: label(m.mode), value: m.amount }))} /> : <Empty icon="💳" title="No collections this month" />}</Card>
-        </div>
-        {x.studentsUnbilled > 0 && <div className="alert info">{x.studentsUnbilled} enrolled student(s) have no fees assigned yet. {!readOnly && <Link to="/finance/structures">Assign a fee structure</Link>}</div>}
-        <Card title="Recent payments" action={<Link to={`${path}/${readOnly ? '' : 'payments'}`}>{readOnly ? '' : 'All payments'}</Link>} flush>
-          <DataTable rows={x.recent} empty="No payments yet" columns={[{ label: 'Receipt', key: 'receiptNo' }, { label: 'Date', render: (p) => fmtDate(p.paidOn) }, { label: 'Student', key: 'student' }, { label: 'Amount', render: (p) => <b style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</b> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: '', render: (p) => p.status === 'reversed' && <Badge tone="red">Reversed</Badge> }]} />
-        </Card>
-      </div>)}</Async>
-  );
-}
+export { default as FinanceDashboard } from './FinanceDashboard';
 
 // ───────────── fee structures ─────────────
 function StructureModal({ lookups, onClose, onDone, base }) {
@@ -66,7 +49,7 @@ function StructureModal({ lookups, onClose, onDone, base }) {
               <Input aria-label={`Fee name ${i + 1}`} placeholder="Name" value={e.head} onChange={(ev) => setX(i, 'head', ev.target.value)} />
               <Input aria-label={`Fee amount ${i + 1}`} type="number" min="1" placeholder="₹" value={e.amount} onChange={(ev) => setX(i, 'amount', ev.target.value)} style={{ maxWidth: 120 }} />
               <Select aria-label={`Fee frequency ${i + 1}`} value={e.frequency} onChange={(ev) => setX(i, 'frequency', ev.target.value)} options={[{ value: 'once', label: 'Once' }, { value: 'monthly', label: 'Every month' }, { value: 'yearly', label: 'Once a year' }]} />
-              <Button size="sm" type="button" variant="danger" aria-label={`Remove fee ${i + 1}`} onClick={() => setExtras(extras.filter((_, j) => j !== i))}>✕</Button>
+              <Button size="sm" type="button" variant="danger" aria-label={`Remove fee ${i + 1}`} onClick={() => setExtras(extras.filter((_, j) => j !== i))}>Remove</Button>
             </div>))}
         </div>
         <div className="card-b row between"><span>Admission {fmtMoney(admission)} + tuition {fmtMoney(monthly)} × 12{extrasYear ? ` + other fees ${fmtMoney(extrasYear)}` : ''}</span><b>Per student, per year: {fmtMoney(admission + monthly * 12 + extrasYear)}</b></div>
@@ -86,7 +69,7 @@ export function FeeStructures({ readOnly }) {
   return (
     <div className="stack">
       <PageHeader title="Fee structures" subtitle="An admission fee once, then tuition every month. Define what a class pays, then bill students — or let new admissions be billed automatically." actions={!readOnly && <Button variant="primary" onClick={() => setModal({ t: 'new' })}>+ New fee structure</Button>} />
-      <Card flush><Async state={list} empty={<Empty icon="🧾" title="No fee structures yet" />}>{(rows) => <DataTable rows={rows} columns={[
+      <Card flush><Async state={list} empty={<Empty title="No fee structures yet" />}>{(rows) => <DataTable rows={rows} columns={[
         { label: 'Structure', render: (s) => <><b>{s.name}</b><div className="small muted">{s.monthlyFee ? `${s.admissionFee ? `Admission ${fmtMoney(s.admissionFee)} · ` : ''}Tuition ${fmtMoney(s.monthlyFee)} / month${(s.extras || []).map((e) => ` · ${e.head} ${fmtMoney(e.amount)}${e.frequency === 'monthly' ? ' / month' : ''}`).join('')}` : (s.items || []).map((i) => `${i.head} ${fmtMoney(i.amount)}`).join(' · ')}</div></> },
         { label: 'Class', key: 'className' }, { label: 'Per student, per year', render: (s) => fmtMoney(s.total) }, { label: 'Due', render: (s) => (s.monthlyFee ? `${s.dueDay || 'policy'}${s.dueDay ? 'th' : ''} of each month` : (s.installments || []).map((i) => `${i.label} ${i.percent}%`).join(', ')) },
         { label: 'Billed', render: (s) => `${s.students} student(s) · ${fmtMoney(s.billed)}` }, { label: 'Collected', render: (s) => fmtMoney(s.collected) },
@@ -131,17 +114,17 @@ export function StudentsDues({ readOnly }) {
   return (
     <div className="stack">
       <PageHeader title="Students & dues" subtitle="Open a student to collect a payment, add a charge or give a concession" />
-      <Card flush>
-        <div className="card-b row wrap"><div className="grow"><Input placeholder="Search name, admission no, guardian" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value, page: 1 })} aria-label="Search students" /></div>
+      <ListCard>
+        <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v, page: 1 })} searchLabel="Search students" placeholder="Search name, admission no, guardian">
           <Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value, page: 1 })} placeholder="All sections" options={L.sections.map((s) => ({ value: s._id, label: `${L.classes.find((c) => c._id === s.classId)?.name} ${s.name}` }))} aria-label="Section" />
-          <Select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value, page: 1 })} options={[['all', 'All'], ['overdue', 'Overdue'], ['pending', 'Pending'], ['clear', 'Fully paid']].map(([value, l]) => ({ value, label: l }))} aria-label="Status" /></div>
+          <Select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value, page: 1 })} options={[['all', 'All'], ['overdue', 'Overdue'], ['pending', 'Pending'], ['clear', 'Fully paid']].map(([value, l]) => ({ value, label: l }))} aria-label="Status" /></FilterBar>
         <Async state={list}>{(d) => (<>
           <DataTable rows={d.items} rowKey="studentId" empty="No students match" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[
             { label: 'Adm. no', key: 'admissionNo' }, { label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => `${s.className || ''} ${s.section || ''}` }, { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> },
             { label: 'Billed', render: (s) => (s.billed ? fmtMoney(s.assigned) : <Badge>Not billed</Badge>) }, { label: 'Paid', render: (s) => fmtMoney(s.paid) }, { label: 'Pending', render: (s) => <b>{fmtMoney(s.pending)}</b> }, { label: 'Overdue', render: (s) => (s.overdue > 0 ? <Badge tone="red">{fmtMoney(s.overdue)}</Badge> : '—') }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />
           <div className="card-b row between"><span className="muted small">{d.total} student(s) · pending {fmtMoney(d.totals.pending)} · overdue {fmtMoney(d.totals.overdue)}</span>
             <div className="row"><Button size="sm" disabled={f.page <= 1} onClick={() => setF({ ...f, page: f.page - 1 })}>Previous</Button><span className="small">Page {f.page}</span><Button size="sm" disabled={f.page * 25 >= d.total} onClick={() => setF({ ...f, page: f.page + 1 })}>Next</Button></div></div></>)}</Async>
-      </Card>
+      </ListCard>
     </div>
   );
 }
@@ -212,14 +195,14 @@ export function Payments({ readOnly }) {
   return (
     <div className="stack">
       <PageHeader title="Payments & receipts" subtitle="Every receipt ever issued. Receipts are never edited or deleted — mistakes are reversed." actions={<Button onClick={() => run(() => download(`${base}/export/payments.csv`, 'payments.csv', { ...f }))}>Export CSV</Button>} />
-      <Card flush>
-        <div className="card-b row wrap"><div className="grow"><Input placeholder="Search receipt, reference, student" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} aria-label="Search payments" /></div>
-          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={MODES} placeholder="All modes" aria-label="Mode" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></div>
-        <Async state={list} empty={<Empty icon="💳" title="No payments match" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Student', render: (p) => <>{p.student} <span className="muted small">{p.admissionNo}</span></> },
+      <ListCard>
+        <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v })} searchLabel="Search payments" placeholder="Search receipt, reference, student">
+          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={MODES} placeholder="All modes" aria-label="Mode" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
+        <Async state={list} empty={<Empty title="No payments match" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Student', render: (p) => <>{p.student} <span className="muted small">{p.admissionNo}</span></> },
           { label: 'Amount', render: (p) => <b style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</b> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'Reference', key: 'reference' }, { label: 'By', key: 'receivedByName' },
           { label: 'Status', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red" >Reversed</Badge> : <Badge tone="green">Completed</Badge>) },
           ...(readOnly ? [] : [{ label: '', render: (p) => <div className="row"><Button size="sm" onClick={() => run(() => download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button>{p.kind === 'payment' && p.status === 'completed' && <Button size="sm" variant="danger" onClick={() => setRev(p)}>Reverse</Button>}</div> }])]} />}</Async>
-      </Card>
+      </ListCard>
       {rev && <FormModal title={`Reverse receipt ${rev.receiptNo}`} submitLabel="Reverse payment" fields={[{ name: 'reason', label: 'Reason (required)', type: 'textarea', required: true }]} onClose={() => setRev(null)} onSubmit={async (v) => { await post(`${base}/payments/${rev._id}/reverse`, v); list.reload(); return true; }} />}
     </div>
   );
@@ -241,12 +224,12 @@ export function FinanceReports({ readOnly }) {
       <Tabs tabs={[['collection', 'Collection'], ['classes', 'Outstanding by class'], ['defaulters', 'Defaulters']]} value={tab} onChange={setTab} />
       {tab === 'collection' && <Async state={col}>{(c) => (<>
         <div className="row wrap"><Input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} aria-label="From" /><Input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} aria-label="To" /><Badge tone="green">Net collected {fmtMoney(c.total)}</Badge><span className="muted small">{fmtDate(c.from, true)} – {fmtDate(c.to, true)}</span></div>
-        <div className="grid g-main"><Card title="By day"><BarsChart data={c.byDay} x="date" bars={[{ key: 'amount', name: 'Collected', color: '#16a34a' }]} /></Card><Card title="By payment mode" flush><DataTable rows={c.byMode} rowKey="mode" columns={[{ label: 'Mode', render: (m) => label(m.mode) }, { label: 'Receipts', key: 'count' }, { label: 'Amount', render: (m) => fmtMoney(m.amount) }]} /></Card></div></>)}</Async>}
+        <div className="grid g-main"><Card title="By day"><BarsChart data={c.byDay} x="date" bars={[{ key: 'amount', name: 'Collected', color: 'rgb(var(--c-success))' }]} /></Card><Card title="By payment mode" flush><DataTable rows={c.byMode} rowKey="mode" columns={[{ label: 'Mode', render: (m) => label(m.mode) }, { label: 'Receipts', key: 'count' }, { label: 'Amount', render: (m) => fmtMoney(m.amount) }]} /></Card></div></>)}</Async>}
       {tab === 'classes' && <Card flush><Async state={classes} empty={<Empty title="Nothing billed yet" />}>{(rows) => <DataTable rows={rows} rowKey="className" columns={[{ label: 'Class', render: (r) => <b>{r.className}</b> }, { label: 'Students', key: 'students' }, { label: 'Billed', render: (r) => fmtMoney(r.billed) }, { label: 'Collected', render: (r) => fmtMoney(r.collected) }, { label: 'Pending', render: (r) => fmtMoney(r.pending) }, { label: 'Overdue', render: (r) => (r.overdue ? <Badge tone="red">{fmtMoney(r.overdue)}</Badge> : '—') }]} />}</Async></Card>}
       {tab === 'defaulters' && (<>
         <div className="row wrap">{!readOnly && <ConfirmButton variant="primary" message="Send a fee reminder notification to every student with overdue fees? (Once per day per student.)" onConfirm={async () => { await run(() => post(`${base}/reminders`, {}), (r) => `${r.sent} reminder(s) sent (${r.matched} overdue)`); }}>Send reminders to all</ConfirmButton>}
           <Button loading={busy} onClick={() => run(() => download(`${base}/export/dues.csv`, 'dues.csv', { status: 'overdue' }))}>Export CSV</Button></div>
-        <Card flush><Async state={defaulters} empty={<Empty icon="🎉" title="No overdue fees" />}>{(d) => <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[{ label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => `${s.className} ${s.section}` }, { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> }, { label: 'Overdue', render: (s) => <Badge tone="red">{fmtMoney(s.overdue)}</Badge> }, { label: 'Pending', render: (s) => fmtMoney(s.pending) }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />}</Async></Card></>)}
+        <Card flush><Async state={defaulters} empty={<Empty title="No overdue fees" />}>{(d) => <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[{ label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => `${s.className} ${s.section}` }, { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> }, { label: 'Overdue', render: (s) => <Badge tone="red">{fmtMoney(s.overdue)}</Badge> }, { label: 'Pending', render: (s) => fmtMoney(s.pending) }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />}</Async></Card></>)}
     </div>
   );
 }

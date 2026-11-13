@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import react from 'eslint-plugin-react';
 import hooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 export default [
   { ignores: ['dist'] },
@@ -17,5 +18,13 @@ export default [
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_|^React$' }],
       'no-undef': 'error', 'react-hooks/exhaustive-deps': 'off',
     },
+  },
+  // Rebuilt screens and the design system are TypeScript: type-aware parsing, no `any` without a reason.
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ['src/**/*.{ts,tsx}'] })),
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.browser, ...globals.vitest } },
+    plugins: { 'react-hooks': hooks },
+    rules: { ...hooks.configs.recommended.rules, 'react-hooks/exhaustive-deps': 'off', '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }] },
   },
 ];

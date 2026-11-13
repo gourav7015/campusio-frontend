@@ -55,7 +55,7 @@ export function AttendancePanel({ o }) {
 
 export function SalaryPanel({ o }) {
   const p = o.pay;
-  if (!p.current) return <Empty icon="💸" title="No salary set yet">Set it in Payroll &amp; salaries.</Empty>;
+  if (!p.current) return <Empty title="No salary set yet">Set it in Payroll &amp; salaries.</Empty>;
   return (
     <div className="stack">
       <div className="grid g4"><Stat value={p.current.levelName || 'Custom'} label="Pay level" tone="blue" /><Stat value={fmtMoney(p.current.gross)} label="Gross per month" /><Stat value={fmtMoney(p.current.net)} label="Net per month" tone="green" /><Stat value={fmtMoney(p.paidThisYear)} label="Paid this academic year" /></div>
