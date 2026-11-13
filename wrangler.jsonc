@@ -1,0 +1,9 @@
+{
+  // Cloudflare: serves the built site (dist/) and falls back to index.html so page refreshes work
+  "name": "campusio-frontend",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
