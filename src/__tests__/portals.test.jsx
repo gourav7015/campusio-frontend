@@ -12,10 +12,19 @@ const { default: PortalLogin, Landing, homeFor, loginFor, PORTALS } = await impo
 describe('one sign-in page per role', () => {
   it('the landing page shows a card per role and a separate link for the platform administrator', () => {
     render(<MemoryRouter><Landing /></MemoryRouter>);
-    for (const t of ['Student', 'Teacher', 'Finance', 'Library', 'Transport', 'Staff', 'School Admin']) expect(screen.getByRole('heading', { name: `Login as ${t}` })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /Login as|Continue|Student|Teacher|Finance|Library|Transport|Staff|School Admin/ }).map((a) => a.getAttribute('href')).sort()).toEqual(['/admin/login', '/finance/login', '/library/login', '/staff/login', '/student/login', '/teacher/login', '/transport/login']);
+    for (const t of ['Student & Parent', 'Teacher', 'Finance', 'Library', 'Transport', 'School Admin']) expect(screen.getByRole('heading', { name: `Login as ${t}` })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Login as Staff' })).toBeNull(); // non-teaching staff have no card; the school office manages them
+    expect(screen.getAllByRole('link', { name: /Login as|Continue|Student|Teacher|Finance|Library|Transport|Staff|School Admin/ }).map((a) => a.getAttribute('href')).sort()).toEqual(['/admin/login', '/finance/login', '/library/login', '/student/login', '/teacher/login', '/transport/login']);
     expect(screen.getByRole('link', { name: 'Platform administrator' })).toHaveAttribute('href', '/platform/login');
     expect(screen.queryByRole('heading', { name: /Platform/ })).toBeNull(); // not advertised as a card
+  });
+  it('the sign-in form is one the browser can remember: named fields, the right autocomplete hints, a real form', () => {
+    render(<MemoryRouter initialEntries={['/admin/login']}><Routes><Route path="/admin/login" element={<PortalLogin portal="admin" />} /></Routes></MemoryRouter>);
+    const id = screen.getByLabelText('Login id'); const pw = screen.getByLabelText('Password');
+    expect(id).toHaveAttribute('name', 'username'); expect(id).toHaveAttribute('autocomplete', 'username');
+    expect(pw).toHaveAttribute('name', 'password'); expect(pw).toHaveAttribute('autocomplete', 'current-password');
+    expect(pw.closest('form')).toBe(id.closest('form')); // both fields sit in the same form, which is what lets the browser offer to save them
+    expect(pw.closest('form')).toHaveAttribute('method', 'post');
   });
   it('maps every role to its own home and login URL', () => {
     expect(Object.keys(PORTALS).sort()).toEqual(['admin', 'finance', 'library', 'platform', 'staff', 'student', 'teacher', 'transport']);

@@ -7,7 +7,7 @@ import FormModal from '../../components/FormModal.jsx';
 import PayItems, { cleanItems } from '../../components/PayItems.jsx';
 
 const P = '/api/school/payroll';
-const tone = (s) => ({ draft: 'amber', approved: 'blue', paid: 'green', pending: 'amber' }[s] || '');
+const tone = (s) => ({ draft: 'amber', approved: 'blue', paid: 'green', pending: 'amber', partial: 'amber' }[s] || '');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const monthLabel = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const itemsOf = (l) => (l || []).map((i) => ({ label: i.label, kind: i.kind, value: i.value }));
@@ -201,11 +201,11 @@ function Runs({ onChange }) {
 function RunDetail({ id, onBack }) {
   const d = useApi(`${P}/runs/${id}`);
   const [run] = useAction();
-  const [adj, setAdj] = useState(null); const [pay, setPay] = useState(null); const [report, setReport] = useState(null);
+  const [adj, setAdj] = useState(null); const [pay, setPay] = useState(null); const [part, setPart] = useState(null); const [report, setReport] = useState(null);
   const act = (fn, msg) => async () => { await run(fn, msg); d.reload(); };
   return (
     <Async state={d}>{({ run: r, payslips }) => {
-      const pending = payslips.filter((p) => p.status === 'pending');
+      const pending = payslips.filter((p) => ['pending', 'partial'].includes(p.status));
       return (
         <div className="stack">
           <div className="row between wrap">
@@ -227,13 +227,16 @@ function RunDetail({ id, onBack }) {
               { label: 'Name', render: (p) => <><b>{p.personName}</b>{p.personType === 'staff' && <> <Badge>staff</Badge></>}<div className="muted">{p.employeeId}{p.levelName ? ` · ${p.levelName}` : ''}</div></> },
               { label: 'Days', render: (p) => `${p.paidDays} / ${p.workingDays}${p.unpaidDays ? ` (${p.unpaidDays} unpaid)` : ''}` }, { label: 'Gross', render: (p) => fmtMoney(p.gross) },
               { label: 'Loss of pay', render: (p) => (p.lossOfPay ? fmtMoney(p.lossOfPay) : '—') }, { label: 'Deductions', render: (p) => fmtMoney(p.totalDeductions) }, { label: 'Net pay', render: (p) => <b>{fmtMoney(p.net)}</b> },
-              { label: 'Status', render: (p) => <><Badge tone={tone(p.status)}>{label(p.status)}</Badge>{p.paidOn && <div className="muted">{fmtDate(p.paidOn, true)} · {label(p.mode)}</div>}</> },
+              { label: 'Status', render: (p) => <><Badge tone={tone(p.status)}>{label(p.status)}</Badge>{p.paidOn && p.status === 'paid' && <div className="muted">{fmtDate(p.paidOn, true)} · {label(p.mode)}</div>}{p.status === 'partial' && <div className="muted">{fmtMoney(p.paidAmount)} paid · {fmtMoney(p.net - p.paidAmount)} left</div>}</> },
               { label: '', render: (p) => <div className="row">
                 {r.status === 'draft' && <Button size="sm" onClick={() => setAdj(p)}>Adjust{p.adjustments?.length ? ` (${p.adjustments.length})` : ''}</Button>}
-                {r.status !== 'draft' && p.status === 'pending' && <Button size="sm" variant="primary" onClick={() => setPay({ ids: [p._id], name: p.personName, net: p.net })}>Pay</Button>}
+                {r.status !== 'draft' && ['pending', 'partial'].includes(p.status) && <><Button size="sm" variant="primary" onClick={() => setPay({ ids: [p._id], name: p.personName, net: p.net - (p.paidAmount || 0) })}>{p.status === 'partial' ? 'Pay the rest' : 'Pay'}</Button><Button size="sm" onClick={() => setPart({ slip: p })}>Pay part</Button></>}
                 <Button size="sm" onClick={() => run(() => download(`${P}/payslips/${p._id}/pdf`, `payslip-${p.payslipNo}.pdf`))}>PDF</Button></div> },
             ]} />
           </Card>
+          {part && <FormModal title={`Pay part of ${part.slip.personName}'s salary`} submitLabel="Record part payment"
+            fields={[{ name: 'amount', label: `Amount (₹, up to ${fmtMoney(part.slip.net - (part.slip.paidAmount || 0))})`, type: 'number', min: 1, step: 'any', required: true, default: Math.round(((part.slip.net - (part.slip.paidAmount || 0)) / 2) * 100) / 100 }, { name: 'mode', label: 'Payment mode', type: 'select', required: true, default: 'bank_transfer', options: ['bank_transfer', 'cash', 'cheque', 'upi', 'other'] }, { name: 'paidOn', label: 'Paid on', type: 'date', required: true, default: new Date().toISOString().slice(0, 10) }, { name: 'reference', label: 'Reference' }, { name: 'note', label: 'Note', placeholder: 'e.g. First half of the month' }]}
+            onClose={() => setPart(null)} onSubmit={async (v) => { await post(`${P}/payslips/${part.slip._id}/pay`, v); d.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>Pay half a month now and the rest later. The payslip shows each part, and the bank file asks only for what is left.</p></FormModal>}
           {adj && <AdjustModal slip={adj} onClose={() => setAdj(null)} onSaved={d.reload} />}
           {report === 'bank' && <BankFileModal id={id} month={r.month} onClose={() => setReport(null)} />}
           {report === 'statutory' && <StatutoryModal id={id} month={r.month} onClose={() => setReport(null)} />}

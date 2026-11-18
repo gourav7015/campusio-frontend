@@ -19,6 +19,7 @@ export default function Heatmap({ days }) {
   }, [days]);
   if (!weeks.length) return <div className="empty small">No attendance has been recorded yet</div>;
   const size = 14; const gap = 3;
+  const working = days.filter((d) => d.working); const recorded = working.filter((d) => d.status).length;
   return (
     <div role="img" aria-label="Attendance heat map for the academic year" style={{ overflowX: 'auto' }}>
       <div style={{ display: 'flex', gap, marginLeft: 26, marginBottom: 4, position: 'relative', height: 14 }}>
@@ -29,13 +30,14 @@ export default function Heatmap({ days }) {
         {weeks.map((wk, i) => (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap }}>
             {Array.from({ length: 7 }, (_, j) => wk[j]).map((d, j) => d ? (
-              <div key={j} data-status={d.status || (d.working ? 'unmarked' : 'off')} title={`${fmtDate(d.date, true)} — ${d.status ? label(d.status) : d.holiday ? `Holiday: ${d.holiday}` : d.working ? 'Not recorded' : 'Non-working day'}`}
-                style={{ width: size, height: size, borderRadius: 3, background: d.status ? COLOR[d.status] : 'var(--grey-50)', opacity: d.status || d.working ? 1 : 0.45, border: !d.status && d.working ? '1px solid var(--border)' : 'none' }} />
+              <div key={j} className={`hm-cell ${d.status ? '' : d.working ? 'hm-unmarked' : 'hm-off'}`} data-date={d.date} data-status={d.status || (d.working ? 'unmarked' : 'off')} title={`${fmtDate(d.date, true)} — ${d.status ? label(d.status) : d.holiday ? `Holiday: ${d.holiday}` : d.working ? 'Not recorded' : 'Non-working day'}`}
+                style={{ width: size, height: size, ...(d.status ? { background: COLOR[d.status] } : {}) }} />
             ) : <div key={j} style={{ width: size, height: size }} />)}
           </div>))}
       </div>
+      <p className="small muted" style={{ margin: '8px 0 0' }}>{recorded} of {working.length} working days have a recorded status. A hatched square is a working day that the school office has not marked yet.</p>
       <div className="legend" style={{ marginTop: 10 }}>
-        <span><i style={{ background: 'var(--green)' }} />Present</span><span><i style={{ background: 'var(--amber)' }} />Late</span><span><i style={{ background: 'var(--red)' }} />Absent</span><span><i style={{ background: 'var(--blue)' }} />Leave</span><span><i style={{ background: 'var(--grey-50)', border: '1px solid var(--border)' }} />Not recorded</span><span><i style={{ background: 'var(--grey-50)', opacity: 0.45 }} />Non-working</span>
+        <span><i style={{ background: 'var(--green)' }} />Present</span><span><i style={{ background: 'var(--amber)' }} />Late</span><span><i style={{ background: 'var(--red)' }} />Absent</span><span><i style={{ background: 'var(--blue)' }} />Leave</span><span><i className="hm-unmarked" />Not recorded</span><span><i className="hm-off" />Non-working or holiday</span>
       </div>
     </div>
   );

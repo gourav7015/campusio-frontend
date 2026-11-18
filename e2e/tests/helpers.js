@@ -32,6 +32,12 @@ export function watch(page, allow = []) {
   page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) problems.push(`console: ${m.text().slice(0, 160)}`); });
-  page.on('response', (r) => { const u = r.url(); if (u.includes('/api/') && r.status() >= 400 && !allow.some((a) => u.includes(a))) problems.push(`HTTP ${r.status()} ${r.request().method()} ${u.replace(/^https?:\/\/[^/]+/, '')}`); });
+  page.on('response', async (r) => {
+    const u = r.url();
+    if (!u.includes('/api/') || r.status() < 400 || allow.some((a) => u.includes(a))) return;
+    // say why a 401 happened (no token sent, or the server's reason), so a failure can be diagnosed from the log alone
+    const why = r.status() === 401 ? ` [${r.request().headers().authorization ? 'token sent' : 'no token'}: ${(await r.text().catch(() => '')).slice(0, 90)}]` : '';
+    problems.push(`HTTP ${r.status()} ${r.request().method()} ${u.replace(/^https?:\/\/[^/]+/, '')}${why}`);
+  });
   return problems;
 }

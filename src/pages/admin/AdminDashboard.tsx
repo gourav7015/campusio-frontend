@@ -10,7 +10,6 @@ import type { ColumnDef } from '@tanstack/react-table';
 interface Recent { id: string; at: string; actor: string; actingAsSuperAdmin?: boolean; summary: string }
 interface Dashboard {
   today: string; year?: { name: string };
-  subscription?: { studentLimit: number; teacherLimit: number };
   cards: { students: number; teachers: number; sections: number; pendingLeave: number; unreadMessages: number; unresolvedPeriods: number };
   attendance: { students: number; present: number; absent: number; late: number; leave: number; excused: number; pending: number; submitted: number; sections: number };
   attendanceTrend: { date: string; percentage: number }[];
@@ -59,8 +58,8 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Active students" value={x.cards.students.toLocaleString('en-IN')} hint={x.subscription ? `Plan limit ${x.subscription.studentLimit.toLocaleString('en-IN')}` : undefined} to="/admin/students" />
-        <StatCard label="Active teachers" value={x.cards.teachers.toLocaleString('en-IN')} hint={x.subscription ? `Plan limit ${x.subscription.teacherLimit.toLocaleString('en-IN')}` : undefined} to="/admin/teachers" />
+        <StatCard label="Active students" value={x.cards.students.toLocaleString('en-IN')} to="/admin/students" />
+        <StatCard label="Active teachers" value={x.cards.teachers.toLocaleString('en-IN')} to="/admin/teachers" />
         <StatCard label="Attendance today" value={rate == null ? '—' : `${rate}%`} hint={rate == null ? 'No register submitted yet' : `${marked.toLocaleString('en-IN')} students marked`} to="/admin/classes?tab=attendance" />
         <StatCard label="Fees pending" value={<Money amount={x.finance.pending} />} hint={x.finance.overdue ? `${fmtMoney(x.finance.overdue)} overdue` : 'None overdue'} to="/admin/fees?tab=students" />
       </div>

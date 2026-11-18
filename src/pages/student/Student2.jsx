@@ -5,6 +5,7 @@ import { patch, download, openFile } from '../../api/client.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { Async, Badge, Button, Card, DataTable, Empty, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtMoney, fmtPct, label, dayName } from '../../components/ui.jsx';
 import { TrendChart, BarsChart, DonutChart } from '../../components/Charts.jsx';
+import PayOnline from './PayOnline.jsx';
 
 const S = '/api/student';
 
@@ -118,7 +119,10 @@ export function StudentCalendar() {
   const from = `${ym(anchor)}-01`;
   const to = `${ym(anchor)}-${String(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
   const cal = useApi(`${S}/calendar`, { from: view === 'agenda' ? todayIso : from, to: view === 'agenda' ? agendaEnd : to });
+  const [picked, setPicked] = useState(null); // the day whose full list is shown below, like tapping a day in a phone calendar
   const colour = { holiday: 'red', exam: 'amber', deadline: 'blue', event: 'primary', ptm: 'primary' };
+  const tone = (e) => (e.kind === 'government' ? 'green' : colour[e.type]);
+  const tag = (e) => (e.kind === 'government' ? 'Government holiday' : label(e.type));
   const byDate = useMemo(() => { const m = new Map(); (cal.data || []).forEach((e) => { for (let d = new Date(`${e.date}T00:00:00`); d <= new Date(`${e.endDate || e.date}T00:00:00`); d.setDate(d.getDate() + 1)) { const k = d.toLocaleDateString('en-CA'); if (!m.has(k)) m.set(k, []); m.get(k).push(e); } }); return m; }, [cal.data]);
   const days = useMemo(() => { const y = anchor.getFullYear(); const m = anchor.getMonth(); const n = new Date(y, m + 1, 0).getDate(); const offset = (new Date(y, m, 1).getDay() + 6) % 7; return { offset, list: Array.from({ length: n }, (_, i) => new Date(y, m, i + 1).toLocaleDateString('en-CA')) }; }, [anchor]);
   const week = useMemo(() => { const d = new Date(anchor); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return x.toLocaleDateString('en-CA'); }); }, [anchor]);
@@ -129,9 +133,11 @@ export function StudentCalendar() {
       <Tabs tabs={[['month', 'Monthly'], ['week', 'Weekly'], ['agenda', 'Agenda']]} value={view} onChange={setView} />
       <Async state={cal}>{(items) => (<Card>
         {view === 'month' && <div className="cal" style={{ gap: 6 }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((x) => <div key={x} className="h">{x}</div>)}{Array.from({ length: days.offset }).map((_, i) => <div key={i} className="d blank" />)}
-          {days.list.map((d) => <div key={d} className="d" style={{ aspectRatio: 'auto', minHeight: 78, alignItems: 'start', justifyItems: 'start', padding: 6, overflow: 'hidden' }}><div className="small bold">{Number(d.slice(8))}</div>{(byDate.get(d) || []).slice(0, 2).map((e) => <Badge key={e.source + e.id} tone={colour[e.type]}>{e.title.slice(0, 16)}</Badge>)}{(byDate.get(d) || []).length > 2 && <span className="small muted">+{byDate.get(d).length - 2}</span>}</div>)}</div>}
-        {view === 'week' && <div className="stack-sm">{week.map((d) => <div key={d} className="period"><div className="time">{dayName(new Date(`${d}T00:00:00`).getDay() || 7).slice(0, 3)} {fmtDate(d)}</div><div className="grow">{(byDate.get(d) || []).map((e) => <div key={e.source + e.id}><Badge tone={colour[e.type]}>{label(e.type)}</Badge> {e.title}</div>)}{!(byDate.get(d) || []).length && <span className="muted small">Nothing scheduled</span>}</div></div>)}</div>}
-        {view === 'agenda' && (items.length ? <ul className="timeline">{items.map((e) => <li key={e.source + e.id}><span className="dotc" /><div className="grow"><b>{e.title}</b><div className="small muted">{fmtDate(e.date, true)}{e.endDate && e.endDate !== e.date ? ` – ${fmtDate(e.endDate)}` : ''} {e.description && `· ${e.description}`}</div></div><Badge tone={colour[e.type]}>{label(e.type)}</Badge></li>)}</ul> : <Empty title="Nothing coming up" />)}</Card>)}</Async>
+          {days.list.map((d) => <button key={d} type="button" aria-label={`${fmtDate(d, true)}, ${(byDate.get(d) || []).length} event(s)`} aria-pressed={picked === d} onClick={() => setPicked(picked === d ? null : d)} className="d" style={{ aspectRatio: 'auto', minHeight: 78, alignItems: 'start', justifyItems: 'start', padding: 6, overflow: 'hidden', textAlign: 'left', cursor: 'pointer', outline: picked === d ? '2px solid rgb(var(--c-primary))' : d === todayIso ? '1px solid rgb(var(--c-primary))' : undefined }}><div className="small bold">{Number(d.slice(8))}</div>{(byDate.get(d) || []).slice(0, 2).map((e) => <Badge key={e.source + e.id} tone={tone(e)}>{e.title.slice(0, 16)}</Badge>)}{(byDate.get(d) || []).length > 2 && <span className="small muted">+{byDate.get(d).length - 2}</span>}</button>)}</div>}
+        {view === 'month' && <div className="legend" style={{ marginTop: 10 }}><span><i style={{ background: 'rgb(var(--c-success))' }} />Government holiday</span><span><i style={{ background: 'rgb(var(--c-danger))' }} />School holiday</span><span><i style={{ background: 'rgb(var(--c-warning))' }} />Exam</span><span><i style={{ background: 'rgb(var(--c-primary))' }} />Event</span><span><i style={{ background: 'rgb(var(--c-info, 10 132 255))' }} />Homework due</span></div>}
+        {view === 'month' && picked && <div className="stack-sm" style={{ marginTop: 14 }}><b>{fmtDate(picked, true)}</b>{(byDate.get(picked) || []).length ? (byDate.get(picked) || []).map((e) => <div key={e.source + e.id}><Badge tone={tone(e)}>{tag(e)}</Badge> <b>{e.title}</b>{e.description && <span className="small muted"> · {e.description}</span>}</div>) : <span className="muted small">Nothing on this day.</span>}</div>}
+        {view === 'week' && <div className="stack-sm">{week.map((d) => <div key={d} className="period"><div className="time">{dayName(new Date(`${d}T00:00:00`).getDay() || 7).slice(0, 3)} {fmtDate(d)}</div><div className="grow">{(byDate.get(d) || []).map((e) => <div key={e.source + e.id}><Badge tone={tone(e)}>{tag(e)}</Badge> {e.title}</div>)}{!(byDate.get(d) || []).length && <span className="muted small">Nothing scheduled</span>}</div></div>)}</div>}
+        {view === 'agenda' && (items.length ? <ul className="timeline">{items.map((e) => <li key={e.source + e.id}><span className="dotc" /><div className="grow"><b>{e.title}</b><div className="small muted">{fmtDate(e.date, true)}{e.endDate && e.endDate !== e.date ? ` – ${fmtDate(e.endDate)}` : ''} {e.description && `· ${e.description}`}</div></div><Badge tone={tone(e)}>{tag(e)}</Badge></li>)}</ul> : <Empty title="Nothing coming up" />)}</Card>)}</Async>
     </div>
   );
 }
@@ -165,12 +171,15 @@ export function StudentSettings() {
 export function StudentFees() {
   const f = useApi(`${S}/fees`);
   const [run] = useAction();
+  const [paying, setPaying] = useState(false);
   return (
     <div className="stack">
-      <PageHeader title="Fee information" subtitle="Read-only. Payments are made at the school's finance desk." />
+      <PageHeader title="Fee information" subtitle={f.data?.online?.enabled ? 'You can pay online, or at the school\'s finance desk.' : 'Read-only. Payments are made at the school\'s finance desk.'} />
       <Async state={f} empty={null}>{(d) => !d.charges.length ? <Empty title="No fees have been assigned to you yet" /> : (
         <div className="stack">
           <div className="grid g4"><Stat value={fmtMoney(d.totals.assigned)} label="Total fee assigned" sub={d.totals.concession ? `after ${fmtMoney(d.totals.concession)} concession` : undefined} /><Stat value={fmtMoney(d.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(d.totals.pending)} label="Pending" tone="amber" sub={d.totals.nextDue ? `Next due ${fmtDate(d.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(d.totals.overdue)} label="Overdue" tone={d.totals.overdue ? 'red' : undefined} /></div>
+          {d.online?.enabled && d.totals.pending > 0 && <Card><div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}><div><b>{fmtMoney(d.totals.pending)}</b> is outstanding. {d.online.testMode && <Badge tone="amber">Test mode</Badge>}</div><Button variant="primary" onClick={() => setPaying(true)}>Pay online</Button></div></Card>}
+          {paying && <PayOnline fees={d} onClose={() => setPaying(false)} onPaid={() => f.reload()} />}
           {d.advanceOffer?.eligible && <div className="alert ok">Pay all {d.advanceOffer.months} remaining months at the finance desk in one go and the school gives you <b>{d.advanceOffer.offer}</b>: you pay {fmtMoney(d.advanceOffer.payable)} instead of {fmtMoney(d.advanceOffer.payable + d.advanceOffer.discount)} (saving {fmtMoney(d.advanceOffer.discount)}).</div>}
           <Card title="What you are charged for"><div className="row wrap">{d.categories.map((c) => <span key={c.name} className="chip">{c.name}{c.months ? ` (${c.months} months)` : ''}: <b>{fmtMoney(c.total)}</b></span>)}</div></Card>
           <Card title="Dues & due dates" flush><DataTable rows={d.charges} empty="Nothing billed" columns={[{ label: 'What', render: (c) => <>{c.label} {c.kind === 'library_fine' && <Badge tone="amber">Library fine</Badge>}</> }, { label: 'Due date', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.net) }, { label: 'Paid', render: (c) => fmtMoney(c.paid) }, { label: 'Pending', render: (c) => <b>{fmtMoney(c.outstanding)}</b> }, { label: 'Status', render: (c) => (c.status === 'paid' ? <Badge tone="green">Paid</Badge> : c.overdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="amber">Pending</Badge>) }]} /></Card>

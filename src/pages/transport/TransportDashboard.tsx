@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Bus, FileWarning, UserX } from 'lucide-react';
@@ -5,21 +6,28 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useGet } from '../../api/query';
 import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMotion } from '../../design/charts';
 import { AttentionList, LinkCard } from '../../design/patterns';
-import { Badge, DataTable, ErrorState, PageHeader, PageSkeleton, StatCard } from '../../design/ui';
+import { Badge, DataTable, ErrorState, PageHeader, PageSkeleton, Segmented, StatCard } from '../../design/ui';
 import { fmtDate } from '../../components/ui.jsx';
 
+type CertState = 'valid' | 'expiring' | 'expired' | 'missing';
+interface Cert { busId: string; bus: string; doc: string; label: string; date: string | null; daysLeft: number | null; state: CertState }
 interface Dash {
   buses: { running: number; total: number; maintenance?: number }; riders: number; occupancy: number | null; seatsFree: number;
   staff: { total: number; byDesignation: { name: string; count: number }[] };
   needsCrew: { busNo: string; missing: string[] }[]; alerts: { bus: string; field: string; date: string; expired: boolean }[];
+  certificates: Cert[];
   idleCrew: { name: string; staffId: string; designation: string }[]; fullBuses: { busNo: string; riders: number; capacity: number }[];
 }
 
-const alertCols: ColumnDef<Dash['alerts'][number]>[] = [
+const stateBadge: Record<CertState, { tone: 'success' | 'warning' | 'danger' | 'neutral'; text: string }> = {
+  valid: { tone: 'success', text: 'Valid' }, expiring: { tone: 'warning', text: 'Expiring soon' }, expired: { tone: 'danger', text: 'Expired' }, missing: { tone: 'neutral', text: 'Not on file' },
+};
+const certCols: ColumnDef<Cert>[] = [
   { accessorKey: 'bus', header: 'Bus', cell: (c) => <span className="font-medium">{c.row.original.bus}</span> },
-  { accessorKey: 'field', header: 'What' },
-  { id: 'date', header: 'Date', accessorFn: (a) => a.date, cell: (c) => fmtDate(c.row.original.date, true) },
-  { id: 'state', header: '', enableSorting: false, accessorFn: (a) => a.expired, cell: (c) => <Badge tone={c.row.original.expired ? 'danger' : 'warning'} dot>{c.row.original.expired ? 'Expired' : 'Expiring soon'}</Badge> },
+  { accessorKey: 'label', header: 'Document' },
+  { id: 'date', header: 'Valid until', accessorFn: (r) => r.date ?? '', cell: (c) => (c.row.original.date ? fmtDate(c.row.original.date, true) : '—') },
+  { id: 'days', header: 'Days left', meta: { align: 'right', hideBelow: 'sm' }, accessorFn: (r) => r.daysLeft ?? 99999, cell: (c) => { const d = c.row.original.daysLeft; return d == null ? '—' : d < 0 ? `${-d} overdue` : d; } },
+  { id: 'state', header: 'Status', accessorFn: (r) => stateBadge[r.state].text, cell: (c) => { const b = stateBadge[c.row.original.state]; return <Badge tone={b.tone} dot>{b.text}</Badge>; } },
 ];
 const idleCols: ColumnDef<Dash['idleCrew'][number]>[] = [
   { accessorKey: 'name', header: 'Name', cell: (c) => <span className="font-medium">{c.row.original.name}</span> },
@@ -31,6 +39,7 @@ const idleCols: ColumnDef<Dash['idleCrew'][number]>[] = [
 export default function TransportDashboard({ base, links = {} }: { base: string; links?: { buses?: string } }) {
   const { data: x, error, refetch } = useGet<Dash>(`${base}/dashboard`);
   const motion = useChartMotion();
+  const [certView, setCertView] = useState<'all' | 'attention'>('all');
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!x) return <PageSkeleton />;
   const buses = links.buses;
@@ -70,7 +79,9 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-3" aria-labelledby="cert-h"><h2 id="cert-h" className="flex items-center gap-2 text-lg font-semibold tracking-tight"><Bus className="size-4 text-muted-foreground" aria-hidden />Certificates and licences</h2>
-          <DataTable columns={alertCols} data={x.alerts} getRowId={(r, i) => `${r.bus}-${r.field}-${i}`} searchable={false} pageSize={6} emptyTitle="Nothing is due" caption="Certificates to renew" /></section>
+          <DataTable columns={certCols} data={certView === 'all' ? x.certificates : x.certificates.filter((c) => c.state !== 'valid')} getRowId={(r) => `${r.busId}-${r.doc}`} searchPlaceholder="Search by bus number" pageSize={10}
+            toolbar={<Segmented label="Show" value={certView} onChange={setCertView} options={[{ value: 'all', label: 'All' }, { value: 'attention', label: 'Needs attention' }]} />}
+            emptyTitle={certView === 'all' ? 'No certificates to show' : 'Every certificate is valid'} emptyDescription={certView === 'all' ? 'Add buses to see their insurance, fitness, pollution and driver licence dates here.' : undefined} caption="Certificates and licences of every bus" /></section>
         <section className="space-y-3" aria-labelledby="idle-h"><h2 id="idle-h" className="text-lg font-semibold tracking-tight">Crew not on a bus</h2>
           <DataTable columns={idleCols} data={x.idleCrew} getRowId={(r) => r.staffId} searchable={false} pageSize={6} emptyTitle="Everyone is on a bus" caption="Drivers and conductors without a bus" /></section>
       </div>

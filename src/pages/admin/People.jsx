@@ -2,31 +2,38 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
-import { post, put, patch, del, upload, openFile } from '../../api/client.js';
+import { get, post, put, patch, del, upload, openFile } from '../../api/client.js';
 import {
-  Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useDebounced, statusTone, fmtDate, label, Empty,
+  Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useDebounced, statusTone, fmtDate, fmtMoney, label, Empty,
 } from '../../components/ui.jsx';
 import { TeacherSummary, ClassesPanel as TeacherClasses, AttendancePanel as TeacherAttendance, SalaryPanel as TeacherSalary, LibraryPanel as TeacherLibrary } from '../../components/TeacherOverview.jsx';
 import { SummaryStrip, AttendancePanel, ExamsPanel, HomeworkPanel, FeesPanel, LibraryPanel, BusCard } from '../../components/StudentOverview.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import { Avatar, PhotoUpload } from '../../components/FileImage.jsx';
 import { FilterBar, ListCard, ListFooter, useDialogs } from '../../design/ui';
 
 function AdmitStudent({ L, onClose, onDone }) {
-  const f = useForm({ name: '', dob: '', gender: '', sectionId: '', admissionNo: '', rollNo: '', phone: '', address: '', house: '', gName: '', gRel: 'Father', gPhone: '', gEmail: '' });
+  const f = useForm({ name: '', dob: '', gender: '', sectionId: '', admissionNo: '', rollNo: '', phone: '', address: '', house: '', gName: '', gRel: 'Father', gPhone: '', gEmail: '', dType: 'percent', dValue: '', dReason: '' });
   const [run, busy] = useAction();
   const [dup, setDup] = useState(null);
   const v = f.values;
+  const preview = useApi(v.sectionId ? '/api/school/students/fee-preview' : null, { sectionId: v.sectionId });
+  const fee = preview.data; const tuition = fee?.totals.tuition || 0;
+  const dNum = Number(v.dValue);
+  const taken = !dNum || !tuition ? 0 : v.dType === 'percent' ? Math.round(tuition * Math.min(dNum, 100)) / 100 : Math.min(dNum, tuition);
+  const dBad = v.dValue !== '' && (!(dNum > 0) || (v.dType === 'percent' && dNum > 100) || (v.dType === 'amount' && dNum > tuition) || v.dReason.trim().length < 3);
   const submit = async (confirmDuplicate) => {
     const body = {
       name: v.name, dob: v.dob, gender: v.gender, sectionId: v.sectionId, admissionNo: v.admissionNo || undefined, rollNo: v.rollNo ? Number(v.rollNo) : undefined, phone: v.phone || undefined, address: v.address || undefined, house: v.house || undefined,
       guardians: [{ name: v.gName, relationship: v.gRel, phone: v.gPhone, email: v.gEmail || undefined, isPrimary: true }], confirmDuplicate,
+      ...(v.dValue !== '' ? { discount: { type: v.dType, value: dNum, reason: v.dReason.trim() } } : {}),
     };
     try { const out = await post('/api/school/students', body); onDone(out); }
     catch (e) { if (e.details?.code === 'DUPLICATE_IDENTITY') setDup(e.message); else run(async () => { throw e; }); }
   };
   return (
     <Modal wide title="Admit a student" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button>
-      <Button variant="primary" loading={busy} disabled={!v.name || !v.dob || !v.sectionId || !v.gName || !v.gPhone} onClick={() => submit(false)}>Admit student</Button></>}>
+      <Button variant="primary" loading={busy} disabled={!v.name || !v.dob || !v.sectionId || !v.gName || !v.gPhone || dBad} onClick={() => submit(false)}>Admit student</Button></>}>
       <div className="form-grid">
         <Field label="Full name"><Input {...f.bind('name')} /></Field><Field label="Date of birth"><Input type="date" {...f.bind('dob')} /></Field>
         <Field label="Class & section" hint="A student appears on a register only once enrolled in a section"><Select {...f.bind('sectionId')} options={L.sectionOptions} placeholder="Select section" /></Field>
@@ -36,8 +43,59 @@ function AdmitStudent({ L, onClose, onDone }) {
         <div className="full"><h3>Guardian</h3></div>
         <Field label="Guardian name"><Input {...f.bind('gName')} /></Field><Field label="Relationship"><Input {...f.bind('gRel')} /></Field>
         <Field label="Guardian phone"><Input {...f.bind('gPhone')} /></Field><Field label="Guardian email"><Input type="email" {...f.bind('gEmail')} /></Field>
+        {v.sectionId && (
+          <div className="full stack-sm">
+            <h3>Fees</h3>
+            {!fee && <p className="muted small" style={{ margin: 0 }}>Loading the fee structure…</p>}
+            {fee && !fee.structures.length && <p className="muted small" style={{ margin: 0 }}>This class has no fee structure yet, so the student will not be billed and no discount can be given. Ask Finance to set one up first. Fees are collected at the Finance desk.</p>}
+            {fee && fee.structures.length > 0 && (<>
+              <dl className="kv">
+                {fee.totals.admission > 0 && <><dt>Admission fee (once)</dt><dd>{fmtMoney(fee.totals.admission)}</dd></>}
+                <dt>Tuition ({fee.months} month{fee.months === 1 ? '' : 's'}){fee.structures.length === 1 ? ` at ${fmtMoney(fee.structures[0].monthlyFee)} a month` : ''}</dt><dd>{fmtMoney(tuition)}</dd>
+                {fee.totals.extras > 0 && <><dt>Other fees</dt><dd>{fmtMoney(fee.totals.extras)}</dd></>}
+                {taken > 0 && <><dt>Personal discount on tuition</dt><dd>− {fmtMoney(taken)}</dd></>}
+                <dt><b>Total to be billed</b></dt><dd><b>{fmtMoney(fee.totals.total - taken)}</b></dd>
+              </dl>
+              {tuition > 0 && (
+                <div className="form-grid">
+                  <Field label="Personal discount on tuition (optional)" hint="Spread evenly over every month and visible to Finance. Admission and other fees are not discounted.">
+                    <div className="row"><Select value={v.dType} onChange={(e) => f.set('dType', e.target.value)} options={[{ value: 'percent', label: '% of tuition' }, { value: 'amount', label: '₹ amount' }]} aria-label="Discount type" />
+                      <Input type="number" min="0" step="any" aria-label="Discount value" placeholder={v.dType === 'percent' ? 'e.g. 10' : 'e.g. 500'} value={v.dValue} onChange={(e) => f.set('dValue', e.target.value)} /></div></Field>
+                  <Field label={`Reason${v.dValue !== '' ? ' (required)' : ''}`}><Input aria-label="Discount reason" placeholder="e.g. Staff child, sibling, scholarship" value={v.dReason} onChange={(e) => f.set('dReason', e.target.value)} /></Field>
+                  {v.dValue !== '' && dBad && <div className="small full" role="alert" style={{ color: 'var(--danger-ink, #b3261e)' }}>{!(dNum > 0) ? 'Enter a discount above zero.' : v.dType === 'percent' && dNum > 100 ? 'A percentage cannot be above 100.' : v.dType === 'amount' && dNum > tuition ? `The discount cannot be more than the tuition of ${fmtMoney(tuition)}.` : 'Give a reason for the discount.'}</div>}
+                </div>)}
+              <p className="muted small" style={{ margin: 0 }}>Fees are billed now; the money is collected at the Finance desk.</p>
+            </>)}
+          </div>)}
       </div>
       {dup && <div className="alert" style={{ marginTop: 14 }}>{dup} <Button size="sm" onClick={() => { setDup(null); submit(true); }}>Admit anyway</Button></div>}
+    </Modal>
+  );
+}
+
+/** One change for every student the current filter shows (up to 200): their house, or a move to another section. */
+function BulkChange({ L, filter, total, onClose, onDone }) {
+  const [action, setAction] = useState('house'); const [house, setHouse] = useState(''); const [to, setTo] = useState(''); const [reason, setReason] = useState('');
+  const [run, busy] = useAction(); const [result, setResult] = useState(null);
+  const n = Math.min(total, 200);
+  const ok = action === 'house' ? house.trim() : to && reason.trim().length >= 3;
+  const go = async () => {
+    const all = await run(() => get('/api/school/students', { ...filter, page: 1, limit: 200 }));
+    if (!all) return;
+    const studentIds = all.items.map((s) => s._id);
+    const body = action === 'house' ? { action, studentIds, house: house.trim() } : { action, studentIds, toSectionId: to, reason: reason.trim() };
+    const r = await run(() => post('/api/school/students/bulk', body), (x) => `Changed ${x.done} of ${x.requested}`);
+    if (r) { setResult(r); onDone(); }
+  };
+  return (
+    <Modal wide title="Change many students at once" onClose={onClose} footer={<><Button onClick={onClose}>{result ? 'Close' : 'Cancel'}</Button>{!result && <Button variant="primary" loading={busy} disabled={!ok} onClick={go}>Apply to {n} student{n === 1 ? '' : 's'}</Button>}</>}>
+      <div className="stack">
+        <div className="alert info">This changes the {n} student{n === 1 ? '' : 's'} the list is showing now{total > 200 ? ` (the first 200 of ${total}; narrow the filter to reach the rest)` : ''}. Use the section and status filters first to pick exactly who.</div>
+        {!result && <><Field label="What to change"><Select value={action} onChange={(e) => setAction(e.target.value)} options={[{ value: 'house', label: 'Set their house' }, { value: 'transfer', label: 'Move them to another section' }]} /></Field>
+          {action === 'house' ? <Field label="House"><Input value={house} onChange={(e) => setHouse(e.target.value)} placeholder="e.g. Blue" /></Field>
+            : <div className="form-grid"><Field label="New section"><Select value={to} onChange={(e) => setTo(e.target.value)} options={L.sectionOptions} placeholder="Choose a section" /></Field><Field label="Reason (recorded)"><Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Re-balancing the sections" /></Field></div>}</>}
+        {result && <><div className="alert ok">Changed {result.done} of {result.requested} students.</div>{result.failed.length > 0 && <Card title={`${result.failed.length} could not be changed`} flush><DataTable rows={result.failed} rowKey="studentId" columns={[{ label: 'Student', render: (f) => f.name || f.studentId }, { label: 'Why not', key: 'error' }]} /></Card>}</>}
+      </div>
     </Modal>
   );
 }
@@ -50,9 +108,10 @@ export function Students() {
   const list = useApi('/api/school/students', { q: dq, sectionId, status, page, limit: 25 });
   const [admit, setAdmit] = useState(false);
   const [creds, setCreds] = useState(null);
+  const [bulk, setBulk] = useState(false);
   return (
     <div className="stack">
-      <PageHeader title="Students" subtitle="Admissions create the student, the section enrolment and the login together" actions={<Button variant="primary" onClick={() => setAdmit(true)} disabled={!L.sectionOptions.length}>+ Admit student</Button>} />
+      <PageHeader title="Students" subtitle="Admissions create the student, the section enrolment and the login together" actions={<><Button onClick={() => setBulk(true)} disabled={!list.data?.total}>Change many at once</Button><Button variant="primary" onClick={() => setAdmit(true)} disabled={!L.sectionOptions.length}>+ Admit student</Button></>} />
       <ListCard>
         <FilterBar search={q} onSearch={(v) => { setQ(v); setPage(1); }} searchLabel="Search students" placeholder="Search name, admission no, guardian">
           <Select value={sectionId} onChange={(e) => { setSectionId(e.target.value); setPage(1); }} options={L.sectionOptions} placeholder="All sections" aria-label="Section" />
@@ -65,6 +124,7 @@ export function Students() {
           ]} />
           <ListFooter total={d.total} noun="student" page={page} pageSize={25} onPage={setPage} /></>)}</Async>
       </ListCard>
+      {bulk && <BulkChange L={L} filter={{ q: dq, sectionId, status }} total={list.data?.total || 0} onClose={() => setBulk(false)} onDone={list.reload} />}
       {admit && <AdmitStudent L={L} onClose={() => setAdmit(false)} onDone={(o) => { setAdmit(false); list.reload(); setCreds(o.credentials); }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Student admitted" />
     </div>
@@ -89,6 +149,7 @@ export function StudentDetail() {
       const active = st.enrolments.find((e) => e.status === 'active');
       return (
         <div className="stack">
+          <div className="row"><Avatar fileId={st.photoFileId} name={st.name} size={72} /><PhotoUpload path={`/api/school/students/${id}/photo`} upload={upload} label={st.photoFileId ? 'Change photo' : 'Add a photo'} onDone={s.reload} /></div>
           <PageHeader title={st.name} subtitle={`Admission no ${st.admissionNo} · ${active ? `${active.className} ${active.section}, roll ${active.rollNo}` : 'No active enrolment'}`} actions={<>
             <Button onClick={() => setModal('edit')}>Edit</Button>
             {st.status === 'active' && <><Button onClick={() => setModal('transfer')} disabled={!active}>Move section</Button><Button variant="danger" onClick={() => setModal('withdraw')}>Withdraw</Button></>}
@@ -185,6 +246,7 @@ export function TeacherDetail() {
   return (
     <Async state={t}>{(x) => (
       <div className="stack">
+        <div className="row"><Avatar fileId={x.photoFileId} name={x.name} size={72} /><PhotoUpload path={`/api/school/teachers/${id}/photo`} upload={upload} label={x.photoFileId ? 'Change photo' : 'Add a photo'} onDone={t.reload} /></div>
         <PageHeader title={x.name} subtitle={`${x.designation || 'Teacher'} · Employee ${x.employeeId}`} actions={<>
           <Button onClick={() => setModal(true)}>Edit</Button>
           <Button onClick={async () => { const r = await run(() => post(`/api/school/teachers/${id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
@@ -216,8 +278,7 @@ export function TeacherDetail() {
 
 export function Assignments() {
   const L = useLookups();
-  const [yearId, setYearId] = useState('');
-  const yid = yearId || L.currentYear?._id;
+  const yid = L.currentYear?._id; // the current session only; earlier sessions are under "Past sessions"
   const asg = useApi(yid ? '/api/school/teaching-assignments' : null, { yearId: yid, open: 'true' });
   const cts = useApi(yid ? '/api/school/class-teachers' : null, { yearId: yid });
   const [modal, setModal] = useState(null);
@@ -227,7 +288,6 @@ export function Assignments() {
   return (
     <div className="stack">
       <PageHeader title="Subjects & teacher assignments" subtitle="Who teaches which subject in which section. Subjects are created here, through the teacher — there is no separate subject list to maintain." actions={<>
-        <Select value={yid || ''} onChange={(e) => setYearId(e.target.value)} options={L.yearOptions} aria-label="Academic year" />
         <Button variant="primary" onClick={() => setModal('asg')}>+ Assign teacher to a subject</Button></>} />
       <Card title="Subject teachers" flush><Async state={asg} empty={<div className="empty">No assignments yet. Assign a teacher to a subject in a section to begin.</div>}>{(rows) => <DataTable rows={rows} columns={[
         { label: 'Class', render: (a) => `${a.classId?.name} ${a.sectionId?.name}` }, { label: 'Subject', render: (a) => <b>{a.subjectId?.name}</b> }, { label: 'Teacher', render: (a) => a.teacherId?.name }, { label: 'Periods / week', render: (a) => a.offeringId?.weeklyPeriods ?? '—' }, { label: 'Since', render: (a) => fmtDate(a.effectiveFrom, true) },

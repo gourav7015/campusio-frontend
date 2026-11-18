@@ -13,7 +13,24 @@ const Terms = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m
 const Cookies = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Cookies })));
 const Refunds = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Refunds })));
 import PortalLogin, { Landing, homeFor } from './pages/Login.jsx';
+const Approvals = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.Approvals })));
+const SubAdmins = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SubAdmins })));
+const SchoolInfoAdmin = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SchoolInfoAdmin })));
+const Guide = lazy(() => import('./pages/shared/Guide.jsx'));
+const SchoolInfoPage = lazy(() => import('./pages/shared/SchoolInfo.jsx').then((m) => ({ default: m.SchoolInfoPage })));
+const Expenses = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.Expenses })));
+const Budgets = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.Budgets })));
+const TaxBankProfile = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.TaxBankProfile })));
+const TeacherChats = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.TeacherChats })));
+const TeacherRemarks = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.TeacherRemarks })));
+const Swaps = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.Swaps })));
+const PeriodAttendance = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.PeriodAttendance })));
+const StudentChats = lazy(() => import('./pages/student/Student3.jsx').then((m) => ({ default: m.StudentChats })));
+const StudentRemarks = lazy(() => import('./pages/student/Student3.jsx').then((m) => ({ default: m.StudentRemarks })));
 const Account = lazy(() => import('./pages/shared/Account.jsx'));
+const PastSessions = lazy(() => import('./pages/admin/PastSessions.jsx'));
+const HelpDesk = lazy(() => import('./pages/shared/HelpDesk.jsx'));
+const askCampusio = (base) => <HelpDesk base={base} title="Help desk" subtitle="Write to the Campusio support team. You get the reply here and by email." />;
 const LibraryMine = lazy(() => import('./pages/shared/LibraryMine.jsx'));
 const NotificationsPage = lazy(() => import('./pages/shared/Shared.jsx').then((m) => ({ default: m.NotificationsPage })));
 const AnnouncementsPage = lazy(() => import('./pages/shared/Shared.jsx').then((m) => ({ default: m.AnnouncementsPage })));
@@ -70,6 +87,7 @@ const FeePolicy = lazy(() => import('./pages/finance/Finance.jsx').then((m) => (
 const StudentsDues = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.StudentsDues })));
 const StudentAccount = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.StudentAccount })));
 const Payments = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.Payments })));
+const OnlinePayments = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.OnlinePayments })));
 const FinanceReports = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FinanceReports })));
 const LibraryDashboard = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.LibraryDashboard })));
 const Desk = lazy(() => import('./pages/library/Library.jsx').then((m) => ({ default: m.Desk })));
@@ -114,7 +132,7 @@ export default function App() {
         <Route element={user ? <AccountShell /> : <Navigate to="/" replace />}><Route path="/account" element={<Account />} /></Route>
 
         <Route path="/platform" element={<Guard roles={['super_admin']}><AppShell area="platform" /></Guard>}>
-          <Route index element={<PlatformDashboard />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} />
+          <Route index element={<PlatformDashboard />} /><Route path="helpdesk" element={<HelpDesk handler platform base="/api/platform/helpdesk" title="Help desk" subtitle="Tickets from schools. Replies reach the school admin by email and in their portal." />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} />
         </Route>
 
         <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><AppShell area="admin" /></Guard>}>
@@ -124,23 +142,29 @@ export default function App() {
           <Route path="fees" element={<AdminFees />} /><Route path="fees/students/:id" element={<StudentAccount readOnly />} /><Route path="library" element={<AdminLibrary />} /><Route path="library/books/:id" element={<BookDetail readOnly />} />
           <Route path="announcements" element={<AnnouncementsAdmin />} /><Route path="events" element={<Events />} /><Route path="messages" element={<MessagesAdmin />} />
           <Route path="payroll" element={<Payroll />} /><Route path="transport" element={<AdminTransport />} /><Route path="support-staff" element={<SupportStaff />} /><Route path="staff-attendance" element={<StaffAttendance />} /><Route path="staff-leave" element={<StaffLeaveAdmin />} /><Route path="promotion" element={<Promotion />} /><Route path="import" element={<Import />} /><Route path="reports" element={<Reports />} /><Route path="settings" element={<Settings />} /><Route path="audit" element={<Audit />} />
+          <Route path="guide" element={<Guide role="admin" />} /><Route path="approvals" element={<Approvals />} /><Route path="sub-admins" element={<SubAdmins />} /><Route path="school-info" element={<SchoolInfoAdmin />} />
           <Route path="notifications" element={<NotificationsPage role="admin" base="/api/school" />} />
+          <Route path="helpdesk" element={askCampusio('/api/school/helpdesk')} /><Route path="past-sessions" element={<PastSessions />} />
         </Route>
 
         <Route path="/finance" element={<Guard roles={['finance']}><AppShell area="finance" /></Guard>}>
           <Route index element={<FinanceDashboard />} /><Route path="structures" element={<FeeStructures />} /><Route path="policy" element={<FeePolicy />} /><Route path="students" element={<StudentsDues />} /><Route path="students/:id" element={<StudentAccount />} /><Route path="payments" element={<Payments />} /><Route path="reports" element={<FinanceReports />} />
+          <Route path="online" element={<OnlinePayments />} /><Route path="expenses" element={<Expenses />} /><Route path="budgets" element={<Budgets />} /><Route path="profile" element={<TaxBankProfile />} /><Route path="school-info" element={<SchoolInfoPage base="/api/finance" />} /><Route path="helpdesk" element={askCampusio('/api/finance/tickets')} />
         </Route>
 
         <Route path="/transport" element={<Guard roles={['transport']}><AppShell area="transport" /></Guard>}>
           <Route index element={<TransportDashboard base="/api/transport" links={{ buses: '/transport/buses' }} />} /><Route path="buses" element={<Buses base="/api/transport" />} /><Route path="staff" element={<TransportStaff base="/api/transport" />} /><Route path="attendance" element={<TransportAttendance base="/api/transport" />} /><Route path="leave" element={<TransportLeave base="/api/transport" />} />
+          <Route path="school-info" element={<SchoolInfoPage base="/api/transport" />} /><Route path="helpdesk" element={askCampusio('/api/transport/tickets')} />
         </Route>
 
         <Route path="/staff" element={<Guard roles={['staff']}><AppShell area="staff" /></Guard>}>
           <Route index element={<StaffDashboard />} /><Route path="attendance" element={<StaffMyAttendance />} /><Route path="leave" element={<StaffMyLeave />} /><Route path="payslips" element={<StaffPayslips />} /><Route path="profile" element={<StaffProfile />} />
+          <Route path="school-info" element={<SchoolInfoPage base="/api/staff" />} /><Route path="helpdesk" element={askCampusio('/api/staff/tickets')} />
         </Route>
 
         <Route path="/library" element={<Guard roles={['library']}><AppShell area="library" /></Guard>}>
           <Route index element={<LibraryDashboard />} /><Route path="desk" element={<Desk />} /><Route path="books" element={<Books />} /><Route path="books/:id" element={<BookDetail />} /><Route path="loans" element={<Loans />} /><Route path="classes" element={<ByClass />} /><Route path="settings" element={<LibrarySettings />} />
+          <Route path="school-info" element={<SchoolInfoPage base="/api/library" />} /><Route path="helpdesk" element={askCampusio('/api/library/tickets')} />
         </Route>
 
         <Route path="/teacher" element={<Guard roles={['teacher']}><AppShell area="teacher" /></Guard>}>
@@ -149,6 +173,7 @@ export default function App() {
           <Route path="exams" element={<T2.Exams />} /><Route path="exams/:examSubjectId/:sectionId" element={<T2.MarksSheet />} /><Route path="marks" element={<Navigate to="/teacher/exams" replace />} /><Route path="performance" element={<T2.Performance />} />
           <Route path="salary" element={<Salary />} /><Route path="my-attendance" element={<MyAttendance />} /><Route path="communication" element={<Communication />} /><Route path="announcements" element={<AnnouncementsPage base="/api/teacher" />} /><Route path="messages" element={<Communication />} /><Route path="library" element={<LibraryMine base="/api/teacher" />} /><Route path="leave" element={<T2.Leave />} /><Route path="profile" element={<T2.Profile />} />
           <Route path="notifications" element={<NotificationsPage role="teacher" base="/api/teacher" />} />
+          <Route path="guide" element={<Guide role="teacher" />} /><Route path="chats" element={<TeacherChats />} /><Route path="remarks" element={<TeacherRemarks />} /><Route path="swaps" element={<Swaps />} /><Route path="period-attendance" element={<PeriodAttendance />} /><Route path="school-info" element={<SchoolInfoPage base="/api/teacher" />} /><Route path="helpdesk" element={askCampusio('/api/teacher/tickets')} />
         </Route>
 
         <Route path="/student" element={<Guard roles={['student']}><AppShell area="student" /></Guard>}>
@@ -156,6 +181,7 @@ export default function App() {
           <Route path="homework" element={<S1.StudentHomework />} /><Route path="materials" element={<S1.StudentMaterials />} /><Route path="exams" element={<S2.StudentExams />} /><Route path="results" element={<S2.StudentResults />} /><Route path="results/:examId" element={<S2.ResultDetail />} />
           <Route path="performance" element={<S2.StudentPerformance />} /><Route path="calendar" element={<S2.StudentCalendar />} /><Route path="announcements" element={<AnnouncementsPage base="/api/student" />} /><Route path="fees" element={<S2.StudentFees />} /><Route path="library" element={<LibraryMine base="/api/student" />} /><Route path="documents" element={<S2.StudentDocuments />} /><Route path="settings" element={<S2.StudentSettings />} />
           <Route path="notifications" element={<NotificationsPage role="student" base="/api/student" />} />
+          <Route path="guide" element={<Guide role="student" />} /><Route path="chats" element={<StudentChats />} /><Route path="remarks" element={<StudentRemarks />} /><Route path="school-info" element={<SchoolInfoPage base="/api/student" />} /><Route path="helpdesk" element={askCampusio('/api/student/tickets')} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

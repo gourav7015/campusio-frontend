@@ -12,6 +12,7 @@ interface Dash {
   welcome: { name: string; date: string; className: string; section: string; academicYear: string; enrolmentStatus: string };
   cards: { attendance: number | null; pendingHomework: number; completedExams: number; latestAverage: number | null; latestExam?: string };
   overdueHomework?: number;
+  toDo?: { remarksToAcknowledge: number; unreadChats: number };
   timetable: { rows: Period[] };
   attendance: { summary: { workingDays: number; present: number; absent: number; leave: number; late?: number; percentage: number | null } };
   homework: { _id: string; subject: string; title: string; state: string; dueDate: string }[];
@@ -61,6 +62,12 @@ export default function StudentDashboard() {
     <div className="space-y-6">
       <StudentHero name={x.welcome.name} greeting={greeting()} dateLabel={new Date(x.welcome.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
         classLabel={`${x.welcome.className} ${x.welcome.section}`} year={x.welcome.academicYear} status={x.welcome.enrolmentStatus === 'active' ? undefined : label(x.welcome.enrolmentStatus)} />
+      {x.toDo && (x.toDo.remarksToAcknowledge > 0 || x.toDo.unreadChats > 0) && (
+        <div role="status" className="flex flex-wrap gap-3">
+          {x.toDo.remarksToAcknowledge > 0 && <Link to="/student/remarks" className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm font-medium text-warning-ink hover:underline">{x.toDo.remarksToAcknowledge} teacher remark{x.toDo.remarksToAcknowledge === 1 ? '' : 's'} waiting for you to read and acknowledge</Link>}
+          {x.toDo.unreadChats > 0 && <Link to="/student/chats" className="rounded-lg border border-primary/20 bg-primary-soft px-4 py-3 text-sm font-medium text-primary-ink hover:underline">{x.toDo.unreadChats} new message{x.toDo.unreadChats === 1 ? '' : 's'} from a teacher</Link>}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Link to="/student/attendance" className="group flex items-center gap-4 rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

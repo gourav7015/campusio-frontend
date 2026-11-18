@@ -166,12 +166,13 @@ export function LeaveAdmin() {
   const [status, setStatus] = useState('submitted');
   const list = useApi('/api/school/leave', { status });
   const L = useLookups();
-  const [view, setView] = useState(null);
+  const [view, setView] = useState(null); const [editing, setEditing] = useState(null);
   const [run, busy] = useAction();
   return (
     <div className="stack">
       <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={<Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />} />
-      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{l.status}</Badge> }, { label: '', render: (l) => <Button size="sm" onClick={() => setView(l)}>Review</Button> }]} />}</Async></Card>
+      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{l.status}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
+      {editing && <FormModal title={`Edit leave · ${editing.teacherId?.name}`} initial={editing} submitLabel="Save changes" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }, { name: 'editNote', label: 'Note to the teacher (optional)', full: true }]} onClose={() => setEditing(null)} onSubmit={async (v) => { await patch(`/api/school/leave/${editing._id}`, v); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The days are counted again from the working days in the new dates, and the teacher is told what changed.</p></FormModal>}
       {view && <LeaveReview leave={view} L={L} onClose={() => { setView(null); list.reload(); }} run={run} busy={busy} />}
     </div>
   );

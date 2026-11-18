@@ -5,7 +5,7 @@ import { post, put, del, download } from '../../api/client.js';
 import {
   Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, useDebounced, fmtDate, fmtMoney, label, } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
-import { FilterBar, ListCard } from '../../design/ui';
+import { FilterBar, ListCard, ListFooter } from '../../design/ui';
 import { BarsChart } from '../../components/Charts.jsx';
 
 const MODES = [['cash', 'Cash'], ['upi', 'UPI'], ['cheque', 'Cheque'], ['bank_transfer', 'Bank transfer'], ['card', 'Card'], ['other', 'Other']].map(([value, l]) => ({ value, label: l }));
@@ -129,6 +129,18 @@ export function StudentsDues({ readOnly }) {
   );
 }
 
+/** A discount that stays with the student: every tuition month from now on, and every open month already billed. */
+function PersonalDiscount({ x, base, readOnly, onChanged }) {
+  const pd = x.personalDiscount; const [modal, setModal] = useState(false); const [run] = useAction();
+  if (!pd && readOnly) return null;
+  return (
+    <Card title="Personal discount on tuition" action={!readOnly && <div className="row"><Button size="sm" onClick={() => setModal(true)}>{pd ? 'Change' : 'Set a discount'}</Button>{pd && <ConfirmButton size="sm" variant="danger" message="Remove the personal discount? Open months go back to the full fee. Months with a payment are not changed." onConfirm={async () => { await run(() => del(`${base}/students/${x.student.id}/personal-discount`), 'Discount removed'); onChanged(); }}>Remove</ConfirmButton>}</div>}>
+      {pd ? <p style={{ margin: 0 }}><b>{pd.type === 'percent' ? `${pd.value}% off` : `${fmtMoney(pd.value)} off`}</b> every month's tuition — {pd.reason}{pd.setByName ? <span className="muted small"> (set by {pd.setByName})</span> : null}. It continues each month and into new fees billed later.</p> : <p className="muted" style={{ margin: 0 }}>No personal discount. Use one for a sibling, a staff child or a scholarship: it then applies every month.</p>}
+      {modal && <FormModal title="Personal discount on tuition" initial={pd || { type: 'percent' }} fields={[{ name: 'type', label: 'Kind', type: 'select', required: true, options: [{ value: 'percent', label: 'Percent of each month\'s tuition' }, { value: 'per_month', label: 'Fixed rupees off each month' }] }, { name: 'value', label: 'Value', type: 'number', min: 0.01, step: 'any', required: true }, { name: 'reason', label: 'Reason (required)', required: true, full: true }]} onClose={() => setModal(false)} onSubmit={async (v) => { await put(`${base}/students/${x.student.id}/personal-discount`, v); onChanged(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>Applies to every tuition month that has no payment yet, and to every month billed from now on. Months already paid are never changed.</p></FormModal>}
+    </Card>
+  );
+}
+
 export function StudentAccount({ readOnly }) {
   const { base } = ctxOf(readOnly);
   const { id } = useParams();
@@ -142,6 +154,7 @@ export function StudentAccount({ readOnly }) {
         <PageHeader title={x.student.name} subtitle={`${x.student.className || ''} ${x.student.section || ''} · Admission ${x.student.admissionNo} · Guardian ${x.student.guardian || '—'} ${x.student.guardianPhone || ''}${x.student.status !== 'active' ? ` · ${label(x.student.status)}` : ''}`} actions={<><Link className="btn" to={readOnly ? '/admin/fees?tab=students' : '/finance/students'}>← Back</Link>
           {!readOnly && <><Button onClick={() => setModal({ t: 'charge' })}>+ Add charge</Button><Button onClick={() => setModal({ t: 'advance' })} disabled={x.totals.pending <= 0}>Pay full year</Button><Button variant="primary" disabled={x.totals.pending <= 0} onClick={() => setModal({ t: 'pay' })}>Collect payment</Button></>}</>} />
         <div className="grid g4"><Stat value={fmtMoney(x.totals.assigned)} label="Total billed" /><Stat value={fmtMoney(x.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(x.totals.pending)} label="Pending" tone="amber" sub={x.totals.nextDue ? `Next due ${fmtDate(x.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(x.totals.overdue)} label="Overdue" tone={x.totals.overdue ? 'red' : undefined} sub={x.totals.concession ? `Concessions ${fmtMoney(x.totals.concession)}` : undefined} /></div>
+        <PersonalDiscount x={x} base={base} readOnly={readOnly} onChanged={reload} />
         <Card title="Charges" flush><DataTable rows={x.charges} empty="Nothing has been billed to this student yet" columns={[
           { label: 'Charge', render: (c) => <><b>{c.label}</b> {c.kind === 'library_fine' && <Badge tone="amber">Library</Badge>}{c.concessions?.map((k, i) => <div key={i} className="small muted">Concession {fmtMoney(k.amount)} — {k.reason}</div>)}</> }, { label: 'Due', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.amount) }, { label: 'Concession', render: (c) => (c.concession ? fmtMoney(c.concession) : '—') }, { label: 'Paid', render: (c) => fmtMoney(c.paidAmount) },
           { label: 'Outstanding', render: (c) => <b>{fmtMoney(c.outstanding)}</b> }, { label: 'Status', render: (c) => (c.status === 'paid' ? <Badge tone="green">Paid</Badge> : c.overdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="amber">Open</Badge>) },
@@ -197,13 +210,36 @@ export function Payments({ readOnly }) {
       <PageHeader title="Payments & receipts" subtitle="Every receipt ever issued. Receipts are never edited or deleted — mistakes are reversed." actions={<Button onClick={() => run(() => download(`${base}/export/payments.csv`, 'payments.csv', { ...f }))}>Export CSV</Button>} />
       <ListCard>
         <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v })} searchLabel="Search payments" placeholder="Search receipt, reference, student">
-          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={MODES} placeholder="All modes" aria-label="Mode" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
+          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={[...MODES, { value: 'online', label: 'Online' }]} placeholder="All modes" aria-label="Mode" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
         <Async state={list} empty={<Empty title="No payments match" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Student', render: (p) => <>{p.student} <span className="muted small">{p.admissionNo}</span></> },
           { label: 'Amount', render: (p) => <b style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</b> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'Reference', key: 'reference' }, { label: 'By', key: 'receivedByName' },
           { label: 'Status', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red" >Reversed</Badge> : <Badge tone="green">Completed</Badge>) },
           ...(readOnly ? [] : [{ label: '', render: (p) => <div className="row"><Button size="sm" onClick={() => run(() => download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button>{p.kind === 'payment' && p.status === 'completed' && <Button size="sm" variant="danger" onClick={() => setRev(p)}>Reverse</Button>}</div> }])]} />}</Async>
       </ListCard>
       {rev && <FormModal title={`Reverse receipt ${rev.receiptNo}`} submitLabel="Reverse payment" fields={[{ name: 'reason', label: 'Reason (required)', type: 'textarea', required: true }]} onClose={() => setRev(null)} onSubmit={async (v) => { await post(`${base}/payments/${rev._id}/reverse`, v); list.reload(); return true; }} />}
+    </div>
+  );
+}
+
+// ───────────── online payments ─────────────
+const ORDER_TONE = { paid: 'green', created: 'blue', processing: 'blue', failed: 'red', expired: '', needs_review: 'amber' };
+const ORDER_TEXT = { created: 'Waiting for payment', processing: 'Settling', paid: 'Paid', failed: 'Failed', expired: 'Not paid (timed out)', needs_review: 'Needs your attention' };
+export function OnlinePayments({ readOnly }) {
+  const { base } = ctxOf(readOnly);
+  const [status, setStatus] = useState('');
+  const list = useApi(`${base}/online-payments`, { status });
+  return (
+    <div className="stack">
+      <PageHeader title="Online payments" subtitle="Fees paid by students and parents from the portal. Each paid one already has a normal receipt in Payments & receipts." />
+      {list.data?.counts?.needs_review > 0 && <div className="alert">{list.data.counts.needs_review} payment(s) need your attention: the money was received online but could not be matched to the dues (for example, the dues were also paid at the desk). Check the receipts, then refund the extra amount from the payment gateway or adjust the account.</div>}
+      <Card><div className="row"><Field label="Show"><Select value={status} onChange={(e) => setStatus(e.target.value)} options={Object.entries(ORDER_TEXT).map(([value, l]) => ({ value, label: l }))} placeholder="All" aria-label="Status" /></Field></div></Card>
+      <ListCard>
+        <Async state={list} empty={<Empty title="No online payments yet" />}>{(d) => d.orders.length ? <DataTable rows={d.orders} columns={[
+          { label: 'Started', render: (o) => fmtDate(o.createdAt, true) }, { label: 'Student', render: (o) => (o.student ? <>{o.student.name} <span className="muted small">{o.student.admissionNo}</span></> : '—') },
+          { label: 'Amount', render: (o) => <b>{fmtMoney(o.amount)}</b> }, { label: 'Status', render: (o) => <Badge tone={ORDER_TONE[o.status]}>{ORDER_TEXT[o.status] || o.status}</Badge> },
+          { label: 'Receipt', render: (o) => o.receiptNo || '—' }, { label: 'Gateway reference', render: (o) => <span className="small muted">{o.providerPaymentId || '—'}{o.provider === 'mock' ? ' (test)' : ''}</span> },
+          { label: 'Note', render: (o) => <span className="small">{o.note || o.failureReason || ''}</span> }]} /> : <Empty title="No online payments yet" />}</Async>
+      </ListCard>
     </div>
   );
 }
@@ -215,9 +251,6 @@ export function FinanceReports({ readOnly }) {
   const [range, setRange] = useState({ from: '', to: '' });
   const col = useApi(tab === 'collection' ? `${base}/reports/collection` : null, range);
   const classes = useApi(tab === 'classes' ? `${base}/reports/classes` : null);
-  const defaulters = useApi(tab === 'defaulters' ? `${base}/students` : null, { status: 'overdue', limit: 200 });
-  const [run, busy] = useAction();
-  const nav = useNavigate();
   return (
     <div className="stack">
       <PageHeader title="Reports & defaulters" subtitle="Collection, outstanding fees by class, and students who are overdue" />
@@ -226,12 +259,52 @@ export function FinanceReports({ readOnly }) {
         <div className="row wrap"><Input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} aria-label="From" /><Input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} aria-label="To" /><Badge tone="green">Net collected {fmtMoney(c.total)}</Badge><span className="muted small">{fmtDate(c.from, true)} – {fmtDate(c.to, true)}</span></div>
         <div className="grid g-main"><Card title="By day"><BarsChart data={c.byDay} x="date" bars={[{ key: 'amount', name: 'Collected', color: 'rgb(var(--c-success))' }]} /></Card><Card title="By payment mode" flush><DataTable rows={c.byMode} rowKey="mode" columns={[{ label: 'Mode', render: (m) => label(m.mode) }, { label: 'Receipts', key: 'count' }, { label: 'Amount', render: (m) => fmtMoney(m.amount) }]} /></Card></div></>)}</Async>}
       {tab === 'classes' && <Card flush><Async state={classes} empty={<Empty title="Nothing billed yet" />}>{(rows) => <DataTable rows={rows} rowKey="className" columns={[{ label: 'Class', render: (r) => <b>{r.className}</b> }, { label: 'Students', key: 'students' }, { label: 'Billed', render: (r) => fmtMoney(r.billed) }, { label: 'Collected', render: (r) => fmtMoney(r.collected) }, { label: 'Pending', render: (r) => fmtMoney(r.pending) }, { label: 'Overdue', render: (r) => (r.overdue ? <Badge tone="red">{fmtMoney(r.overdue)}</Badge> : '—') }]} />}</Async></Card>}
-      {tab === 'defaulters' && (<>
-        <div className="row wrap">{!readOnly && <ConfirmButton variant="primary" message="Send a fee reminder notification to every student with overdue fees? (Once per day per student.)" onConfirm={async () => { await run(() => post(`${base}/reminders`, {}), (r) => `${r.sent} reminder(s) sent (${r.matched} overdue)`); }}>Send reminders to all</ConfirmButton>}
-          <Button loading={busy} onClick={() => run(() => download(`${base}/export/dues.csv`, 'dues.csv', { status: 'overdue' }))}>Export CSV</Button></div>
-        <Card flush><Async state={defaulters} empty={<Empty title="No overdue fees" />}>{(d) => <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[{ label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => `${s.className} ${s.section}` }, { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> }, { label: 'Overdue', render: (s) => <Badge tone="red">{fmtMoney(s.overdue)}</Badge> }, { label: 'Pending', render: (s) => fmtMoney(s.pending) }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />}</Async></Card></>)}
+      {tab === 'defaulters' && <Defaulters base={base} path={path} readOnly={readOnly} />}
     </div>
   );
+}
+
+const DEF_PAGE = 50;
+const defCols = (path) => [
+  { label: 'Student', render: (s) => <Link to={`${path}/students/${s.studentId}`} onClick={(e) => e.stopPropagation()}><b>{s.name}</b></Link> }, { label: 'Class', render: (s) => `${s.className} ${s.section}` },
+  { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> }, { label: 'Overdue', render: (s) => <Badge tone="red">{fmtMoney(s.overdue)}</Badge> },
+  { label: 'Days overdue', render: (s) => (s.daysOverdue ? `${s.daysOverdue}d` : '—') }, { label: 'Pending', render: (s) => fmtMoney(s.pending) },
+];
+
+/** Students with overdue fees: one list (any class), or class by class. The School Admin sees both, read-only. */
+function Defaulters({ base, path, readOnly }) {
+  const nav = useNavigate();
+  const [view, setView] = useState('list');
+  const [classId, setClassId] = useState('');
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(null); // the class whose students are expanded
+  const [openPage, setOpenPage] = useState(1);
+  const [run, busy] = useAction();
+  const lookups = useApi(`${base}/lookups`);
+  const list = useApi(view === 'list' ? `${base}/students` : null, { status: 'overdue', limit: DEF_PAGE, page, ...(classId ? { classId } : {}) });
+  const byClass = useApi(view === 'class' ? `${base}/reports/defaulters-by-class` : null);
+  const inClass = useApi(view === 'class' && open ? `${base}/students` : null, { status: 'overdue', limit: DEF_PAGE, page: openPage, classId: open || undefined });
+  const pick = (v) => { setView(v); setOpen(null); };
+  return (<>
+    <div className="row wrap">
+      <Tabs tabs={[['list', 'All defaulters'], ['class', 'Group by class']]} value={view} onChange={pick} />
+      {view === 'list' && <Select aria-label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setPage(1); }} placeholder="All classes" options={(lookups.data?.classes || []).map((c) => ({ value: c._id, label: c.name }))} />}
+      {!readOnly && <ConfirmButton variant="primary" message="Send a fee reminder notification to every student with overdue fees? (Once per day per student.)" onConfirm={async () => { await run(() => post(`${base}/reminders`, {}), (r) => `${r.sent} reminder(s) sent (${r.matched} overdue)`); }}>Send reminders to all</ConfirmButton>}
+      <Button loading={busy} onClick={() => run(() => (view === 'list' ? download(`${base}/export/dues.csv`, 'defaulters.csv', { status: 'overdue', ...(classId ? { classId } : {}) }) : download(`${base}/export/defaulters-by-class.csv`, 'defaulters-by-class.csv')))}>{view === 'list' ? 'Export CSV' : 'Export by class'}</Button>
+    </div>
+    {view === 'list' && <ListCard><Async state={list} empty={<Empty title="No overdue fees" />}>{(d) => (<>
+      <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[...defCols(path), { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />
+      <ListFooter total={d.total} noun="defaulter" page={page} pageSize={DEF_PAGE} onPage={setPage} /></>)}</Async></ListCard>}
+    {view === 'class' && <Card flush><Async state={byClass} empty={<Empty title="Nothing billed yet" />}>{(d) => (<>
+      <DataTable rows={d.items} rowKey="classId" onRowClick={(c) => { setOpen(open === c.classId ? null : c.classId); setOpenPage(1); }} columns={[
+        { label: 'Class', render: (c) => <><b>{c.className}</b> <span className="muted small">{open === c.classId ? '▾' : '▸'}</span></> }, { label: 'Billed students', key: 'studentsBilled' },
+        { label: 'Defaulters', render: (c) => (c.defaulters ? <Badge tone="red">{c.defaulters}</Badge> : 0) }, { label: '% defaulting', render: (c) => `${c.percentDefaulting}%` }, { label: 'Overdue', render: (c) => (c.overdueAmount ? fmtMoney(c.overdueAmount) : '—') },
+        { label: 'Sections', render: (c) => c.sections.filter((x) => x.defaulters).map((x) => `${x.name}: ${x.defaulters}`).join(' · ') || '—' }]} />
+      <div className="card-b muted small">{d.totals.defaulters} defaulter(s) of {d.totals.studentsBilled} billed students · {fmtMoney(d.totals.overdueAmount)} overdue. Click a class to see its students.</div></>)}</Async></Card>}
+    {view === 'class' && open && <Card title={`Defaulters in ${byClass.data?.items.find((c) => c.classId === open)?.className || 'this class'}`} flush><Async state={inClass} empty={<Empty title="No defaulters in this class" />}>{(d) => (<>
+      <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={defCols(path)} empty="No defaulters in this class" />
+      <ListFooter total={d.total} noun="defaulter" page={openPage} pageSize={DEF_PAGE} onPage={setOpenPage} /></>)}</Async></Card>}
+  </>);
 }
 
 // ───────────── the school's fee policy ─────────────

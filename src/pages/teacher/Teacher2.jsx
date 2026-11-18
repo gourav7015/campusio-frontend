@@ -9,6 +9,7 @@ import FormModal from '../../components/FormModal.jsx';
 import { parseCsv } from '../../lib.js';
 import { useDialogs } from '../../design/ui';
 import { safeHref } from '../../design/lib/url';
+import { Avatar, PhotoUpload } from '../../components/FileImage.jsx';
 
 const T = '/api/teacher';
 const today = () => new Date().toLocaleDateString('en-CA');
@@ -39,7 +40,6 @@ export function Homework() {
     { name: 'type', label: 'Assignment type', type: 'select', options: types, default: 'written', required: true }, { name: 'assignedDate', label: 'Assigned date', type: 'date', default: today() }, { name: 'dueDate', label: 'Due date', type: 'date', required: true },
     { name: 'maxMarks', label: 'Maximum marks (optional)', type: 'number', min: 1 }, { name: 'description', label: 'Description', type: 'textarea' }, { name: 'instructions', label: 'Instructions', type: 'textarea' },
     ...(edit ? [] : [{ name: 'status', label: 'Visibility', type: 'select', options: [{ value: 'draft', label: 'Draft (only you)' }, { value: 'published', label: 'Publish now' }, { value: 'scheduled', label: 'Schedule' }], default: 'draft', required: true }, { name: 'publishAt', label: 'Publish at (for scheduled)', type: 'datetime-local' }]),
-    { name: 'submissionRequired', label: 'Online submission required', type: 'checkbox', hint: 'Online submission arrives in a later release' },
   ];
   return (
     <div className="stack">
@@ -263,15 +263,28 @@ export function Performance() {
   const analytics = useApi(tab === 'analytics' ? `${T}/performance` : null);
   const nav = useNavigate();
   const mine = classes.data?.find((c) => c.sectionId === sid);
+  const [sort, setSort] = useState({ by: 'roll', dir: 'asc' }); const [show, setShow] = useState('all');
+  /** Like sorting a spreadsheet: roll number, name, average, or any one exam's marks; ascending or descending; and a quick filter. */
+  const arrange = (students) => {
+    const pick = (st) => (sort.by === 'roll' ? st.rollNo : sort.by === 'name' ? String(st.name).toLowerCase() : sort.by === 'average' ? st.average : st.scores[sort.by]?.percentage);
+    const kept = students.filter((st) => (show === 'all' ? true : show === 'support' ? st.average != null && st.average < 40 : show === 'top' ? st.average != null && st.average >= 75 : show === 'failed' ? Object.values(st.scores).some((c) => c?.result === 'fail') : true));
+    return [...kept].sort((a, b) => { const x = pick(a); const y = pick(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; const c = typeof x === 'string' ? x.localeCompare(y) : x - y; return sort.dir === 'asc' ? c : -c; });
+  };
   return (
     <div className="stack">
       <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />
       <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts & insights']]} value={tab} onChange={setTab} />
       {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
         <Card title={`${mine?.className || ''} ${mine?.section || ''} — ${m.scope === 'overall' ? 'overall results (you are the class teacher)' : 'your subject only'}`} flush>
+          <div className="card-b row wrap">
+            <Select aria-label="Sort by" value={sort.by} onChange={(e) => setSort({ ...sort, by: e.target.value })} options={[{ value: 'roll', label: 'Sort: roll number' }, { value: 'name', label: 'Sort: name (A–Z)' }, { value: 'average', label: 'Sort: average marks' }, ...m.exams.map((e) => ({ value: e.id, label: `Sort: ${e.name}` }))]} />
+            <Select aria-label="Order" value={sort.dir} onChange={(e) => setSort({ ...sort, dir: e.target.value })} options={[{ value: 'asc', label: 'Ascending (low to high, A to Z)' }, { value: 'desc', label: 'Descending (high to low, Z to A)' }]} />
+            <Select aria-label="Show" value={show} onChange={(e) => setShow(e.target.value)} options={[{ value: 'all', label: 'Show: every student' }, { value: 'top', label: 'Show: 75% and above' }, { value: 'support', label: 'Show: below 40% (needs support)' }, { value: 'failed', label: 'Show: failed in any exam' }]} />
+            <span className="muted small">{arrange(m.students).length} of {m.students.length} students</span>
+          </div>
           <div className="table-wrap"><table>
             <thead><tr><th>Roll</th><th>Student</th>{m.exams.map((e) => <th key={e.id}>{e.name}<div className="small muted" style={{ textTransform: 'none', fontWeight: 400 }}>{label(e.type)}{e.date ? ` · ${fmtDate(e.date)}` : ''}</div></th>)}<th>Average</th></tr></thead>
-            <tbody>{m.students.map((s) => (
+            <tbody>{arrange(m.students).map((s) => (
               <tr key={s.studentId} className="clickable" onClick={() => nav(`/teacher/students/${s.studentId}`)}><td>{String(s.rollNo).padStart(2, '0')}</td><td><b>{s.name}</b> {!s.active && <Badge>left section</Badge>}</td>
                 {m.exams.map((e) => { const c = s.scores[e.id]; return <td key={e.id}>{c ? <><b>{c.percentage != null ? `${c.percentage}%` : '—'}</b> <span className="muted small">{c.grade || ''}</span><div className="small" style={{ color: c.result === 'fail' ? 'var(--red)' : 'var(--muted)' }}>{c.obtained}/{c.max}</div></> : <span className="muted">—</span>}</td>; })}
                 <td><b>{s.average != null ? `${s.average}%` : '—'}</b></td></tr>))}</tbody></table></div>
@@ -308,14 +321,12 @@ export function Leave() {
 // ───────────── Profile ─────────────
 export function Profile() {
   const p = useApi(`${T}/profile`);
-  const [edit, setEdit] = useState(false);
   return (
     <Async state={p}>{(t) => (
       <div className="stack" style={{ maxWidth: 800 }}>
-        <PageHeader title="My profile" actions={<Button onClick={() => setEdit(true)}>Edit contact details</Button>} />
-        <Card><dl className="kv"><dt>Name</dt><dd>{t.name}</dd><dt>Employee id</dt><dd>{t.employeeId}</dd><dt>School</dt><dd>{t.school}</dd><dt>Designation</dt><dd>{t.designation || '—'}</dd><dt>Qualification</dt><dd>{t.qualification || '—'}</dd><dt>Subjects</dt><dd>{t.subjects.map((s) => s.name).join(', ') || '—'}</dd><dt>Email</dt><dd>{t.email || '—'}</dd><dt>Phone</dt><dd>{t.phone || '—'}</dd><dt>Address</dt><dd>{t.address || '—'}</dd><dt>Login id</dt><dd>{t.account?.loginId}</dd></dl>
-          <p className="small muted" style={{ marginTop: 10 }}>Name, employee id and designation are managed by the school administrator.</p></Card>
-        {edit && <FormModal title="Edit contact details" initial={t} fields={[{ name: 'phone', label: 'Phone' }, { name: 'address', label: 'Address', type: 'textarea' }]} onClose={() => setEdit(false)} onSubmit={async (v) => { await patch(`${T}/profile`, v); p.reload(); return true; }} />}
+        <PageHeader title="My profile" actions={<PhotoUpload path={`${T}/profile/photo`} upload={upload} label={t.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} />} />
+        <Card><div className="row" style={{ marginBottom: 14 }}><Avatar fileId={t.photoFileId} name={t.name} size={84} /><div className="small muted">A passport-size or any clear photo. The school office can also add it for you.</div></div><dl className="kv"><dt>Name</dt><dd>{t.name}</dd><dt>Employee id</dt><dd>{t.employeeId}</dd><dt>School</dt><dd>{t.school}</dd><dt>Designation</dt><dd>{t.designation || '—'}</dd><dt>Qualification</dt><dd>{t.qualification || '—'}</dd><dt>Subjects</dt><dd>{t.subjects.map((s) => s.name).join(', ') || '—'}</dd><dt>Email</dt><dd>{t.email || '—'}</dd><dt>Phone</dt><dd>{t.phone || '—'}</dd><dt>Address</dt><dd>{t.address || '—'}</dd><dt>Login id</dt><dd>{t.account?.loginId}</dd></dl>
+          <p className="small muted" style={{ marginTop: 10 }}>Your details (name, id, designation, phone, address) are kept by the school office. If something is wrong, ask the school administrator to change it.</p></Card>
       </div>)}</Async>
   );
 }

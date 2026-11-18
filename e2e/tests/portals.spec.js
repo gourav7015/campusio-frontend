@@ -7,7 +7,8 @@ test.describe('every page of every portal renders against real data', () => {
   test('landing page offers one sign-in card per role; each role has its own URL', async ({ page }) => {
     await page.goto('/');
     await page.screenshot({ path: `${process.env.SHOTS_DIR || './shots'}/landing.png` });
-    for (const t of ['Login as Student', 'Login as Teacher', 'Login as Finance', 'Login as Library', 'Login as Transport', 'Login as Staff', 'Login as School Admin']) await expect(page.getByRole('heading', { name: t })).toBeVisible();
+    for (const t of ['Login as Student & Parent', 'Login as Teacher', 'Login as Finance', 'Login as Library', 'Login as Transport', 'Login as School Admin']) await expect(page.getByRole('heading', { name: t })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Login as Staff' })).toHaveCount(0); // non-teaching staff are managed by the school office; they have no card
     await expect(page.getByRole('link', { name: 'Platform administrator' })).toBeVisible();
     await page.getByRole('heading', { name: 'Login as Teacher' }).click();
     await expect(page).toHaveURL(/\/teacher\/login$/);

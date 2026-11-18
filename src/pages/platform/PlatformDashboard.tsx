@@ -3,20 +3,19 @@ import { Building2, CalendarClock, TimerOff } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useGet } from '../../api/query';
 import { AttentionList, LinkCard, ShareList } from '../../design/patterns';
-import { Badge, Button, DataTable, ErrorState, PageHeader, PageSkeleton, Progress, StatCard, type BadgeTone } from '../../design/ui';
+import { Badge, Button, DataTable, ErrorState, PageHeader, PageSkeleton, StatCard, type BadgeTone } from '../../design/ui';
 
 interface Stats { schools: number; activeSchools: number; students: number; teachers: number; schoolAdmins: number; subscriptions: { trial: number; active: number; expired: number; expiringSoon: number } }
-interface School { _id: string; name: string; code: string; status: string; studentCount: number; teacherCount: number; subscription?: { plan: string; status: string; studentLimit: number; teacherLimit: number; expiresOn?: string } | null }
+interface School { _id: string; name: string; code: string; status: string; studentCount: number; teacherCount: number; subscription?: { plan: string; status: string; expiresOn?: string } | null }
 
 const tone = (s?: string): BadgeTone => (s === 'active' ? 'success' : s === 'trial' ? 'warning' : s === 'expired' || s === 'cancelled' || s === 'suspended' || s === 'archived' ? 'danger' : 'neutral');
-const usage = (n: number, limit?: number) => (
-  <div className="min-w-28"><div className="mb-1 flex justify-between text-xs tabular-nums"><span>{n.toLocaleString('en-IN')}</span><span className="text-muted-foreground">of {limit?.toLocaleString('en-IN') ?? '—'}</span></div><Progress value={limit ? (n / limit) * 100 : 0} label="Plan usage" className="h-1.5" /></div>
-);
+const count = (n: number) => <span className="tabular-nums">{n.toLocaleString('en-IN')}</span>;
+
 
 const columns: ColumnDef<School>[] = [
   { id: 'name', header: 'School', accessorFn: (s) => s.name, cell: (c) => <div><p className="font-medium">{c.row.original.name}</p><p className="text-xs text-muted-foreground">{c.row.original.code}</p></div> },
-  { id: 'students', header: 'Students', accessorFn: (s) => s.studentCount, cell: (c) => usage(c.row.original.studentCount, c.row.original.subscription?.studentLimit), meta: { hideBelow: 'sm' } },
-  { id: 'teachers', header: 'Teachers', accessorFn: (s) => s.teacherCount, cell: (c) => usage(c.row.original.teacherCount, c.row.original.subscription?.teacherLimit), meta: { hideBelow: 'md' } },
+  { id: 'students', header: 'Students', accessorFn: (s) => s.studentCount, cell: (c) => count(c.row.original.studentCount), meta: { hideBelow: 'sm' } },
+  { id: 'teachers', header: 'Teachers', accessorFn: (s) => s.teacherCount, cell: (c) => count(c.row.original.teacherCount), meta: { hideBelow: 'md' } },
   { id: 'plan', header: 'Plan', accessorFn: (s) => s.subscription?.plan ?? '', cell: (c) => <Badge tone={tone(c.row.original.subscription?.status)} dot>{c.row.original.subscription?.plan ?? 'none'} · {c.row.original.subscription?.status ?? '—'}</Badge>, meta: { hideBelow: 'md' } },
   { id: 'status', header: 'Status', accessorFn: (s) => s.status, cell: (c) => <Badge tone={tone(c.row.original.status)}>{c.row.original.status}</Badge> },
 ];

@@ -47,9 +47,15 @@ async function parseError(res) {
   return new ApiError((body.error || `Request failed (${res.status})`) + (body.code === 'VALIDATION' ? detail : ''), res.status, body.code, body.details);
 }
 
+const UNREACHABLE = 'Cannot reach the server. Check your internet connection and try again.';
+/** fetch, but a dropped connection becomes the same friendly error as a dead gateway, so every screen can show one error page for it. */
+async function send(url, init) {
+  try { return await fetch(url, init); } catch { throw new ApiError(UNREACHABLE, 0, 'UNREACHABLE'); }
+}
+
 export async function api(path, { method = 'GET', body, query, form } = {}) {
   const isForm = form instanceof FormData;
-  const res = await fetch(`${BASE}${path}${qs(query)}`, {
+  const res = await send(`${BASE}${path}${qs(query)}`, {
     method,
     headers: headers(isForm || body === undefined ? {} : { 'Content-Type': 'application/json' }),
     body: isForm ? form : body === undefined ? undefined : JSON.stringify(body),
@@ -67,7 +73,7 @@ export const upload = (p, form, method = 'POST') => api(p, { method, form });
 
 /** Authenticated download (CSV / PDF): fetch as a blob, then save. */
 export async function download(path, filename, query) {
-  const res = await fetch(`${BASE}${path}${qs(query)}`, { headers: headers() });
+  const res = await send(`${BASE}${path}${qs(query)}`, { headers: headers() });
   if (!res.ok) throw await parseError(res);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -77,7 +83,7 @@ export async function download(path, filename, query) {
 }
 
 /** Files are never public: ask for a short-lived signed link, then open it. */
-export async function openFile(fileId) {
-  const { url } = await post(`/api/shared/files/${fileId}/link`);
+export async function openFile(fileId, linkPath) {
+  const { url } = await post(linkPath || `/api/shared/files/${fileId}/link`); // linkPath: a page that checks access its own way (a help desk ticket)
   window.open(`${BASE}${url}`, '_blank', 'noopener');
 }

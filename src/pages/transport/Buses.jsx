@@ -22,8 +22,7 @@ export default function Buses({ base, readOnly = false }) {
         const riders = rows.reduce((n, b) => n + b.students, 0); const seats = rows.filter((b) => b.status === 'active').reduce((n, b) => n + b.capacity, 0);
         const alerts = rows.flatMap((b) => b.alerts.map((a) => ({ bus: b.busNo, ...a })));
         return (<>
-          <div className="grid g4"><Stat value={rows.length} label="Buses" sub={`${rows.filter((b) => b.status === 'active').length} running`} /><Stat value={riders} label="Students ride" sub={`${seats - riders} seats free`} tone="blue" /><Stat value={rows.filter((b) => b.status === 'maintenance').length} label="In maintenance" tone="amber" /><Stat value={alerts.length} label="Certificates to renew" sub="expired or within 30 days" tone={alerts.length ? 'red' : 'green'} /></div>
-          {alerts.length > 0 && <div className="alert">{alerts.map((a) => `Bus ${a.bus}: ${a.field} ${a.expired ? 'expired' : 'expires'} ${fmtDate(a.date, true)}`).join(' · ')}</div>}
+          <div className="grid g3"><Stat value={rows.length} label="Buses" sub={`${rows.filter((b) => b.status === 'active').length} running`} /><Stat value={riders} label="Students ride" sub={`${seats - riders} seats free`} tone="blue" /><Stat value={alerts.length} label="Certificates to renew" sub="expired or within 30 days" tone={alerts.length ? 'red' : 'green'} /></div>
           <Card flush><DataTable rows={rows} onRowClick={(b) => setView(b._id)} columns={[
             { label: 'Bus', render: (b) => <><b>{b.busNo}</b> <Badge tone={tone(b.status)}>{label(b.status)}</Badge><div className="small muted">{b.registrationNo} {b.vehicleModel ? `· ${b.vehicleModel}` : ''}</div></> },
             { label: 'Route', render: (b) => <>{b.routeName || '—'}<div className="small muted">{b.stops.length} stops{b.startTime ? ` · starts ${b.startTime}` : ''}</div></> },

@@ -1,6 +1,4 @@
-import { Link } from 'react-router-dom';
-import { Compass } from 'lucide-react';
-import { Button, EmptyState } from '../design/ui';
+import { ErrorScreen } from '../design/ErrorScreen';
 import { useSession } from '../types/auth';
 import { homeFor } from './Login.jsx';
 import { PublicPage } from './PublicPage';
@@ -11,8 +9,7 @@ export default function NotFound() {
   const home = session?.user ? homeFor(session.user.role) : '/';
   return (
     <PublicPage title="Page not found">
-      <EmptyState icon={Compass} title="This page does not exist" description="The address may be mistyped, or the page may have moved." className="py-24"
-        action={<Button variant="primary" asChild><Link to={home}>{session?.user ? 'Back to your dashboard' : 'Go to the home page'}</Link></Button>} />
+      <ErrorScreen kind="notfound" inline homeHref={home} homeLabel={session?.user ? 'Back to your dashboard' : 'Go to the home page'} />
     </PublicPage>
   );
 }

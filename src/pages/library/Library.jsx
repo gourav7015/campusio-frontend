@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
-import { post, patch, put } from '../../api/client.js';
+import { post, patch, put, del } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Select, Tabs, useAction, useDebounced, fmtDate, fmtMoney, label, statusTone } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import BookGrid from '../../components/BookGrid';
@@ -19,7 +19,7 @@ export function Desk() {
   const [mode, setMode] = useState('issue');
   return (
     <div className="stack">
-      <PageHeader title="Issue & return desk" subtitle="Scan or type the accession number printed on the book" />
+      <PageHeader title="Issue and Return" subtitle="Scan or type the accession number printed on the book" />
       <Tabs tabs={[['issue', 'Issue a book'], ['return', 'Return a book']]} value={mode} onChange={setMode} />
       {mode === 'issue' ? <IssueDesk /> : <ReturnDesk />}
     </div>
@@ -126,10 +126,16 @@ export function BookDetail({ readOnly }) {
   const b = useApi(`${base}/books/${id}`);
   const [modal, setModal] = useState(null);
   const [run] = useAction();
+  const nav = useNavigate();
   return (
     <Async state={b}>{(x) => (
       <div className="stack">
-        <PageHeader title={x.title} subtitle={[x.author, x.category, x.isbn && `ISBN ${x.isbn}`, x.shelf && `Shelf ${x.shelf}`].filter(Boolean).join(' · ')} actions={<><Link className="btn" to={readOnly ? '/admin/library?tab=books' : '/library/books'}>← Catalogue</Link>{!readOnly && <><Button onClick={() => setModal('edit')}>Edit</Button><Button variant="primary" onClick={() => setModal('copies')}>+ Add copies</Button></>}</>} />
+        <PageHeader title={x.title} subtitle={[x.author, x.category, x.isbn && `ISBN ${x.isbn}`, x.shelf && `Shelf ${x.shelf}`].filter(Boolean).join(' · ')} actions={<><Link className="btn" to={readOnly ? '/admin/library?tab=books' : '/library/books'}>← Catalogue</Link>{!readOnly && <><Button onClick={() => setModal('edit')}>Edit</Button><Button variant="primary" onClick={() => setModal('copies')}>+ Add copies</Button><Button variant="danger" onClick={async () => {
+          const used = x.history.length > 0; const n = x.copies.filter((c) => c.status !== 'withdrawn').length;
+          if (!(await dlg.confirm(used ? `Remove "${x.title}"? It has been lent before, so it will be archived: its ${n} cop${n === 1 ? 'y' : 'ies'} are withdrawn and the lending history stays.` : `Permanently delete "${x.title}" and its ${n} cop${n === 1 ? 'y' : 'ies'}? It has never been lent.`, { danger: true, confirmLabel: used ? 'Archive book' : 'Delete book', title: 'Delete book' }))) return;
+          const ok = await run(() => del(`${base}/books/${id}`), (r) => (r.mode === 'deleted' ? 'Book deleted' : 'Book archived. Lending history kept'));
+          if (ok) nav('/library/books');
+        }}>Delete book</Button></>}</>} />
         <Card title={`Copies (${x.copies.length})`} flush><DataTable rows={x.copies} empty="No copies" columns={[{ label: 'Accession no', render: (c) => <b>{c.accessionNo}</b> }, { label: 'Status', render: (c) => <Badge tone={statusTone(c.status)}>{label(c.status)}</Badge> }, { label: 'Borrowed by', render: (c) => (c.loan ? `${c.loan.borrower} · due ${fmtDate(c.loan.dueDate)}` : '—') }, { label: 'Notes', key: 'notes' },
           ...(readOnly ? [] : [{ label: '', render: (c) => c.status !== 'issued' && <select aria-label={`Status of ${c.accessionNo}`} value={c.status} style={{ width: 130 }} onChange={async (e) => { const status = e.target.value; const notes = status === 'available' ? undefined : await dlg.prompt('Note (optional)', { required: true }) || undefined; await run(() => patch(`${base}/copies/${c._id}`, { status, notes }), 'Updated'); b.reload(); }}>{['available', 'damaged', 'lost', 'withdrawn'].map((s) => <option key={s} value={s}>{label(s)}</option>)}</select> }])]} /></Card>
         <Card title="Borrowing history" flush><DataTable rows={x.history} rowKey="_id" empty="Never borrowed" columns={[{ label: 'Borrower', key: 'borrower' }, { label: 'Issued', render: (h) => fmtDate(h.issuedOn, true) }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Returned', render: (h) => fmtDate(h.returnedOn) }, { label: 'Status', render: (h) => <Badge tone={loanTone(h.status)}>{label(h.status)}</Badge> }, { label: 'Fine', render: (h) => (h.fineAmount ? `${fmtMoney(h.fineAmount)}${h.fineWaived ? ' (waived)' : ''}` : '—') }]} /></Card>
@@ -146,13 +152,15 @@ export function Loans({ readOnly }) {
   const dq = useDebounced(f.q);
   const list = useApi(`${base}/loans`, { ...f, q: dq });
   const [run] = useAction();
+  const open = f.status === 'issued' || f.status === 'overdue'; // nothing has been returned yet, so no "Returned" column
   return (
     <div className="stack">
-      <PageHeader title="Loans & overdue" subtitle="Who has which book, and who is late" actions={!readOnly && <ConfirmButton variant="primary" message="Send an overdue reminder to every borrower with a late book? (Once a day each.)" onConfirm={async () => { await run(() => post(`${base}/reminders`, {}), (r) => `${r.sent} reminder(s) sent`); }}>Remind all overdue</ConfirmButton>} />
+      <PageHeader title="Loans and Overdue" subtitle="Who has which book, and who is late" actions={!readOnly && <ConfirmButton variant="primary" message="Send an overdue reminder to every borrower with a late book? (Once a day each.)" onConfirm={async () => { await run(() => post(`${base}/reminders`, {}), (r) => `${r.sent} reminder(s) sent`); }}>Remind all overdue</ConfirmButton>} />
       <ListCard>
-        <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v, page: 1 })} searchLabel="Search loans" placeholder="Search book, borrower, accession no">
+        <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v, page: 1 })} searchLabel="Search loans" placeholder="Search book, borrower, class, accession no">
           <Select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value, page: 1 })} options={[['issued', 'On loan'], ['overdue', 'Overdue'], ['returned', 'Returned'], ['lost', 'Lost'], ['all', 'All']].map(([value, l]) => ({ value, label: l }))} aria-label="Status" /></FilterBar>
-        <Async state={list} empty={<Empty title="No loans match" />}>{(d) => <DataTable rows={d.items} columns={[{ label: 'Accession', key: 'accessionNo' }, { label: 'Book', render: (l) => <b>{l.book}</b> }, { label: 'Borrower', render: (l) => <>{l.borrower} <Badge>{l.borrowerType}</Badge></> }, { label: 'Issued', render: (l) => fmtDate(l.issuedOn) }, { label: 'Due', render: (l) => <>{fmtDate(l.dueDate)} {l.overdue && <Badge tone="red">{l.daysLate}d late</Badge>}</> }, { label: 'Returned', render: (l) => fmtDate(l.returnedOn) },
+        <Async state={list} empty={<Empty title="No loans match" />}>{(d) => <DataTable rows={d.items} columns={[{ label: 'Accession', key: 'accessionNo' }, { label: 'Book', render: (l) => <b>{l.book}</b> }, { label: 'Borrower', render: (l) => <>{l.borrower} <Badge>{l.borrowerType}</Badge></> }, { label: 'Issued', render: (l) => fmtDate(l.issuedOn) }, { label: 'Due', render: (l) => <>{fmtDate(l.dueDate)} {l.overdue && <Badge tone="red">{l.daysLate}d late</Badge>}</> }, { label: 'Class', render: (l) => (l.borrowerType === 'teacher' ? 'Teacher' : l.classLabel || '—') },
+          ...(open ? [] : [{ label: 'Returned', render: (l) => fmtDate(l.returnedOn) }]),
           { label: 'Fine', render: (l) => (l.fineSoFar ? <>{fmtMoney(l.fineSoFar)}{l.fineWaived && <Badge>waived</Badge>}</> : '—') }, { label: 'Status', render: (l) => <Badge tone={loanTone(l.status)}>{label(l.status)}</Badge> },
           ...(readOnly ? [] : [{ label: '', render: (l) => l.status === 'issued' && !l.overdue && <Button size="sm" onClick={async () => { await run(() => post(`${base}/loans/${l._id}/renew`), 'Renewed'); list.reload(); }}>Renew{l.renewals ? ` (${l.renewals})` : ''}</Button> }])]} />}</Async>
       </ListCard>

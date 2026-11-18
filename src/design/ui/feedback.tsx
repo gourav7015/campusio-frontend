@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { AlertTriangle, Inbox, RotateCw, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Button } from './button';
+import { ErrorScreen, isConnectionProblem } from '../ErrorScreen';
 
 export const Skeleton = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => <div className={cn('animate-pulse rounded-md bg-muted motion-reduce:animate-none', className)} aria-hidden {...p} />;
 
@@ -28,7 +29,9 @@ export function EmptyState({ icon: Icon = Inbox, title, description, action, cla
 }
 
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
-  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong';
+  if (isConnectionProblem(error)) return <ErrorScreen inline error={error} onRetry={onRetry} />;
+  const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong';
+  const message = /Failed to fetch|NetworkError|Load failed/i.test(raw) ? 'We cannot reach the server. Check your internet connection and try again.' : raw;
   return (
     <div role="alert" className={cn('flex flex-col items-center px-6 py-10 text-center', className)}>
       <div className="mb-4 grid size-11 place-items-center rounded-xl bg-danger-soft text-danger-ink"><AlertTriangle className="size-5" aria-hidden /></div>

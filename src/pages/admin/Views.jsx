@@ -4,6 +4,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { post, patch } from '../../api/client.js';
 import { Async, Badge, Button, Card, CredentialsModal, DataTable, Empty, PageHeader, Tabs, useAction, fmtDateTime, statusTone, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import { Expenses, Budgets } from '../finance/FinanceMore.jsx';
 import { FinanceDashboard, FeeStructures, FeePolicy, StudentsDues, Payments, FinanceReports } from '../finance/Finance.jsx';
 import { LibraryDashboard, Books, Loans } from '../library/Library.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
@@ -19,8 +20,8 @@ export function AdminFees() {
   const tab = sp.get('tab') || 'overview';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students & dues'], ['payments', 'Payments'], ['reports', 'Reports']]} value={tab} onChange={(t) => setSp({ tab: t })} />
-      {tab === 'overview' && <FinanceDashboard readOnly />}{tab === 'structures' && <FeeStructures readOnly />}{tab === 'policy' && <FeePolicy readOnly />}{tab === 'students' && <StudentsDues readOnly />}{tab === 'payments' && <Payments readOnly />}{tab === 'reports' && <FinanceReports readOnly />}
+      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students & dues'], ['payments', 'Payments'], ['reports', 'Reports'], ['expenses', 'Expenditure'], ['budgets', 'Budgets']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      {tab === 'overview' && <FinanceDashboard readOnly />}{tab === 'structures' && <FeeStructures readOnly />}{tab === 'policy' && <FeePolicy readOnly />}{tab === 'students' && <StudentsDues readOnly />}{tab === 'payments' && <Payments readOnly />}{tab === 'expenses' && <Expenses readOnly />}{tab === 'budgets' && <Budgets readOnly />}{tab === 'reports' && <FinanceReports readOnly />}
     </div>
   );
 }
@@ -30,7 +31,7 @@ export function AdminLibrary() {
   const tab = sp.get('tab') || 'overview';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['books', 'Catalogue'], ['loans', 'Loans & overdue'], ['classes', 'By class']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      <Tabs tabs={[['overview', 'Overview'], ['books', 'Catalogue'], ['loans', 'Loans and Overdue'], ['classes', 'By class']]} value={tab} onChange={(t) => setSp({ tab: t })} />
       {tab === 'overview' && <LibraryDashboard readOnly />}{tab === 'books' && <Books readOnly />}{tab === 'loans' && <Loans readOnly />}{tab === 'classes' && <ClassBorrowers base="/api/school/library" />}
     </div>
   );

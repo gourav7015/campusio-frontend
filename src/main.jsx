@@ -9,12 +9,15 @@ import '@fontsource/noto-sans-devanagari/devanagari-500.css';
 import { AuthProvider } from './auth/AuthContext.jsx';
 import { queryClient } from './api/query';
 import App from './App.jsx';
+import { ErrorBoundary } from './design/ErrorBoundary';
 import './index.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <MotionConfig reducedMotion="user"><BrowserRouter><AuthProvider><App /></AuthProvider></BrowserRouter></MotionConfig>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <MotionConfig reducedMotion="user"><BrowserRouter><AuthProvider><App /></AuthProvider></BrowserRouter></MotionConfig>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

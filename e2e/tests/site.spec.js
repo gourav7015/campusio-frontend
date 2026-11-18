@@ -38,7 +38,7 @@ test.describe('public pages, metadata and accessibility basics', () => {
   test('an unknown address shows a real 404 page and a way home, to anyone', async ({ page }) => {
     await page.goto('/definitely/not/here');
     await expect(page).toHaveURL(/definitely\/not\/here$/);
-    await expect(page.getByText('This page does not exist')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Wrong stop' })).toBeVisible();
     await expect(page).toHaveTitle(/Page not found/);
     await page.getByRole('link', { name: 'Go to the home page' }).click();
     await expect(page).toHaveURL(/\/$/);

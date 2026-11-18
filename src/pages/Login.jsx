@@ -4,10 +4,11 @@ import { ArrowRight, Bus, GraduationCap, IndianRupee, LayoutDashboard, BookMarke
 import { useAuth } from '../auth/AuthContext.jsx';
 import { Button, Callout, FormField, Input, PasswordInput } from '../design/ui';
 import { PublicPage } from './PublicPage';
+import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 
 /** One sign-in page per role. The server also refuses a login that comes through the wrong portal. */
 export const PORTALS = {
-  student: { title: 'Student', icon: GraduationCap, role: 'student', home: '/student', blurb: 'Timetable, homework, attendance, results and fees', hint: 'Your login id is on the slip from the school office.' },
+  student: { title: 'Student & Parent', icon: GraduationCap, role: 'student', home: '/student', blurb: 'One login for the student and the family: timetable, homework, attendance, results, fees and messages to teachers', hint: 'Parents sign in with the student\'s login id. It is on the slip from the school office.' },
   teacher: { title: 'Teacher', icon: Presentation, role: 'teacher', home: '/teacher', blurb: 'Classes, attendance, homework, marks and leave', hint: 'Use the login id given by the school administrator.' },
   finance: { title: 'Finance', icon: IndianRupee, role: 'finance', home: '/finance', blurb: 'Fee structures, collections, receipts and dues', hint: 'For accounts staff of the school.' },
   library: { title: 'Library', icon: BookMarked, role: 'library', home: '/library', blurb: 'Catalogue, issue and return, fines', hint: 'For the school librarian.' },
@@ -22,7 +23,7 @@ export const loginFor = (role) => `${homeFor(role)}/login`;
 export function Landing() {
   const { user } = useAuth();
   if (user && !user.mustChangePassword) return <Navigate to={homeFor(user.role)} replace />;
-  const cards = ['student', 'teacher', 'finance', 'library', 'transport', 'staff', 'admin'];
+  const cards = ['student', 'teacher', 'finance', 'library', 'transport', 'admin']; // non-teaching staff have no sign-in of their own: the school admin and sub-admins keep their records and attendance
   return (
     <PublicPage title="Sign in" index>
       <section className="mx-auto max-w-2xl pb-10 pt-10 text-center sm:pt-16">
@@ -53,26 +54,38 @@ export default function PortalLogin({ portal }) {
   const nav = useNavigate();
   const [f, setF] = useState({ loginId: '', password: '' });
   const [err, setErr] = useState('');
+  const [down, setDown] = useState(null);
   const [busy, setBusy] = useState(false);
   if (user && !user.mustChangePassword && user.role === cfg.role) return <Navigate to={cfg.home} replace />;
   const submit = async (e) => {
-    e.preventDefault(); setBusy(true); setErr('');
+    e.preventDefault(); setBusy(true); setErr(''); setDown(null);
     try { const u = await login(f.loginId, f.password, portal); nav(u.mustChangePassword ? '/account?force=1' : homeFor(u.role), { replace: true }); }
-    catch (ex) { setErr(ex.message); } finally { setBusy(false); }
+    catch (ex) { if (isConnectionProblem(ex)) setDown(ex); else setErr(ex.message); } finally { setBusy(false); }
   };
   const Icon = cfg.icon;
+  if (down) return <ErrorScreen error={down} onRetry={() => setDown(null)} homeHref="/" homeLabel="All sign-in options" />;
   return (
     <PublicPage narrow title={`${cfg.title} sign in`}>
-      <form onSubmit={submit} aria-label={`${cfg.title} sign in`} data-portal={portal} className="mt-6 flex flex-col gap-5 rounded-2xl border border-border/70 bg-card p-7 shadow-sm sm:mt-12 sm:p-8">
+      <form method="post" onSubmit={submit} aria-label={`${cfg.title} sign in`} data-portal={portal} className="mt-6 flex flex-col gap-5 rounded-2xl border border-border/70 bg-card p-7 shadow-sm sm:mt-12 sm:p-8">
         <div className="text-center">
           <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-tone-soft text-tone" aria-hidden><Icon className="size-6" strokeWidth={1.75} /></span>
           <h1 className="mt-4 text-2xl font-semibold tracking-[-0.02em]">{cfg.title} sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">{cfg.hint}</p>
         </div>
-        <FormField label="Login id"><Input autoFocus autoComplete="username" value={f.loginId} onChange={(e) => setF({ ...f, loginId: e.target.value })} required className="h-11" /></FormField>
-        <FormField label="Password"><PasswordInput autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required className="h-11" /></FormField>
+        <FormField label="Login id"><Input id="login-id" name="username" type="text" autoFocus autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={f.loginId} onChange={(e) => setF({ ...f, loginId: e.target.value })} required className="h-11" /></FormField>
+        <FormField label="Password"><PasswordInput id="login-password" name="password" autoComplete="current-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required className="h-11" /></FormField>
         {err && <Callout tone="danger">{err}</Callout>}
         <Button variant="primary" size="lg" loading={busy} type="submit" className="w-full">Sign in</Button>
+        <details className="rounded-lg border border-border/70 px-3.5 py-2.5 text-sm">
+          <summary className="cursor-pointer font-medium">Forgot your password?</summary>
+          <p className="mt-2 text-muted-foreground">
+            {portal === 'platform' ? 'Platform administrators are reset by another platform administrator.'
+              : portal === 'admin' ? 'Your password is reset by the Campusio platform team. Ask them to reset it for you.'
+              : ['finance', 'library', 'transport'].includes(portal) ? 'Ask your School Admin to reset it for you.'
+              : 'Ask the school office to reset it. They will set it back to your starting password (the first four letters of your name in capitals, then your date of birth, if your school uses that), or give you a new one.'}
+            {' '}You will be asked to choose a new password the next time you sign in.
+          </p>
+        </details>
         <p className="text-center text-sm"><Link to="/" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" aria-hidden />All sign-in options</Link></p>
       </form>
     </PublicPage>

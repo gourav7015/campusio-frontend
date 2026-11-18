@@ -11,6 +11,7 @@ interface Dash {
   attendance: { percentage: number | null; absent: number; half_day: number };
   balances: { casual: { remaining: number; allowance: number }; sick: { remaining: number; allowance: number } };
   pendingLeave: number; lastPayslip?: { month: string; net: number; status: string };
+  salaryRevision?: { effectiveFrom: string; appliesFromMonth: string } | null;
 }
 const S = '/api/staff';
 
@@ -36,6 +37,7 @@ export default function StaffDashboard() {
               <div><p className="text-sm text-muted-foreground">{new Date(`${x.lastPayslip.month}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p><p className="text-2xl font-semibold tabular-nums tracking-tight">{fmtMoney(x.lastPayslip.net)}</p></div></div>
             <Badge tone={x.lastPayslip.status === 'paid' ? 'success' : 'warning'} dot>{label(x.lastPayslip.status)}</Badge>
           </div>
+          {x.salaryRevision && <p className="mt-3 text-sm text-muted-foreground">Your salary was revised from {fmtDate(x.salaryRevision.effectiveFrom, true)}. It applies from the {new Date(`${x.salaryRevision.appliesFromMonth}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })} payroll, so this payslip does not change.</p>}
         </LinkCard>
       )}
       <p className="text-sm text-muted-foreground">Need to change your details? <Link to="/staff/profile" className="font-medium text-primary-ink hover:underline">Open your profile</Link></p>

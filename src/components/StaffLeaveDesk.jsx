@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
-import { post } from '../api/client.js';
+import { post, patch } from '../api/client.js';
 import { Async, Badge, Button, Card, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
 import FormModal from './FormModal.jsx';
 import { useDialogs } from '../design/ui';
@@ -10,7 +10,7 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
   const [status, setStatus] = useState('submitted');
   const list = useApi(base, { status: status === 'all' ? undefined : status });
   const staff = useApi(canEdit ? staffBase : null, { limit: 200 });
-  const [modal, setModal] = useState(false); const [run] = useAction();
+  const [modal, setModal] = useState(false); const [edit, setEdit] = useState(null); const [run] = useAction();
   const dlg = useDialogs();
   const decide = async (l, decision) => {
     const remark = decision === 'reject' ? await dlg.prompt('Reason for rejecting (the person will see it)', { title: 'Reject leave', required: true }) : '';
@@ -25,10 +25,11 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
           { label: 'Staff member', render: (l) => <><b>{l.staffId?.name}</b><div className="small muted">{l.staffId?.staffId}</div></> }, { label: 'Type', render: (l) => label(l.leaveType) },
           { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' },
           { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{label(l.status)}</Badge>{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },
-          ...(canEdit ? [{ label: '', render: (l) => l.status === 'submitted' && <div className="row"><Button size="sm" variant="primary" onClick={() => decide(l, 'approve')}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(l, 'reject')}>Reject</Button></div> }] : []),
+          ...(canEdit ? [{ label: '', render: (l) => l.status === 'submitted' && <div className="row"><Button size="sm" variant="primary" onClick={() => decide(l, 'approve')}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(l, 'reject')}>Reject</Button></div> }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && <Button size="sm" onClick={() => setEdit(l)}>Edit</Button> }] : []),
         ]} />}</Async>
       </Card>
       <p className="muted small">Approved leave fills the attendance register for those days. Unpaid leave is deducted from salary.</p>
+      {edit && <FormModal title={`Edit leave · ${edit.staffId?.name || ''}`} initial={edit} submitLabel="Save changes" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]} onClose={() => setEdit(null)} onSubmit={async (v) => { await patch(`${base}/${edit._id}`, v); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The number of days is worked out again from the working days in the new dates.</p></FormModal>}
       {modal && <FormModal title="Record a leave" submitLabel="Record" fields={[{ name: 'staffId', label: 'Staff member', type: 'select', required: true, options: (staff.data?.items || []).map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})` })) },
         { name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true, default: 'casual' }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
         onClose={() => setModal(false)} onSubmit={async (v) => { await post(base, v); list.reload(); return true; }} />}

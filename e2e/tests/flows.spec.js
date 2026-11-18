@@ -676,13 +676,18 @@ test('staff portal: a staff member signs in, checks in, applies for leave, is ap
   await signIn(page, 'staff', 'gps.s0001', 'Staff@12345');
   await expect(page.getByRole('heading', { name: 'Hello, Kamla Devi' })).toBeVisible();
   await expect(page.getByText('Casual leave left')).toBeVisible();
-  // check in and out (only on a working day: the demo school works Monday to Saturday)
+  // check in and out: only on a working day, and only while check-in is open (an hour before the shift until it ends). Outside that the button is disabled and says why.
   if (new Date().getDay() !== 0) {
-    await page.getByRole('button', { name: 'Check in' }).click();
-    await expect(page.getByText('Checked in', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/Checked in at/)).toBeVisible();
-    await page.getByRole('button', { name: 'Check out' }).click();
-    await expect(page.getByText(/Checked out at/)).toBeVisible();
+    const checkIn = page.getByRole('button', { name: 'Check in' });
+    if (await checkIn.isEnabled()) {
+      await checkIn.click();
+      await expect(page.getByText('Checked in', { exact: true }).first()).toBeVisible();
+      await expect(page.getByText(/Checked in at/)).toBeVisible();
+      await page.getByRole('button', { name: 'Check out' }).click();
+      await expect(page.getByText(/Checked out at/)).toBeVisible();
+    } else {
+      await expect(page.getByText(/Check-in (opens at|closed at) \d\d:\d\d/)).toBeVisible();
+    }
   }
   await page.goto('/staff/attendance');
   await expect(page.getByText('Attendance heat map — this academic year')).toBeVisible();
@@ -846,6 +851,14 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await page.getByLabel(/Class & section/).selectOption({ label: 'Class 6 A · 4/40' });
   await page.getByLabel('Guardian name').fill('Mr Guardian');
   await page.getByLabel('Guardian phone').fill('9876501234');
+  // the form shows what will be billed; a personal discount needs a reason and cannot exceed the tuition
+  const dlg = page.getByRole('dialog', { name: 'Admit a student' });
+  await expect(dlg.getByText('Total to be billed')).toBeVisible();
+  await dlg.getByLabel('Discount value').fill('10');
+  await expect(dlg.getByRole('button', { name: 'Admit student' })).toBeDisabled(); // no reason yet
+  await dlg.getByLabel('Discount reason').fill('Staff child');
+  await expect(dlg.getByText('Personal discount on tuition', { exact: true })).toBeVisible();
+  await expect(dlg.getByRole('button', { name: 'Admit student' })).toBeEnabled();
   await page.getByRole('dialog').getByRole('button', { name: 'Admit student' }).click();
   const creds = page.getByRole('dialog', { name: 'Student admitted' });
   await expect(creds).toContainText('Temporary password');

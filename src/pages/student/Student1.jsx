@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { safeHref } from '../../design/lib/url';
 import { FileText, Image, NotebookPen, Presentation, Video } from 'lucide-react';
 import { useApi } from '../../hooks/useApi.js';
-import { post, patch, openFile } from '../../api/client.js';
+import { post, patch, upload, openFile } from '../../api/client.js';
+import { Avatar, PhotoUpload } from '../../components/FileImage.jsx';
 import { Async, Badge, Button, Card, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtPct, dayName, label, statusTone, cls } from '../../components/ui.jsx';
 import { TrendChart, BarsChart } from '../../components/Charts.jsx';
 import { DayList, WeekGrid } from '../../components/Timetable.jsx';
@@ -41,7 +42,9 @@ export function StudentProfile() {
   return (
     <Async state={p}>{(x) => (
       <div className="stack">
-        <PageHeader title="My profile" actions={x.editableFields.length > 0 && <Button onClick={() => { setV({ phone: x.personal.phone || '', address: x.personal.address || '', email: x.personal.email || '' }); setEdit(true); }}>Edit my details</Button>} />
+        <PageHeader title="My profile" actions={<><PhotoUpload path={`${S}/profile/photo`} upload={upload} label={x.personal.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} />{x.editableFields.length > 0 && <Button onClick={() => { setV({ phone: x.personal.phone || '', address: x.personal.address || '', email: x.personal.email || '' }); setEdit(true); }}>Edit my details</Button>}</>} />
+        <div className="row"><Avatar fileId={x.personal.photoFileId} name={x.personal.name} size={84} /><div><b>{x.personal.name}</b>{x.academic.monitor && <> <Badge tone="blue">Class monitor</Badge></>}<div className="small muted">{x.academic.className} {x.academic.section} · Roll {x.academic.rollNo}</div></div></div>
+        {x.editableFields.length === 0 && <p className="small muted" style={{ margin: 0 }}>Your details are kept up to date by the school. If something is wrong, ask your class teacher or the school office to correct it.</p>}
         <div className="grid g2">
           <Card title="Personal information"><dl className="kv"><dt>Name</dt><dd>{x.personal.name}</dd><dt>Date of birth</dt><dd>{fmtDate(x.personal.dob, true)}</dd><dt>Gender</dt><dd>{label(x.personal.gender) || '—'}</dd><dt>Phone</dt><dd>{x.personal.phone || '—'}</dd><dt>Email</dt><dd>{x.personal.email || '—'}</dd><dt>Address</dt><dd>{x.personal.address || '—'}</dd></dl></Card>
           <Card title="Academic information"><dl className="kv"><dt>Admission number</dt><dd>{x.academic.admissionNo}</dd><dt>Academic year</dt><dd>{x.academic.academicYear}</dd><dt>Class</dt><dd>{x.academic.className}</dd><dt>Section</dt><dd>{x.academic.section}</dd><dt>Roll number</dt><dd>{x.academic.rollNo}</dd><dt>Admission date</dt><dd>{fmtDate(x.academic.admissionDate, true)}</dd><dt>School</dt><dd>{x.academic.schoolName}</dd></dl></Card>
@@ -82,7 +85,7 @@ export function StudentAttendance() {
   return (
     <div className="stack">
       <PageHeader title="My attendance" subtitle="Unmarked days are never counted as absent" />
-      <Tabs tabs={[['overview', 'Overview'], ['history', 'Daily history'], ['calendar', 'Monthly calendar']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['overview', 'Overview'], ['history', 'Daily history'], ['calendar', 'Monthly calendar'], ['periods', 'Period by period']]} value={tab} onChange={setTab} />
       {tab === 'overview' && <Async state={sum}>{(s) => !s.workingDays ? <Empty title="No attendance recorded yet" /> : (<>
         <div className="grid g4"><Stat value={fmtPct(s.percentage)} label="Attendance" tone="green" /><Stat value={s.workingDays} label="Working days" /><Stat value={s.present} label="Present" tone="green" /><Stat value={s.absent} label="Absent" tone="red" /><Stat value={s.leave} label="Leave" tone="blue" /><Stat value={s.late} label="Late" tone="amber" /><Stat value={s.excused} label="Excused" /></div>
         <Card title="Attendance heat map — this academic year"><Async state={heat}>{(h) => <Heatmap days={h.days} />}</Async></Card>
@@ -90,6 +93,7 @@ export function StudentAttendance() {
           <Card title="Present vs absent days"><Async state={monthly}>{(m) => <BarsChart data={m.map((x) => ({ month: x.month, Present: x.present + x.late, Absent: x.absent }))} x="month" bars={[{ key: 'Present', color: 'rgb(var(--c-success))' }, { key: 'Absent', color: 'rgb(var(--c-danger))' }]} />}</Async></Card></div></>)}</Async>}
       {tab === 'history' && <div className="stack"><Card flush><Async state={hist} empty={<Empty title="No attendance yet" />}>{(rows) => <DataTable rows={rows} rowKey="date" columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Day', render: (r) => dayName(r.day) }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: 'Remarks', render: (r) => <>{r.remarks || '—'} {r.corrected && <Badge tone="amber">corrected</Badge>}</> }, { label: '', render: (r) => <Button size="sm" onClick={() => setReport(r)}>Report an error</Button> }]} />}</Async></Card>
         <Card title="My reported errors" flush><Async state={queries} empty={<div className="empty small">None</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Date', render: (q) => fmtDate(q.date, true) }, { label: 'Message', key: 'message' }, { label: 'Status', render: (q) => <Badge tone={statusTone(q.status === 'open' ? 'pending' : q.status)}>{label(q.status)}</Badge> }, { label: 'Reply', key: 'response' }]} />}</Async></Card></div>}
+      {tab === 'periods' && <PeriodByPeriod />}
       {tab === 'calendar' && <Card title="Calendar" action={<Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={{ width: 170 }} aria-label="Month" />}><Async state={cal}>{(c) => <div style={{ maxWidth: 420 }}><MonthCalendar cal={c} /></div>}</Async></Card>}
       {report && <Modal title={`Report an error · ${fmtDate(report.date, true)}`} onClose={() => setReport(null)} footer={<><Button onClick={() => setReport(null)}>Cancel</Button><Button variant="primary" loading={busy} disabled={msg.trim().length < 5} onClick={async () => { const r = await run(() => post(`${S}/attendance/queries`, { date: report.date, message: msg }), 'Sent to your class teacher'); if (r) { setReport(null); setMsg(''); queries.reload(); } }}>Send</Button></>}>
         <p className="muted small">You can't change attendance yourself. Your class teacher or the school office will review and correct it if needed.</p><Field label="What is wrong?"><Input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="e.g. I was present but marked absent" /></Field></Modal>}
@@ -105,8 +109,8 @@ export function StudentHomework() {
   return (
     <div className="stack">
       <PageHeader title="Homework & assignments" />
-      <Tabs tabs={[['all', 'All assignments'], ['pending', 'Pending'], ['due_soon', 'Due soon'], ['overdue', 'Overdue'], ['completed', 'Completed']]} value={tab} onChange={setTab} />
-      <Card flush><Async state={list} empty={<Empty title={tab === 'completed' ? 'Online submission is coming soon' : 'Nothing here'} />}>{(rows) => <DataTable rows={rows} onRowClick={setOpen} columns={[{ label: 'Subject', render: (h) => <b>{h.subject}</b> }, { label: 'Homework', key: 'title' }, { label: 'Teacher', key: 'teacher' }, { label: 'Due date', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.state)}>{h.state === 'overdue' ? 'Overdue' : h.state === 'due_soon' ? `Due in ${h.daysLeft}d` : 'Pending'}</Badge> }, { label: 'Files', render: (h) => (h.attachmentFiles.length ? `${h.attachmentFiles.length}` : '') }]} />}</Async></Card>
+      <Tabs tabs={[['all', 'All assignments'], ['pending', 'Pending'], ['due_soon', 'Due soon'], ['overdue', 'Overdue']]} value={tab} onChange={setTab} />
+      <Card flush><Async state={list} empty={<Empty title="Nothing here" />}>{(rows) => <DataTable rows={rows} onRowClick={setOpen} columns={[{ label: 'Subject', render: (h) => <b>{h.subject}</b> }, { label: 'Homework', key: 'title' }, { label: 'Teacher', key: 'teacher' }, { label: 'Due date', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.state)}>{h.state === 'overdue' ? 'Overdue' : h.state === 'due_soon' ? `Due in ${h.daysLeft}d` : 'Pending'}</Badge> }, { label: 'Files', render: (h) => (h.attachmentFiles.length ? `${h.attachmentFiles.length}` : '') }]} />}</Async></Card>
       {open && <Modal wide title={open.title} onClose={() => setOpen(null)}><dl className="kv"><dt>Subject</dt><dd>{open.subject}</dd><dt>Teacher</dt><dd>{open.teacher}</dd><dt>Assigned</dt><dd>{fmtDate(open.assignedDate, true)}</dd><dt>Due</dt><dd>{fmtDate(open.dueDate, true)} <Badge tone={statusTone(open.state)}>{label(open.state)}</Badge></dd><dt>Description</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{open.description || '—'}</dd><dt>Instructions</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{open.instructions || '—'}</dd>
         <dt>Attachments</dt><dd>{open.attachmentFiles.length ? open.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); run(() => openFile(f._id)); }}>{f.originalName}</a>) : '—'}</dd></dl></Modal>}
     </div>
@@ -127,4 +131,13 @@ export function StudentMaterials() {
             {m.file ? <Button size="sm" onClick={() => run(() => openFile(m.file._id))}>Open</Button> : <a className="btn sm" href={safeHref(m.externalUrl)} target="_blank" rel="noopener noreferrer">Open link</a>}</div>))}</div></div>)}</Card>))}</Async>
     </div>
   );
+}
+
+/** Attendance period by period, for schools that take it that way. */
+function PeriodByPeriod() {
+  const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'));
+  const q = useApi(`${S}/period-attendance`, { date });
+  if (q.error?.status === 409) return <Card><Empty title="Your school takes attendance once a day">Period-by-period attendance is not switched on.</Empty></Card>;
+  return <Card title="Period by period" action={<Input type="date" aria-label="Date" value={date} max={new Date().toLocaleDateString('en-CA')} onChange={(e) => setDate(e.target.value)} style={{ width: 170 }} />} flush>
+    <Async state={q}>{(d) => <DataTable rows={d.periods} rowKey="period" empty="No period attendance was marked on this day" columns={[{ label: 'Period', render: (p) => <><b>{p.period}</b><div className="small muted">{p.time}</div></> }, { label: 'Subject', key: 'subject' }, { label: 'You were', render: (p) => <Badge tone={statusTone(p.status)}>{label(p.status) || '—'}</Badge> }]} />}</Async></Card>;
 }

@@ -125,7 +125,7 @@ export function Settings() {
   const data = v || s.data;
   const set = (patch) => setV({ ...data, ...patch });
   const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
+    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
     const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
   };
   if (!data) return <Async state={s}>{() => null}</Async>;
@@ -137,11 +137,15 @@ export function Settings() {
         <Card title="General"><div className="stack">
           <Field label="School name"><Input value={data.schoolName} onChange={(e) => set({ schoolName: e.target.value })} /></Field>
           <Field label="Time zone" hint="Used for 'today', countdowns and scheduling"><Input value={data.timezone} onChange={(e) => set({ timezone: e.target.value })} /></Field>
+          <Field label="Starting password format" hint="Used for new students, teachers and staff, and when you reset a password. {NAME4} first 4 letters of the name in capitals, {name4} in small letters, {DDMMYYYY} {DDMM} {YYYY} {YY} date of birth, {PHONE4} last 4 digits of the phone. Leave empty for a random password each time. People must choose their own at first sign-in.">
+            <Input value={data.passwordFormat ?? ''} placeholder="{NAME4}{DDMMYYYY}" onChange={(e) => set({ passwordFormat: e.target.value })} />
+            <span className="small muted">Example for Aarav Singh, born 10 Jan 2013: <b>{exampleFormat(data.passwordFormat ?? '')}</b></span></Field>
           <Field label="Admission number format" hint="{YYYY} year, {SEQ:4} zero-padded counter"><Input value={data.admissionFormat} onChange={(e) => set({ admissionFormat: e.target.value })} /></Field>
           <div><div className="bold" style={{ marginBottom: 6 }}>Working days</div><div className="row wrap">{[1, 2, 3, 4, 5, 6, 7].map((d) => <label key={d} className="chip"><input type="checkbox" checked={data.workingDays.includes(d)} onChange={(e) => set({ workingDays: e.target.checked ? [...data.workingDays, d].sort() : data.workingDays.filter((x) => x !== d) })} /> {days[d]}</label>)}</div></div>
         </div></Card>
         <Card title="Attendance rules"><div className="stack">
           <label className="row"><input type="checkbox" checked={data.attendance.lateCountsAsPresent} onChange={(e) => set({ attendance: { ...data.attendance, lateCountsAsPresent: e.target.checked } })} /> Late counts as present in the percentage</label>
+          <label className="row"><input type="checkbox" checked={!!data.attendance.periodWise} onChange={(e) => set({ attendance: { ...data.attendance, periodWise: e.target.checked } })} /> Also take attendance period by period (each teacher marks their own period; the class teacher's daily register stays)</label>
           <div className="alert info small">Only a section's class teacher can take its attendance. Once submitted it is locked for teachers; the school admin corrects it with a reason.</div>
           <label className="row"><input type="checkbox" checked={data.showAttendanceVsPerformance} onChange={(e) => set({ showAttendanceVsPerformance: e.target.checked })} /> Show attendance-vs-performance analysis to teachers</label>
         </div></Card>
@@ -177,6 +181,13 @@ export function Audit() {
 }
 
 /** Staff working hours, the school's location for check-in, staff leave allowances, and statutory deductions. */
+/** The same rules as the server, to preview a starting password while the format is being typed. */
+function exampleFormat(f) {
+  if (!f) return 'a random password';
+  if (!/\{(NAME4|NAME3|name4|DDMMYYYY|DDMM|YYYY|YY|PHONE4)\}/.test(f)) return 'not valid yet: use at least one {token}';
+  return f.replace(/\{NAME4\}/g, 'AARA').replace(/\{NAME3\}/g, 'AAR').replace(/\{name4\}/g, 'aara').replace(/\{DDMMYYYY\}/g, '10012013').replace(/\{DDMM\}/g, '1001').replace(/\{YYYY\}/g, '2013').replace(/\{YY\}/g, '13').replace(/\{PHONE4\}/g, '4321');
+}
+
 function StaffPolicies({ data, set }) {
   const sa = data.staffAttendance; const st = data.statutory;
   const [locating, setLocating] = useState(false);
@@ -193,6 +204,8 @@ function StaffPolicies({ data, set }) {
           <Field label="Grace period (minutes)" hint="Arriving within this is on time"><Input type="number" min="0" value={sa.graceMinutes} onChange={(e) => setSa({ graceMinutes: num(e.target.value) })} /></Field>
           <Field label="Full day (hours)"><Input type="number" min="1" step="0.5" value={sa.fullDayHours} onChange={(e) => setSa({ fullDayHours: num(e.target.value) })} /></Field>
           <Field label="Half day below (hours)"><Input type="number" min="0.5" step="0.5" value={sa.halfDayHours} onChange={(e) => setSa({ halfDayHours: num(e.target.value) })} /></Field>
+          <Field label="Check-in opens (minutes before shift)" hint="Staff cannot check in earlier than this"><Input type="number" min="0" max="600" value={sa.checkInOpensBeforeMinutes ?? 60} onChange={(e) => setSa({ checkInOpensBeforeMinutes: num(e.target.value) })} /></Field>
+          <label className="row full"><input type="checkbox" checked={sa.checkInClosesAtShiftEnd !== false} onChange={(e) => setSa({ checkInClosesAtShiftEnd: e.target.checked })} /> Check-in closes when the shift ends (the office can still enter a time)</label>
         </div>
         <div className="bold">Check in only from the school <span className="muted">(optional)</span></div>
         <label className="row"><input type="checkbox" checked={!!sa.location} onChange={(e) => setSa({ location: e.target.checked ? { lat: 0, lng: 0, radiusMeters: 200 } : null })} /> Staff may check in only within a distance of the school</label>

@@ -1,4 +1,5 @@
 import { Suspense, useMemo, useState } from 'react';
+import { ErrorBoundary } from '../design/ErrorBoundary';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as D from '@radix-ui/react-dialog';
@@ -9,7 +10,7 @@ import { cn } from '../design/lib/cn';
 import { ease } from '../design/lib/motion';
 import { useSession } from '../types/auth';
 import { Logo } from '../pages/PublicPage';
-import { flatNav, PORTALS, type Portal, type PortalKey } from './portals';
+import { flatNav, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
 import { NavList } from './NavList';
 import { Notifications } from './Notifications';
 import { CommandSearch } from './CommandSearch';
@@ -48,8 +49,8 @@ function useCrumbs(portal: Portal): Crumb[] {
 }
 
 export function AppShell({ area }: { area: PortalKey }) {
-  const portal = PORTALS[area];
   const { user, school, acting, setActing } = useSession();
+  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[] } | null);
   const { pathname } = useLocation();
   const nav = useNavigate();
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -111,7 +112,7 @@ export function AppShell({ area }: { area: PortalKey }) {
                 <Button size="sm" onClick={() => { setActing(null); nav('/platform/schools'); }}>Exit school</Button>
               </div>
             )}
-            <motion.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></motion.div>
+            <motion.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary></motion.div>
           </main>
           <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} Campusio</span><span className="flex gap-4"><Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
           <BackToTop />

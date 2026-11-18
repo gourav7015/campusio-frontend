@@ -6,7 +6,7 @@ import { Async, Badge, Button, Card, ConfirmButton, Empty, Modal, PageHeader, Se
 import FormModal from '../../components/FormModal.jsx';
 
 const CATS = ['homework', 'attendance', 'examination', 'results', 'announcements', 'timetable', 'leave', 'fees', 'library', 'system'];
-const LINKS = { homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams', timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library' };
+const LINKS = { homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams', timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk' };
 
 export function NotificationsPage({ role, base }) {
   const [cat, setCat] = useState('');
@@ -14,7 +14,7 @@ export function NotificationsPage({ role, base }) {
   const list = useApi(`${base}/notifications`, { category: cat, unread: unread ? 'true' : undefined, limit: 100 });
   const nav = useNavigate();
   const [run] = useAction();
-  const open = async (n) => { if (!n.readAt) { await post(`${base}/notifications/${n._id}/read`).catch(() => {}); list.reload(); } const to = LINKS[n.link?.type]; if (to) nav(`/${role}/${to}`); };
+  const open = async (n) => { if (!n.readAt) { await post(`${base}/notifications/${n._id}/read`).catch(() => {}); list.reload(); } const to = LINKS[n.link?.type]; if (to) nav(`/${role}/${to}${n.link?.id && n.link.type === 'ticket' ? `?open=${n.link.id}` : ''}`); };
   return (
     <div className="stack">
       <PageHeader title="Notifications" actions={<>
@@ -40,7 +40,7 @@ export function AnnouncementsPage({ base, title = 'Announcements', canDelete }) 
       <PageHeader title={title} subtitle="Notices from your school" />
       <Async state={list} empty={<Empty title="No announcements yet" />}>{(rows) => (
         <div className="stack-sm">{rows.map((a) => (
-          <Card key={a._id}><div className="row between wrap"><div className="row"><b style={{ cursor: 'pointer' }} onClick={() => show(a)}>{a.title}</b> {!a.read && <Badge tone="primary">New</Badge>}<Badge>{a.category}</Badge></div><span className="muted small">{fmtDateTime(a.createdAt)}</span></div>
+          <Card key={a._id}><div className="row between wrap"><div className="row"><b style={{ cursor: 'pointer' }} onClick={() => show(a)}>{a.title}</b> {!a.read && <Badge tone="primary">New</Badge>}<Badge tone={a.category === 'urgent' ? 'red' : undefined}>{a.category === 'urgent' ? 'Urgent' : a.category}</Badge></div><span className="muted small">{fmtDateTime(a.createdAt)}</span></div>
             <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{(a.body || '').slice(0, 220)}{(a.body || '').length > 220 && '…'}</p>
             {canDelete && a.mine && <div style={{ marginTop: 8 }}><ConfirmButton size="sm" variant="danger" message="Delete this notice? Students lose it and their notifications are removed." onConfirm={async () => { await run(() => del(`${base}/announcements/${a._id}`), 'Notice deleted'); list.reload(); }}>Delete (sent by mistake)</ConfirmButton></div>}
             {a.attachmentFiles.length > 0 && <div style={{ marginTop: 8 }}>{a.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); run(() => openFile(f._id)); }}>{f.originalName}</a>)}</div>}</Card>))}</div>)}</Async>
@@ -65,8 +65,8 @@ export function Communication() {
         <Card flush><Async state={msgs} empty={<Empty title="You haven't sent any messages" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Subject', render: (m) => <b>{m.subject}</b> }, { label: 'Message', key: 'body' }, { label: 'Sent', render: (m) => fmtDateTime(m.createdAt) }, { label: 'Delivery', render: (m) => <Badge tone={m.status === 'read' ? 'green' : 'blue'}>{m.status === 'read' ? 'Read' : 'Delivered'}</Badge> },
           { label: '', render: (m) => <ConfirmButton size="sm" variant="danger" message="Withdraw this message? It is removed from the admin's inbox." onConfirm={async () => { await run(() => del(`/api/teacher/messages/${m._id}`), 'Message withdrawn'); msgs.reload(); }}>Withdraw</ConfirmButton> }]} />}</Async></Card>)}
       {modal === 'msg' && <FormModal title="Message the school administration" submitLabel="Send" fields={[{ name: 'subject', label: 'Subject', required: true }, { name: 'body', label: 'Message', type: 'textarea', required: true }]} onClose={() => setModal(null)} onSubmit={async (v) => { await post('/api/teacher/messages', v); msgs.reload(); return true; }} />}
-      {modal === 'notice' && <FormModal wide title="Send a notice to your class" submitLabel="Send notice" fields={[{ name: 'sectionId', label: 'Class', type: 'select', required: true, options: (classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` })) }, { name: 'category', label: 'Category', type: 'select', options: ['general', 'homework', 'examination', 'event'], default: 'general', required: true }, { name: 'title', label: 'Title', required: true, full: true }, { name: 'body', label: 'Message', type: 'textarea' }]}
-        onClose={() => setModal(null)} onSubmit={async (v) => { const { sectionId, ...rest } = v; await post('/api/teacher/announcements', { ...rest, sectionIds: [sectionId] }); setBump((b) => b + 1); return true; }}><p className="small muted" style={{ marginTop: 10 }}>Students of that class are notified immediately. If you send something wrong, delete it from the list and it disappears for everyone.</p></FormModal>}
+      {modal === 'notice' && <FormModal wide title="Send a notice to your class" submitLabel="Send notice" fields={[{ name: 'sectionId', label: 'Class', type: 'select', required: true, options: [...((classes.data || []).length > 1 ? [{ value: '__all', label: 'All my classes' }] : []), ...(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))] }, { name: 'category', label: 'Category', type: 'select', options: ['general', 'urgent', 'homework', 'examination', 'event'], default: 'general', required: true }, { name: 'title', label: 'Title', required: true, full: true }, { name: 'body', label: 'Message', type: 'textarea' }]}
+        onClose={() => setModal(null)} onSubmit={async (v) => { const { sectionId, ...rest } = v; await post('/api/teacher/announcements', { ...rest, sectionIds: sectionId === '__all' ? [...new Set((classes.data || []).map((c) => c.sectionId))] : [sectionId] }); /* "All my classes" is one notice, not one per class */ setBump((b) => b + 1); return true; }}><p className="small muted" style={{ marginTop: 10 }}>Students of the class (or of every class you choose) are notified immediately, once. If you send something wrong, delete it from the list and it disappears for everyone.</p></FormModal>}
     </div>
   );
 }

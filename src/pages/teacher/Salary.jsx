@@ -20,6 +20,7 @@ export default function Salary({ base = '/api/teacher' }) {
             <Stat value={fmtMoney(s.current?.net)} label="Take-home per month" sub="Before any unpaid leave" tone="green" />
             <Stat value={fmtMoney(s.paidThisYear)} label="Received this academic year" sub={`${s.monthsPaidThisYear} month(s) paid`} />
           </div>
+          {s.revisedAfterLatest && <div className="alert info" role="status">Your salary was revised from <b>{fmtDate(s.revisedAfterLatest.effectiveFrom, true)}</b> (gross {fmtMoney(s.revisedAfterLatest.gross)} a month). It applies from the <b>{monthLabel(s.revisedAfterLatest.appliesFromMonth)}</b> payroll. Your latest payslip, for {monthLabel(s.revisedAfterLatest.latestPayslipMonth)}, shows what was paid for that month and does not change.</div>}
           {!s.current && <div className="alert">Your salary has not been set up yet. Please contact the school administrator.</div>}
           {s.current && (
             <div className="grid g2">
@@ -36,7 +37,7 @@ export default function Salary({ base = '/api/teacher' }) {
           <DataTable rows={rows} empty="No payslips yet. They appear here once the school approves the month's payroll." columns={[
             { label: 'Month', render: (p) => <b>{monthLabel(p.month)}</b> }, { label: 'Days paid', render: (p) => `${p.paidDays} / ${p.workingDays}` }, { label: 'Gross', render: (p) => fmtMoney(p.gross) },
             { label: 'Deductions', render: (p) => fmtMoney(p.totalDeductions) }, { label: 'Net pay', render: (p) => <b>{fmtMoney(p.net)}</b> },
-            { label: 'Status', render: (p) => <><Badge tone={p.status === 'paid' ? 'green' : 'amber'}>{label(p.status)}</Badge>{p.paidOn && <div className="muted">{fmtDate(p.paidOn, true)}</div>}</> },
+            { label: 'Status', render: (p) => <><Badge tone={p.status === 'paid' ? 'green' : 'amber'}>{p.status === 'partial' ? 'Part paid' : label(p.status)}</Badge>{p.status === 'partial' && <div className="muted">{fmtMoney(p.paidAmount)} of {fmtMoney(p.net)} paid</div>}{p.paidOn && p.status === 'paid' && <div className="muted">{fmtDate(p.paidOn, true)}</div>}</> },
             { label: '', render: (p) => <Button size="sm" onClick={() => run(() => download(`${base}/payslips/${p._id}/pdf`, `payslip-${p.payslipNo}.pdf`))}>Download PDF</Button> },
           ]} />
         )}</Async>

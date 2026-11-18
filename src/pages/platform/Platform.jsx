@@ -11,13 +11,13 @@ import {
 export { default as PlatformDashboard } from './PlatformDashboard';
 
 function NewSchool({ onClose, onDone }) {
-  const f = useForm({ name: '', code: '', board: '', address: '', phone: '', plan: 'starter', status: 'trial', studentLimit: 500, teacherLimit: 50, expiresOn: '', adminName: '', adminEmail: '' });
+  const f = useForm({ name: '', code: '', board: '', address: '', phone: '', plan: 'starter', status: 'trial', expiresOn: '', adminName: '', adminEmail: '' });
   const [run, busy] = useAction();
   const v = f.values;
   const submit = async () => {
     const out = await run(() => post('/api/platform/schools', {
       name: v.name, code: v.code, board: v.board || undefined, address: v.address || undefined, phone: v.phone || undefined,
-      subscription: { plan: v.plan, status: v.status, studentLimit: Number(v.studentLimit), teacherLimit: Number(v.teacherLimit), expiresOn: v.expiresOn || undefined },
+      subscription: { plan: v.plan, status: v.status, expiresOn: v.expiresOn || undefined },
       admin: { name: v.adminName, email: v.adminEmail },
     }), 'School created');
     if (out) onDone(out);
@@ -29,7 +29,7 @@ function NewSchool({ onClose, onDone }) {
         <Field label="Board"><Input {...f.bind('board')} placeholder="CBSE / State" /></Field><Field label="Phone"><Input {...f.bind('phone')} /></Field>
         <Field label="Address" full><Input {...f.bind('address')} /></Field>
         <Field label="Plan"><Input {...f.bind('plan')} /></Field><Field label="Subscription status"><Select {...f.bind('status')} options={['trial', 'active']} /></Field>
-        <Field label="Student limit"><Input type="number" min="1" {...f.bind('studentLimit')} /></Field><Field label="Teacher limit"><Input type="number" min="1" {...f.bind('teacherLimit')} /></Field>
+        
         <Field label="Subscription ends on" hint="Leave blank for no end date"><Input type="date" {...f.bind('expiresOn')} /></Field><div />
         <div className="full"><h3>School administrator</h3><p className="muted small">The school admin signs in with this email and creates all other users for the school.</p></div>
         <Field label="Admin name"><Input {...f.bind('adminName')} /></Field><Field label="Admin email (login id)"><Input type="email" {...f.bind('adminEmail')} /></Field>
@@ -52,7 +52,7 @@ export function Schools() {
           <DataTable rows={rows} columns={[
             { label: 'School', render: (s) => <Link to={`/platform/schools/${s._id}`}><b>{s.name}</b></Link> }, { label: 'Code', key: 'code' },
             { label: 'Admin', render: (s) => s.admins.map((a) => a.loginId).join(', ') || '—' },
-            { label: 'Students', render: (s) => `${s.studentCount}/${s.subscription?.studentLimit ?? '—'}` }, { label: 'Teachers', render: (s) => `${s.teacherCount}/${s.subscription?.teacherLimit ?? '—'}` },
+            { label: 'Students', render: (s) => s.studentCount.toLocaleString('en-IN') }, { label: 'Teachers', render: (s) => s.teacherCount.toLocaleString('en-IN') },
             { label: 'Subscription', render: (s) => <Badge tone={statusTone(s.subscription?.status)}>{s.subscription?.status}</Badge> }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{s.status}</Badge> },
           ]} />)}</Async>
       </ListCard>
@@ -82,16 +82,14 @@ export function SchoolDetail() {
           {school.status === 'active'
             ? <ConfirmButton variant="danger" message="Suspend this school? All its users are signed out." onConfirm={async () => { await run(() => patch(`/api/platform/schools/${id}`, { status: 'suspended' }), 'School suspended'); s.reload(); }}>Suspend</ConfirmButton>
             : <Button onClick={async () => { await run(() => patch(`/api/platform/schools/${id}`, { status: 'active' }), 'School reactivated'); s.reload(); }}>Reactivate</Button>}</>} />
-        <div className="grid g4"><Stat value={school.studentCount} label="Active students" sub={`Limit ${school.subscription?.studentLimit ?? '—'}`} /><Stat value={school.teacherCount} label="Active teachers" sub={`Limit ${school.subscription?.teacherLimit ?? '—'}`} /><Stat value={school.admins.length} label="School admins" /><Stat value={label(school.status)} label="School status" tone={school.status === 'active' ? 'green' : 'red'} /></div>
+        <div className="grid g4"><Stat value={school.studentCount} label="Active students" /><Stat value={school.teacherCount} label="Active teachers" /><Stat value={school.admins.length} label="School admins" /><Stat value={label(school.status)} label="School status" tone={school.status === 'active' ? 'green' : 'red'} /></div>
         <div className="grid g2">
           <Card title="Subscription">
             <form className="form-grid" onSubmit={async (e) => { e.preventDefault(); const v = sub.values; await run(() => put(`/api/platform/schools/${id}/subscription`, {
-              plan: v.plan ?? school.subscription?.plan, status: v.status ?? school.subscription?.status, studentLimit: Number(v.studentLimit ?? school.subscription?.studentLimit), teacherLimit: Number(v.teacherLimit ?? school.subscription?.teacherLimit), expiresOn: (v.expiresOn ?? school.subscription?.expiresOn) || undefined,
+              plan: v.plan ?? school.subscription?.plan, status: v.status ?? school.subscription?.status, expiresOn: (v.expiresOn ?? school.subscription?.expiresOn) || undefined,
             }), 'Subscription updated'); s.reload(); }}>
               <Field label="Plan"><Input value={sub.values.plan ?? school.subscription?.plan ?? ''} onChange={(e) => sub.set('plan', e.target.value)} /></Field>
               <Field label="Status"><Select value={sub.values.status ?? school.subscription?.status ?? 'trial'} onChange={(e) => sub.set('status', e.target.value)} options={['trial', 'active', 'expired', 'cancelled']} /></Field>
-              <Field label="Student limit"><Input type="number" value={sub.values.studentLimit ?? school.subscription?.studentLimit ?? ''} onChange={(e) => sub.set('studentLimit', e.target.value)} /></Field>
-              <Field label="Teacher limit"><Input type="number" value={sub.values.teacherLimit ?? school.subscription?.teacherLimit ?? ''} onChange={(e) => sub.set('teacherLimit', e.target.value)} /></Field>
               <Field label="Ends on"><Input type="date" value={sub.values.expiresOn ?? school.subscription?.expiresOn ?? ''} onChange={(e) => sub.set('expiresOn', e.target.value)} /></Field>
               <div style={{ alignSelf: 'end' }}><Button variant="primary" type="submit" loading={busy}>Save subscription</Button></div>
             </form>

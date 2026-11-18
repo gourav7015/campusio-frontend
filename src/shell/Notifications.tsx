@@ -7,15 +7,15 @@ import { useGet } from '../api/query';
 import { Button, Popover, PopoverContent, PopoverTrigger, EmptyState, Skeleton } from '../design/ui';
 import { fmtDateTime } from '../components/ui.jsx';
 
-interface Notice { _id: string; title: string; body?: string; createdAt: string; readAt?: string; link?: { type?: string } }
+interface Notice { _id: string; title: string; body?: string; createdAt: string; readAt?: string; link?: { type?: string; id?: string } }
 interface NoticeList { unread: number; items: Notice[] }
 
 /** Which page explains a notification, inside the viewer's own portal. */
 const PAGE_FOR: Record<string, string> = {
   homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams',
-  timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library',
+  timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk',
 };
-const targetFor = (role: string, type?: string) => `/${role}/${PAGE_FOR[type ?? ''] ?? 'notifications'}`;
+const targetFor = (role: string, type?: string, id?: string) => `/${role}/${PAGE_FOR[type ?? ''] ?? 'notifications'}${id && type === 'ticket' ? `?open=${id}` : ''}`; // a help desk notification opens that ticket
 
 export function Notifications({ base, role }: { base: string; role: string }) {
   const [open, setOpen] = useState(false);
@@ -25,7 +25,7 @@ export function Notifications({ base, role }: { base: string; role: string }) {
   const refresh = () => qc.invalidateQueries({ queryKey: [`${base}/notifications`] });
   const open1 = async (n: Notice) => {
     if (!n.readAt) await post(`${base}/notifications/${n._id}/read`).catch(() => undefined);
-    setOpen(false); refresh(); nav(targetFor(role, n.link?.type));
+    setOpen(false); refresh(); nav(targetFor(role, n.link?.type, n.link?.id));
   };
   const unread = data?.unread ?? 0;
   return (

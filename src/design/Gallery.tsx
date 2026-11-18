@@ -6,6 +6,7 @@ import {
   Avatar, Badge, Breadcrumbs, Button, Callout, Card, CardContent, CardDescription, CardHeader, CardTitle, DataTable, Drawer, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState,
   ErrorState, FormField, Input, PageHeader, PageSkeleton, Progress, ProgressRing, Segmented, Select, StatCard, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, useToast,
 } from './ui';
+import { ErrorScreen } from './ErrorScreen';
 import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMotion } from './charts';
 
 /** Development reference for the design system. Not part of the product: only mounted when running `npm run dev`. */
@@ -85,6 +86,14 @@ export default function Gallery() {
           <Card><EmptyState icon={Inbox} title="No homework today" description="New homework appears here once a teacher posts it." action={<Button size="sm">Browse materials</Button>} /></Card>
           <Card><ErrorState error={new Error('The server did not respond')} onRetry={() => undefined} /></Card>
           <Card><CardHeader><CardTitle>Loading</CardTitle><CardDescription>Skeleton</CardDescription></CardHeader><CardContent><PageSkeleton /></CardContent></Card>
+        </div></section>
+
+      <section className="space-y-3"><h2 className="text-lg font-semibold">Error pages</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card><ErrorScreen kind="crash" inline error={new Error('Sample crash')} onRetry={() => undefined} /></Card>
+          <Card><ErrorScreen kind="notfound" inline /></Card>
+          <Card><ErrorScreen kind="offline" inline onRetry={() => undefined} /></Card>
+          <Card><ErrorScreen kind="update" inline /></Card>
         </div></section>
 
       <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>New item</DialogTitle></DialogHeader><DialogBody><FormField label="Title"><Input autoFocus /></FormField></DialogBody><DialogFooter><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={() => { setOpen(false); toast('Created'); }}>Create</Button></DialogFooter></DialogContent></Dialog>

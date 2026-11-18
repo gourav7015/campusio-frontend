@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { post } from '../../api/client.js';
-import { Async, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Stat, Tabs, Input, useAction, fmtDate, fmtDateTime, fmtPct, dayName, statusTone, label } from '../../components/ui.jsx';
+import { post, put, patch } from '../../api/client.js';
+import { Avatar } from '../../components/FileImage.jsx';
+import FormModal from '../../components/FormModal.jsx';
+import { Modal, Async, Badge, Button, Card, DataTable, Empty, Field, PageHeader, Select, Stat, Tabs, Input, useAction, fmtDate, fmtDateTime, fmtPct, dayName, statusTone, label } from '../../components/ui.jsx';
 import { BarsChart } from '../../components/Charts.jsx';
 import { DayList, WeekGrid } from '../../components/Timetable.jsx';
 import RegisterEditor from '../../components/Register.jsx';
@@ -56,7 +58,7 @@ export function ClassWorkspace() {
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'overview' && <div className="grid g4"><Stat value={o.studentCount} label="Students" sub={`Capacity ${o.capacity}`} /><Stat value={label(o.attendanceToday)} label="Today's register" tone={o.attendanceToday === 'submitted' ? 'green' : 'amber'} /><Stat value={o.activeHomework} label="Active homework" /><Stat value={o.upcomingExam ? fmtDate(o.upcomingExam.date) : '—'} label="Upcoming exam" sub={o.upcomingExam ? `${o.upcomingExam.exam} · ${o.upcomingExam.subject}` : 'None scheduled'} />
           <Card title="Class teacher">{o.classTeacher || <span className="muted">Not assigned</span>}</Card><Card title="Next scheduled period">{o.nextPeriod ? <><b>{o.nextPeriod.subject}</b><div className="small muted">{fmtDate(o.nextPeriod.date)} · {o.nextPeriod.startTime}</div></> : <span className="muted">None this week</span>}</Card></div>}
-        {tab === 'students' && <Card flush><Async state={students}>{(rows) => <DataTable rows={rows} rowKey="studentId" onRowClick={(s) => nav(`/teacher/students/${s.studentId}`)} columns={[{ label: 'Roll', render: (s) => String(s.rollNo).padStart(2, '0') }, { label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Attendance', render: (s) => fmtPct(s.attendance) }, { label: 'Latest score', render: (s) => (s.latestScore != null ? s.latestScore : '—') }, { label: '', render: () => <span className="muted">View →</span> }]} />}</Async></Card>}
+        {tab === 'students' && <Card flush title="Students" action={o.isClassTeacher && <Monitors sectionId={sectionId} rows={students.data || []} onSaved={students.reload} />}><Async state={students}>{(rows) => <DataTable rows={rows} rowKey="studentId" onRowClick={(s) => nav(`/teacher/students/${s.studentId}`)} columns={[{ label: 'Roll', render: (s) => String(s.rollNo).padStart(2, '0') }, { label: 'Student', render: (s) => <><b>{s.name}</b> {s.monitor && <Badge tone="blue">Monitor</Badge>}</> }, { label: 'Attendance', render: (s) => fmtPct(s.attendance) }, { label: 'Latest score', render: (s) => (s.latestScore != null ? s.latestScore : '—') }, { label: '', render: () => <span className="muted">View →</span> }]} />}</Async></Card>}
         {tab === 'attendance' && <Card flush><Async state={hist} empty={<Empty title="No registers yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }, { label: 'Leave', render: (r) => r.totals.leave + r.totals.excused }, { label: '', render: (r) => o.isClassTeacher ? <Link to={`/teacher/attendance?sectionId=${sectionId}&date=${r.date}`}>Open</Link> : null }]} />}</Async></Card>}
         {tab === 'timetable' && <Card><Async state={tt}>{(d) => <WeekGrid week={d.week.map((w) => ({ ...w, rows: w.rows.filter((r) => String(r.sectionId) === sectionId || r.isBreak) }))} />}</Async></Card>}
         {tab === 'homework' && <Card flush action={<Link className="btn sm" to="/teacher/homework?new=1">+ New</Link>} title="Homework for this class"><Async state={hw} empty={<Empty title="No homework" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{h.effectiveStatus}</Badge> }]} />}</Async></Card>}
@@ -70,22 +72,34 @@ export function ClassWorkspace() {
 
 export function StudentView() {
   const { id } = useParams();
+  const nav = useNavigate();
   const [tab, setTab] = useState('profile');
   const d = useApi(`${T}/students/${id}`);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(''); const [kind, setKind] = useState('remark'); const [ack, setAck] = useState(true);
+  const [editing, setEditing] = useState(false); const [msg, setMsg] = useState(false);
   const [run, busy] = useAction();
   return (
     <Async state={d}>{(s) => (
       <div className="stack">
-        <PageHeader title={s.profile.name} subtitle={`${s.profile.className} ${s.profile.section} · Roll ${s.profile.rollNo} · Admission ${s.profile.admissionNo}`} />
+        <PageHeader title={<span className="row"><Avatar fileId={s.photoFileId} name={s.profile.name} size={44} />{s.profile.name}{s.monitor && <Badge tone="blue">Class monitor</Badge>}</span>} subtitle={`${s.profile.className} ${s.profile.section} · Roll ${s.profile.rollNo} · Admission ${s.profile.admissionNo}`} actions={<Button onClick={() => setMsg(true)}>Message the family</Button>} />
         <Tabs tabs={[['profile', 'Profile summary'], ['attendance', 'Attendance'], ['marks', 'Subject marks'], ['homework', 'Homework'], ['remarks', 'Teacher remarks'], ['history', 'Academic history']]} value={tab} onChange={setTab} />
-        {tab === 'profile' && <Card><dl className="kv"><dt>Gender</dt><dd>{label(s.profile.gender) || '—'}</dd><dt>House</dt><dd>{s.profile.house || '—'}</dd><dt>Guardian</dt><dd>{s.profile.guardian || '—'}</dd></dl><p className="small muted" style={{ marginTop: 10 }}>Fees, personal documents and unrelated administrative details are not shown to teachers.</p></Card>}
+        {tab === 'profile' && <Card><dl className="kv"><dt>Gender</dt><dd>{label(s.profile.gender) || '—'}</dd><dt>House</dt><dd>{s.profile.house || '—'}</dd><dt>Guardian</dt><dd>{s.profile.guardian || '—'}</dd></dl>{s.contact && <><h3 style={{ marginTop: 14 }}>Contact details <Button size="sm" onClick={() => setEditing(true)}>Update</Button></h3><dl className="kv"><dt>Student phone</dt><dd>{s.contact.phone || '—'}</dd><dt>Student email</dt><dd>{s.contact.email || '—'}</dd><dt>Address</dt><dd>{s.contact.address || '—'}</dd><dt>Guardian phone</dt><dd>{s.contact.guardianPhone || '—'}</dd><dt>Guardian email</dt><dd>{s.contact.guardianEmail || '—'}</dd></dl>
+            <p className="small muted">As class teacher you keep these up to date. Students and parents can only look at them.</p></>}
+          <p className="small muted" style={{ marginTop: 10 }}>Fees, personal documents and unrelated administrative details are not shown to teachers.</p></Card>}
         {tab === 'attendance' && <div className="grid g4"><Stat value={fmtPct(s.attendance.percentage)} label="Attendance" tone="green" /><Stat value={s.attendance.present} label="Present" /><Stat value={s.attendance.absent} label="Absent" tone="red" /><Stat value={s.attendance.late + s.attendance.leave} label="Late / leave" /></div>}
         {tab === 'marks' && (s.marks.length ? s.marks.map((m) => <Card key={m.exam} title={`${m.exam} · ${label(m.examType)}${m.percentage != null ? ` · ${m.percentage}% ${m.grade || ''}` : ''}`} flush><DataTable rows={m.subjects} rowKey="subject" columns={[{ label: 'Subject', render: (x) => <b>{x.subject}</b> }, { label: 'Marks by field', render: (x) => (x.absent ? <Badge tone="red">Absent</Badge> : (x.components || []).map((c) => `${c.label} ${c.value ?? '—'}/${c.max}`).join(' · ')) }, { label: 'Total', render: (x) => `${x.obtained ?? '—'} / ${x.max}` }, { label: '%', render: (x) => fmtPct(x.percentage) }, { label: 'Grade', key: 'grade' }, { label: 'Remark', key: 'remarks' }]} /></Card>) : <Empty title="No published marks yet" />)}
         {tab === 'homework' && <Card flush><DataTable rows={s.homework} empty="No homework from you for this class" columns={[{ label: 'Title', key: 'title' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }]} /></Card>}
-        {tab === 'remarks' && <div className="stack"><Card title="Add a remark"><div className="row"><div className="grow"><Input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Participates well; needs practice in algebra" aria-label="Remark" /></div><Button variant="primary" loading={busy} disabled={text.trim().length < 3} onClick={async () => { await run(() => post(`${T}/students/${id}/remarks`, { text }), 'Remark added'); setText(''); d.reload(); }}>Add</Button></div></Card>
-          <Card flush><DataTable rows={s.remarks} empty="No remarks yet" rowKey="id" columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Teacher', key: 'teacher' }, { label: 'Remark', key: 'text' }]} /></Card></div>}
+        {tab === 'remarks' && <div className="stack"><Card title="Add a remark or guideline for the family">
+          <div className="form-grid"><Field label="Kind"><Select value={kind} onChange={(e) => setKind(e.target.value)} options={[['remark', 'Remark'], ['homework', 'Homework'], ['behaviour', 'Behaviour'], ['guideline', 'Guideline']].map(([value, l]) => ({ value, label: l }))} /></Field>
+            <Field label="Message" full><Input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Homework was incomplete three times this week" aria-label="Remark" /></Field></div>
+          <label className="row" style={{ marginTop: 8 }}><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> Ask the family to acknowledge it. They are reminded every day until they do.</label>
+          <div className="row" style={{ marginTop: 10 }}><Button variant="primary" loading={busy} disabled={text.trim().length < 3} onClick={async () => { await run(() => post(`${T}/students/${id}/remarks`, { text, category: kind, requireAck: ack }), 'Sent to the family'); setText(''); d.reload(); }}>Send</Button></div></Card>
+          <Card flush><DataTable rows={s.remarks} empty="No remarks yet" rowKey="id" columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Teacher', key: 'teacher' }, { label: 'Kind', render: (r) => label(r.category || 'remark') }, { label: 'Remark', key: 'text' },
+            { label: 'Family', render: (r) => (!r.requireAck ? <span className="muted small">No reply needed</span> : r.acknowledged ? <Badge tone="green">Acknowledged</Badge> : <Badge tone="amber">Not yet</Badge>) }]} /></Card></div>}
         {tab === 'history' && <Card flush><DataTable rows={s.history} rowKey="startDate" columns={[{ label: 'Year', key: 'year' }, { label: 'Class', key: 'className' }, { label: 'Section', key: 'section' }, { label: 'Roll', key: 'rollNo' }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.status)}>{label(h.status)}</Badge> }]} /></Card>}
+        {editing && <FormModal title="Update contact details" initial={{ phone: s.contact.phone, email: s.contact.email, address: s.contact.address, guardianPhone: s.contact.guardianPhone, guardianEmail: s.contact.guardianEmail }} fields={[{ name: 'phone', label: 'Student phone' }, { name: 'email', label: 'Student email', type: 'email' }, { name: 'address', label: 'Address', type: 'textarea' }, { name: 'guardianPhone', label: 'Guardian phone' }, { name: 'guardianEmail', label: 'Guardian email', type: 'email' }]} onClose={() => setEditing(false)}
+          onSubmit={async (v) => { const { guardianPhone, guardianEmail, ...own } = v; await patch(`${T}/students/${id}`, { ...own, ...(guardianPhone || guardianEmail ? { guardian: { ...(guardianPhone ? { phone: guardianPhone } : {}), ...(guardianEmail ? { email: guardianEmail } : {}) } } : {}) }); d.reload(); return true; }} />}
+        {msg && <FormModal title={`Message the family of ${s.profile.name}`} submitLabel="Send" fields={[{ name: 'text', label: 'Message', type: 'textarea', required: true }]} onClose={() => setMsg(false)} onSubmit={async (v) => { const t = await post(`${T}/chats`, { studentId: id, text: v.text }); nav(`/teacher/chats?open=${t._id}`); return true; }} />}
       </div>)}</Async>
   );
 }
@@ -128,4 +142,18 @@ export function Attendance() {
       </div>}
     </div>
   );
+}
+
+/** The class teacher chooses up to five monitors (leaders) for the section. */
+export function Monitors({ sectionId, rows, onSaved, path }) {
+  const [open, setOpen] = useState(false); const [sel, setSel] = useState(new Set()); const [run, busy] = useAction();
+  const start = () => { setSel(new Set(rows.filter((r) => r.monitor).map((r) => r.studentId))); setOpen(true); };
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  return (<>
+    <Button size="sm" onClick={start}>Choose monitors</Button>
+    {open && <Modal title="Class monitors" onClose={() => setOpen(false)} footer={<><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" loading={busy} disabled={sel.size > 5} onClick={async () => { const r = await run(() => put(path || `${T}/classes/${sectionId}/monitors`, { studentIds: [...sel] }), 'Monitors saved'); if (r) { setOpen(false); onSaved?.(); } }}>Save</Button></>}>
+      <p className="small muted">Pick up to five students. Monitors are marked on the register and in the student's own profile. {sel.size}/5 chosen.</p>
+      <div className="stack-sm" style={{ maxHeight: 340, overflowY: 'auto' }}>{rows.map((r) => <label key={r.studentId} className="row"><input type="checkbox" checked={sel.has(r.studentId)} disabled={!sel.has(r.studentId) && sel.size >= 5} onChange={() => toggle(r.studentId)} /> {String(r.rollNo).padStart(2, '0')} · {r.name}</label>)}</div>
+    </Modal>}
+  </>);
 }

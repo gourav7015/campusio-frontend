@@ -47,6 +47,7 @@ test.describe('light and dark theme', () => {
 
     for (const [portal, id, pw] of PORTALS) {
       await page.context().clearCookies();
+      await page.waitForLoadState('networkidle'); // let the dashboard finish loading: dropping the token under a page that is still fetching makes its own requests fail with 401
       await page.evaluate(() => sessionStorage.clear());
       await signIn(page, portal, id, pw);
       await expect(page.getByTestId('theme-toggle'), `${portal} has the toggle`).toBeVisible();
