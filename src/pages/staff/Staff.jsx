@@ -1,73 +1,60 @@
 import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
-import { patch, post } from '../../api/client.js';
-import { Async, Badge, Button, Card, DataTable, PageHeader, Stat, useAction, fmtDate, label, statusTone } from '../../components/ui.jsx';
+import { patch } from '../../api/client.js';
+import { Async, Badge, Button, Card, DataTable, Empty, Input, PageHeader, Select, Tabs, useDebounced, fmtDate } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
-import Heatmap from '../../components/Heatmap.jsx';
-import PunchCard from '../../components/PunchCard.jsx';
-import { BarsChart } from '../../components/Charts.jsx';
-import Salary from '../teacher/Salary.jsx';
-import { useDialogs } from '../../design/ui';
+import StaffLeaveDesk from '../../components/StaffLeaveDesk.jsx';
+import HelpDesk from '../shared/HelpDesk.jsx';
 
 const S = '/api/staff';
 
 export { default as StaffDashboard } from './StaffDashboard';
 
-export function StaffAttendance() {
-  const q = useApi(`${S}/my-attendance`);
+/** The Staff portal is the office desk: attendance, leave of non-teaching staff, the employee list and the queries teachers send to the office. */
+export function StaffLeaveDeskPage() {
   return (
     <div className="stack">
-      <PageHeader title="My attendance" subtitle="Marked by the school office from your check-in times. If something looks wrong, tell them." />
-      <PunchCard base={S} />
-      <Async state={q}>{(d) => {
-        const s = d.summary;
-        const marked = d.days.filter((x) => x.working && x.rawStatus && x.rawStatus !== 'present');
-        const byMonth = [...d.days.filter((x) => x.working && x.status).reduce((m, x) => { const k = x.date.slice(0, 7); if (!m.has(k)) m.set(k, { month: k, n: 0, ok: 0 }); const e = m.get(k); e.n++; if (['present', 'late'].includes(x.status) || x.rawStatus === 'half_day') e.ok += x.rawStatus === 'half_day' ? 0.5 : 1; return m; }, new Map()).values()].map((m) => ({ month: m.month, 'Present %': Math.round((m.ok / m.n) * 1000) / 10 }));
-        return (<>
-          <div className="grid g4"><Stat value={s.percentage != null ? `${s.percentage}%` : '—'} label="Attendance this year" tone="green" /><Stat value={s.present + s.late} label="Days present" sub={s.late ? `${s.late} late` : undefined} /><Stat value={s.absent} label="Days absent" tone={s.absent ? 'red' : 'green'} sub="deducted from salary" /><Stat value={s.half_day + s.leave} label="Half days / leave" sub={`${s.half_day} half day · ${s.leave} leave`} /></div>
-          <Card title="Attendance heat map — this academic year"><Heatmap days={d.days} /></Card>
-          {byMonth.length > 0 && <Card title="Month by month"><BarsChart data={byMonth} x="month" bars={[{ key: 'Present %' }]} domain={[0, 100]} unit="%" /></Card>}
-          <Card title="Days that were not a normal present day" flush><DataTable rows={marked} rowKey="date" empty="Nothing to show" columns={[{ label: 'Date', render: (x) => fmtDate(x.date, true) }, { label: 'Status', render: (x) => <Badge tone={x.rawStatus === 'absent' ? 'red' : x.rawStatus === 'leave' ? 'blue' : 'amber'}>{x.rawStatus === 'half_day' ? 'Half day' : label(x.rawStatus)}</Badge> }, { label: 'Remark', key: 'remark' }]} /></Card>
-        </>);
-      }}</Async>
+      <PageHeader title="Leave of non-teaching staff" subtitle="Record the leave of a non-teaching staff member who is away. It is approved at once and fills the attendance register for those days. Teachers apply for their own leave; the School Admin approves it." />
+      <StaffLeaveDesk base={`${S}/leave`} staffBase={`${S}/people`} canEdit canRecord />
     </div>
   );
 }
 
-export function StaffLeave() {
-  const dlg = useDialogs();
-  const q = useApi(`${S}/leave`);
-  const [modal, setModal] = useState(false); const [run] = useAction();
+export function StaffQueries() {
+  return <HelpDesk noun="query" handler base={`${S}/queries`} title="Teachers' queries" subtitle="Questions teachers have sent to the office: their attendance, their leave, and anything else. Answer here; the teacher gets the reply in their portal." />;
+}
+
+const TABS = [['teaching', 'Teachers'], ['non_teaching', 'Non-teaching staff'], ['office', 'Officers']];
+export function StaffEmployees() {
+  const [tab, setTab] = useState('teaching'); const [q, setQ] = useState(''); const [designation, setDesignation] = useState('');
+  const dq = useDebounced(q);
+  const list = useApi(`${S}/employees`, { category: tab, q: dq || undefined, designation: designation || undefined });
   return (
     <div className="stack">
-      <PageHeader title="Leave" subtitle="Apply for leave. The school office approves it, and approved leave fills in your attendance." actions={<Button variant="primary" onClick={() => setModal(true)}>Apply for leave</Button>} />
-      <Async state={q}>{(d) => (<>
-        <div className="grid g4">{Object.entries(d.balances).filter(([k, b]) => k !== 'other' || b.allowance).map(([k, b]) => <Stat key={k} value={b.allowance == null ? b.used : b.remaining} label={`${label(k)} leave ${b.allowance == null ? 'taken' : 'left'}`} sub={b.allowance == null ? 'no pay for these days' : `${b.used} used of ${b.allowance}`} tone={k === 'unpaid' ? 'amber' : 'blue'} />)}</div>
-        <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[
-          { label: 'Type', render: (l) => label(l.leaveType) }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' },
-          { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{label(l.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
-          { label: '', render: (l) => ['submitted', 'approved'].includes(l.status) && <Button size="sm" onClick={async () => { if ((await dlg.confirm('Cancel this leave?'))) { await run(() => post(`${S}/leave/${l._id}/cancel`), 'Cancelled'); q.reload(); } }}>Cancel</Button> },
-        ]} /></Card>
-        {modal && <FormModal title="Apply for leave" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true, default: 'casual', hint: 'Unpaid leave is deducted from your salary for those days.' }, { name: 'startDate', label: 'Start date', type: 'date', required: true }, { name: 'endDate', label: 'End date', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
-          onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${S}/leave`, v); q.reload(); return true; }} />}
-      </>)}</Async>
+      <PageHeader title="Employees" subtitle="Everyone who works at the school, except the transport crew, who are looked after by the Transport officer." />
+      <div className="row between wrap" style={{ alignItems: 'center' }}>
+        <Tabs tabs={TABS} value={tab} onChange={(t) => { setTab(t); setDesignation(''); }} />
+        <div className="row" style={{ gap: 10 }}>
+          <Input aria-label="Search employees" placeholder="Search name, id or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Select aria-label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="All designations" options={(list.data?.designations || []).map((d) => ({ value: d.name, label: `${d.name} (${d.n})` }))} />
+        </div>
+      </div>
+      <Card flush><Async state={list} empty={<Empty title="No one here yet" />}>{(d) => <DataTable rows={d.items} rowKey="id" empty="No one matches" columns={[
+        { label: 'ID', key: 'code' }, { label: 'Name', render: (x) => <b>{x.name}</b> }, { label: 'Designation', render: (x) => <Badge>{x.designation || '—'}</Badge> },
+        { label: 'Phone', render: (x) => x.phone || '—' }, { label: 'Joined', render: (x) => fmtDate(x.joiningDate, true) }, { label: 'Status', render: (x) => <Badge tone={x.status === 'active' ? 'green' : 'amber'}>{x.status}</Badge> },
+      ]} />}</Async></Card>
     </div>
   );
 }
-
-export function StaffPayslips() { return <Salary base={S} />; }
 
 export function StaffProfile() {
   const p = useApi(`${S}/profile`);
   const [edit, setEdit] = useState(false);
   return (
     <Async state={p}>{(x) => (
-      <div className="stack">
+      <div className="stack" style={{ maxWidth: 720 }}>
         <PageHeader title="My profile" actions={<Button onClick={() => setEdit(true)}>Edit contact details</Button>} />
-        <div className="grid g2">
-          <Card title="Details"><dl className="kv"><dt>Name</dt><dd>{x.name}</dd><dt>Staff id</dt><dd>{x.staffId}</dd><dt>Designation</dt><dd>{x.designation}</dd><dt>Joined</dt><dd>{fmtDate(x.joiningDate, true)}</dd><dt>Phone</dt><dd>{x.phone || '—'}</dd><dt>Address</dt><dd>{x.address || '—'}</dd>{x.licenseNo && <><dt>Driving licence</dt><dd>{x.licenseNo}{x.licenseExpiry ? ` (to ${fmtDate(x.licenseExpiry, true)})` : ''}</dd></>}</dl></Card>
-          <Card title="Salary account & ids"><dl className="kv"><dt>Bank</dt><dd>{x.bank ? `${x.bank.bankName || ''} ${x.bank.accountNo} · ${x.bank.ifsc}` : 'Not on record — ask the school office'}</dd><dt>UAN (PF)</dt><dd>{x.statutory.uan || '—'}</dd><dt>ESI number</dt><dd>{x.statutory.esiNo || '—'}</dd></dl></Card>
-        </div>
+        <Card title="Details"><dl className="kv"><dt>Name</dt><dd>{x.name}</dd><dt>Staff id</dt><dd>{x.staffId}</dd><dt>Designation</dt><dd>{x.designation}</dd><dt>Joined</dt><dd>{fmtDate(x.joiningDate, true)}</dd><dt>Phone</dt><dd>{x.phone || '—'}</dd><dt>Address</dt><dd>{x.address || '—'}</dd></dl></Card>
         {edit && <FormModal title="Contact details" initial={x} fields={[{ name: 'phone', label: 'Phone' }, { name: 'address', label: 'Address', full: true }]} onClose={() => setEdit(false)} onSubmit={async (v) => { await patch(`${S}/profile`, v); p.reload(); return true; }} />}
       </div>)}</Async>
   );

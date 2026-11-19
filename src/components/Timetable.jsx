@@ -15,7 +15,7 @@ export function DayList({ rows, showTeacher, showSection, empty = 'No scheduled 
               {r.substitute && <> <Badge tone="amber">{showTeacher ? `Substitute · was ${r.originalTeacher}` : 'Covering'}</Badge></>}
               {r.unresolved && <> <Badge tone="red">Unresolved</Badge></>}</div>
           </div>)}
-        {!r.isBreak && !r.free && <div className="row">{r.attendance && <Badge tone={r.attendance === 'submitted' ? 'green' : r.attendance === 'draft' ? 'amber' : ''}>{r.attendance === 'not_marked' ? 'Register pending' : `Register ${r.attendance}`}</Badge>}
+        {!r.isBreak && !r.free && <div className="row">{r.attendance && <Badge tone={r.attendance === 'submitted' ? 'green' : r.attendance === 'draft' ? 'amber' : ''}>{r.attendance === 'not_marked' ? 'Class attendance not taken yet' : r.attendance === 'submitted' ? 'Class attendance taken' : 'Class attendance saved as draft'}</Badge>}
           {['current', 'next'].includes(r.status) && <Badge tone={r.status === 'current' ? 'primary' : 'amber'}>{r.status === 'current' ? 'Now' : 'Next'}</Badge>}{actions?.(r)}</div>}
       </div>))}</div>
   );

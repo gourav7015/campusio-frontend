@@ -6,10 +6,19 @@ const safe = {
   get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch { /* storage unavailable */ } },
 };
+// "Keep me signed in": the sign-in token then lives in localStorage (it survives closing the browser; the server still ends the session after its own time).
+// Without it the token stays in sessionStorage and goes when the tab is closed, as before.
+const kept = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+};
+let keepSignedIn = false;
 
 export const session = {
-  get token() { return safe.get(TOKEN_KEY); },
-  set token(v) { safe.set(TOKEN_KEY, v); },
+  get token() { return safe.get(TOKEN_KEY) ?? kept.get(TOKEN_KEY); },
+  set token(v) { safe.set(TOKEN_KEY, null); kept.set(TOKEN_KEY, null); if (v != null) (keepSignedIn ? kept : safe).set(TOKEN_KEY, v); },
+  /** Set before storing a new token: true keeps it after the browser is closed. */
+  set keep(v) { keepSignedIn = !!v; },
   get acting() { try { return JSON.parse(safe.get(ACTING_KEY) || 'null'); } catch { return null; } },
   set acting(v) { safe.set(ACTING_KEY, v ? JSON.stringify(v) : null); },
   onUnauthorized: () => {},

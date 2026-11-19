@@ -41,3 +41,9 @@ export function watch(page, allow = []) {
   });
   return problems;
 }
+
+/** Filters live behind one icon button. Open them, and get back the panel that holds the choices. */
+export async function openFilters(page) {
+  await page.getByRole('button', { name: /^Filters/ }).first().click();
+  return page.getByRole('dialog', { name: 'Filters' }).or(page.locator('[aria-label="Filters"]')).first();
+}

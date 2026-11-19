@@ -50,7 +50,7 @@ export function ClassWorkspace() {
   const exams = useApi(tab === 'exams' || tab === 'marks' ? `${T}/exams` : null);
   const act = useApi(tab === 'activity' ? `${T}/dashboard` : null);
   const nav = useNavigate();
-  const tabs = [['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ['timetable', 'Timetable'], ['homework', 'Homework'], ['materials', 'Study materials'], ['exams', 'Examinations'], ['marks', 'Marks'], ['performance', 'Performance'], ['activity', 'Activity history']];
+  const tabs = [['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ['timetable', 'Timetable'], ['homework', 'Homework'], ['exams', 'Examinations'], ['marks', 'Marks'], ['performance', 'Performance'], ['activity', 'Activity history']];
   return (
     <Async state={ov}>{(o) => (
       <div className="stack">
@@ -132,7 +132,7 @@ export function Attendance() {
   const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit — a submitted register is locked." actions={mine.length > 0 && <>
+      <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit. You can open an earlier date at any time and change it." actions={mine.length > 0 && <>
         <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class and section" />
         <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></>} />
       {classes.loading ? null : !mine.length ? <Empty title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}

@@ -87,11 +87,13 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   await chooseNewPassword(page, tempPw);
   await page.goto('/admin');
   const nav = page.getByRole('navigation').first();
-  await expect(nav.getByRole('link', { name: 'Staff attendance' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Attendance', exact: true })).toBeVisible(); // the attendance desk preset (staff attendance) opens the Attendance page
   await expect(nav.getByRole('link', { name: 'Students', exact: true })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'School settings' })).toHaveCount(0);
   await page.goto('/admin/staff-attendance');
   await expect(page.getByRole('tab', { name: 'Daily register' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Teaching staff', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Students', exact: true })).toHaveCount(0); // this sub-admin was given staff attendance only
   await signOut(page);
 
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
@@ -137,7 +139,7 @@ test('the school page the admin writes is read by students, and the sign-in page
   await signOut(page);
 
   await page.goto('/student/login');
-  await page.getByText('Forgot your password?').click();
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
   await expect(page.getByText(/Ask the school office to reset it/)).toBeVisible();
   expect(problems.filter((p) => !p.includes('dialog'))).toEqual([]);
 });

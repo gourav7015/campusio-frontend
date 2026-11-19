@@ -125,7 +125,7 @@ export function Settings() {
   const data = v || s.data;
   const set = (patch) => setV({ ...data, ...patch });
   const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
+    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
     const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
   };
   if (!data) return <Async state={s}>{() => null}</Async>;
@@ -216,6 +216,10 @@ function StaffPolicies({ data, set }) {
           <div style={{ alignSelf: 'end' }}><Button size="sm" loading={locating} onClick={useHere}>Use my current location</Button></div>
         </div>}
         <p className="muted small" style={{ margin: 0 }}>Stand at the school and press “Use my current location”. A check-in from outside the distance is refused. Staff without a login, and machine imports, are not affected.</p>
+      </div></Card>
+      <Card title="Who approves transport staff leave"><div className="stack">
+        <Field label="Approved by"><Select value={data.transportLeaveApprover || 'officer'} onChange={(e) => set({ transportLeaveApprover: e.target.value })} options={[{ value: 'officer', label: 'The Transport officer (the admin is told)' }, { value: 'admin', label: 'The School Admin (the officer can only pass applications on)' }]} /></Field>
+        <p className="muted small" style={{ margin: 0 }}>Either way, the Transport officer can also send any single leave to you. Those waiting for you are under Staff leave, Transport staff.</p>
       </div></Card>
       <Card title="Staff leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.staffLeaveBalances[k]} onChange={(e) => set({ staffLeaveBalances: { ...data.staffLeaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><p className="muted small">For non-teaching and transport staff. Unpaid leave has no limit.</p></Card>
       <Card title="Statutory deductions (India)"><div className="stack">

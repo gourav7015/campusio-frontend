@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { leaveFields, leavePayload, daysText } from './leaveForm.js';
 import { useApi } from '../hooks/useApi.js';
 import { post, patch } from '../api/client.js';
 import { Async, Badge, Button, Card, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
@@ -6,10 +7,12 @@ import FormModal from './FormModal.jsx';
 import { useDialogs } from '../design/ui';
 
 /** The leave desk for one group of staff: decide applications, and record a leave for someone who cannot apply themselves. */
-export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
+export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRecord = canEdit, transport = false }) {
   const [status, setStatus] = useState('submitted');
   const list = useApi(base, { status: status === 'all' ? undefined : status });
-  const staff = useApi(canEdit ? staffBase : null, { limit: 200 });
+  const staff = useApi(canRecord ? staffBase : null, { limit: 200 });
+  const policy = useApi(transport && canRecord ? `${base}/policy` : null);
+  const adminDecides = policy.data?.approver === 'admin'; // the school has kept leave approval for its admin
   const [modal, setModal] = useState(false); const [edit, setEdit] = useState(null); const [run] = useAction();
   const dlg = useDialogs();
   const decide = async (l, decision) => {
@@ -17,22 +20,26 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true }) {
     if (decision === 'reject' && !remark) return;
     await run(() => post(`${base}/${l._id}/decide`, { decision, ...(remark ? { remark } : {}) }), decision === 'approve' ? 'Approved' : 'Rejected'); list.reload();
   };
+  const passOn = async (l) => { await run(() => post(`${base}/${l._id}/pass-to-admin`), 'Sent to the school admin'); list.reload(); };
   return (
     <div className="stack">
+      {adminDecides && <div className="alert" role="note">The school has kept leave approval for the School Admin. Whatever you record here is sent to the admin to decide.</div>}
       <Card title="Staff leave" action={<div className="row"><Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'submitted', label: 'Waiting for a decision' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }, { value: 'all', label: 'All' }]} />
-        {canEdit && <Button size="sm" variant="primary" onClick={() => setModal(true)}>Record leave</Button>}</div>} flush>
+        {canRecord && <Button size="sm" variant="primary" onClick={() => setModal(true)}>Record leave</Button>}</div>} flush>
         <Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} empty="No applications" columns={[
           { label: 'Staff member', render: (l) => <><b>{l.staffId?.name}</b><div className="small muted">{l.staffId?.staffId}</div></> }, { label: 'Type', render: (l) => label(l.leaveType) },
-          { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' },
-          { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{label(l.status)}</Badge>{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },
-          ...(canEdit ? [{ label: '', render: (l) => l.status === 'submitted' && <div className="row"><Button size="sm" variant="primary" onClick={() => decide(l, 'approve')}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(l, 'reject')}>Reject</Button></div> }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && <Button size="sm" onClick={() => setEdit(l)}>Edit</Button> }] : []),
+          { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' },
+          { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{label(l.status)}</Badge>{l.awaitingAdmin && l.status === 'submitted' && <div><Badge tone="amber">With the school admin</Badge></div>}{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },
+          ...(canEdit ? [{ label: '', render: (l) => l.status === 'submitted' && (l.canDecide || l.canPassOn
+            ? <div className="row">{l.canDecide && <><Button size="sm" variant="primary" onClick={() => decide(l, 'approve')}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(l, 'reject')}>Reject</Button></>}
+              {l.canPassOn && <Button size="sm" onClick={() => passOn(l)}>Send to admin</Button>}</div>
+            : <span className="small muted">Waiting for the school admin</span>) }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && <Button size="sm" onClick={() => setEdit(l)}>Edit</Button> }] : []),
         ]} />}</Async>
       </Card>
       <p className="muted small">Approved leave fills the attendance register for those days. Unpaid leave is deducted from salary.</p>
-      {edit && <FormModal title={`Edit leave · ${edit.staffId?.name || ''}`} initial={edit} submitLabel="Save changes" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]} onClose={() => setEdit(null)} onSubmit={async (v) => { await patch(`${base}/${edit._id}`, v); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The number of days is worked out again from the working days in the new dates.</p></FormModal>}
-      {modal && <FormModal title="Record a leave" submitLabel="Record" fields={[{ name: 'staffId', label: 'Staff member', type: 'select', required: true, options: (staff.data?.items || []).map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})` })) },
-        { name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true, default: 'casual' }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
-        onClose={() => setModal(false)} onSubmit={async (v) => { await post(base, v); list.reload(); return true; }} />}
+      {edit && <FormModal title={`Edit leave · ${edit.staffId?.name || ''}`} initial={edit} submitLabel="Save changes" fields={leaveFields({ startLabel: 'From', endLabel: 'To' })} onClose={() => setEdit(null)} onSubmit={async (v) => { await patch(`${base}/${edit._id}`, leavePayload(v)); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The number of days is worked out again from the working days in the new dates.</p></FormModal>}
+      {modal && <FormModal title="Record a leave" submitLabel="Record" fields={leaveFields({ startLabel: 'From', endLabel: 'To', before: [{ name: 'staffId', label: 'Staff member', type: 'select', required: true, options: (staff.data?.items || []).map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})` })) }], after: transport && !adminDecides ? [{ name: 'sendToAdmin', label: 'Send to the school admin to approve', type: 'checkbox', hint: 'Leave this off to approve it yourself. The school admin is told either way.' }] : [] })}
+        onClose={() => setModal(false)} onSubmit={async (v) => { await post(base, leavePayload(v)); list.reload(); return true; }} />}
     </div>
   );
 }

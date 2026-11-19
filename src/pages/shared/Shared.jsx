@@ -6,7 +6,7 @@ import { Async, Badge, Button, Card, ConfirmButton, Empty, Modal, PageHeader, Se
 import FormModal from '../../components/FormModal.jsx';
 
 const CATS = ['homework', 'attendance', 'examination', 'results', 'announcements', 'timetable', 'leave', 'fees', 'library', 'system'];
-const LINKS = { homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams', timetable: 'timetable', leave: 'leave', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk' };
+const LINKS = { homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams', timetable: 'timetable', leave: 'leave', staff_leave: 'leave?tab=transport', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk' };
 
 export function NotificationsPage({ role, base }) {
   const [cat, setCat] = useState('');

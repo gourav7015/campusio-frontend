@@ -1,21 +1,21 @@
 import { Link } from 'react-router-dom';
-import { Award, CalendarCheck2, CalendarClock, Flame, NotebookPen, Sparkles, Trophy } from 'lucide-react';
+import { Award, CalendarCheck2, CalendarClock, Flame, Sparkles, Trophy } from 'lucide-react';
 import { useGet } from '../../api/query';
 import { Badge, EmptyState, ErrorState, PageSkeleton, ProgressRing } from '../../design/ui';
 import { LinkCard, ShareList } from '../../design/patterns';
 import { cn } from '../../design/lib/cn';
 import { DaySchedule, type Period } from '../../components/Schedule';
 import { fmtDate, fmtMoney } from '../../components/ui.jsx';
+import { openFile } from '../../api/client.js';
 import { StudentHero } from './StudentHero';
 
 interface Dash {
   welcome: { name: string; date: string; className: string; section: string; academicYear: string; enrolmentStatus: string };
   cards: { attendance: number | null; pendingHomework: number; completedExams: number; latestAverage: number | null; latestExam?: string };
-  overdueHomework?: number;
   toDo?: { remarksToAcknowledge: number; unreadChats: number };
   timetable: { rows: Period[] };
   attendance: { summary: { workingDays: number; present: number; absent: number; leave: number; late?: number; percentage: number | null } };
-  homework: { _id: string; subject: string; title: string; state: string; dueDate: string }[];
+  homework: { _id: string; subject: string; title: string; description?: string; state: string; dueDate: string; attachmentFiles?: { _id: string; originalName: string }[] }[];
   upcomingExam?: { exam: string; subject: string; date: string; daysLeft: number };
   latestResult?: { exam: string; percentage: number; grade: string; resultStatus: string; subjects: { subject: string; percentage: number | null; grade?: string }[] };
   fees?: { pending: number; overdue: number };
@@ -47,13 +47,12 @@ export default function StudentDashboard() {
 
   const att = x.cards.attendance;
   const streak = streakOf(heat?.days);
-  const pending = x.cards.pendingHomework; const overdue = x.overdueHomework ?? 0;
+  const pending = x.cards.pendingHomework;
   // Achievements are worked out from the student's own records; nothing is stored or compared with other students.
   const badges = [
     { id: 'att', title: '95% attendance', hint: 'Keep attendance at 95% or more', icon: CalendarCheck2, earned: att != null && att >= 95 },
     { id: 's5', title: '5-day streak', hint: 'Five school days in a row', icon: Flame, earned: streak >= 5 },
     { id: 's10', title: '10-day streak', hint: 'Ten school days in a row', icon: Flame, earned: streak >= 10 },
-    { id: 'hw', title: 'Homework up to date', hint: 'No pending or overdue homework', icon: NotebookPen, earned: pending === 0 && overdue === 0 },
     { id: 'res', title: 'Result 75% or more', hint: 'Latest published result', icon: Trophy, earned: (x.cards.latestAverage ?? 0) >= 75 },
   ];
   const earned = badges.filter((b) => b.earned).length;
@@ -75,10 +74,10 @@ export default function StudentDashboard() {
             : <div className="grid size-16 place-items-center rounded-full bg-muted text-xl text-muted-foreground" aria-hidden>—</div>}
           <div className="min-w-0"><p className="text-[13px] text-muted-foreground">Attendance</p><p className="text-sm font-medium">{att == null ? 'No attendance recorded yet' : streak ? `${streak}-day streak` : 'This year'}</p></div>
         </Link>
-        <Link to="/student/homework" className="rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div className="rounded-lg border border-border/70 bg-card p-4 shadow-xs">
           <p className="text-[13px] text-muted-foreground">Homework to do</p><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{pending}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{overdue ? <span className="text-danger-ink">{overdue} overdue</span> : pending ? 'Nothing overdue' : 'All done'}</p>
-        </Link>
+          <p className="mt-1 text-xs text-muted-foreground">{pending ? 'Given by your teachers, due soon' : 'Nothing right now'}</p>
+        </div>
         <Link to="/student/exams" className="rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="text-[13px] text-muted-foreground">Next exam</p>
           {x.upcomingExam ? <><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{x.upcomingExam.daysLeft === 0 ? 'Today' : <>{x.upcomingExam.daysLeft}<span className="text-base font-normal text-muted-foreground"> {x.upcomingExam.daysLeft === 1 ? 'day' : 'days'}</span></>}</p><p className="mt-1 truncate text-xs text-muted-foreground">{x.upcomingExam.subject} · {fmtDate(x.upcomingExam.date)}</p></>
@@ -93,10 +92,12 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <LinkCard className="xl:col-span-2" title="Today" to="/student/timetable" linkLabel="Full timetable"><DaySchedule rows={x.timetable.rows} showTeacher empty="No classes today" /></LinkCard>
-        <LinkCard title="Homework" to="/student/homework" linkLabel="All">
-          {x.homework.length ? <ul className="space-y-3">{x.homework.map((h) => (
-            <li key={h._id} className="flex items-start justify-between gap-3 text-sm"><div className="min-w-0"><p className="truncate font-medium">{h.title}</p><p className="text-xs text-muted-foreground">{h.subject}</p></div><Badge tone={h.state === 'overdue' ? 'danger' : 'neutral'}>{h.state === 'overdue' ? 'Overdue' : fmtDate(h.dueDate)}</Badge></li>))}</ul>
-            : <EmptyState icon={Sparkles} title="No homework pending" description="You are all caught up." className="py-6" />}
+        <LinkCard title="Homework">
+          {x.homework.length ? <ul className="space-y-4">{x.homework.map((h) => (
+            <li key={h._id} className="text-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{h.title}</p><p className="text-xs text-muted-foreground">{h.subject}</p></div><Badge tone="neutral">Due {fmtDate(h.dueDate)}</Badge></div>
+              {h.description && <p className="mt-1 whitespace-pre-line text-[13px] text-muted-foreground">{h.description}</p>}
+              {h.attachmentFiles?.length ? <p className="mt-1 flex flex-wrap gap-2">{h.attachmentFiles.map((f) => <a key={f._id} className="chip" href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>)}</p> : null}</li>))}</ul>
+            : <EmptyState icon={Sparkles} title="No homework" description="Nothing has been given right now." className="py-6" />}
         </LinkCard>
       </div>
 

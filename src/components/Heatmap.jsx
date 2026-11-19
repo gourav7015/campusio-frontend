@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { label, fmtDate } from './ui.jsx';
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const COLOR = { present: 'var(--green)', late: 'var(--amber)', absent: 'var(--red)', leave: 'var(--blue)', excused: 'var(--blue)' };
+const COLOR = { present: 'var(--green)', late: 'var(--amber)', half_day: 'var(--amber)', absent: 'var(--red)', leave: 'var(--blue)', excused: 'var(--blue)' };
 
 /** GitHub-style attendance heat map: one square per day, weeks across, Monday at the top. */
 export default function Heatmap({ days }) {

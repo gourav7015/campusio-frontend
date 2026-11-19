@@ -24,9 +24,9 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     ...state, acting,
-    async login(loginId, password, portal) {
+    async login(loginId, password, portal, keep = false) {
       const r = await api('/api/auth/login', { method: 'POST', body: { loginId, password, portal } });
-      session.token = r.token; session.acting = null; setActingState(null);
+      session.keep = keep; session.token = r.token; session.acting = null; setActingState(null);
       queryClient.clear();
       setState({ user: r.user, school: r.school, loading: false });
       return r.user;

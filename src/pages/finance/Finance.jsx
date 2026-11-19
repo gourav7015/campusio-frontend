@@ -175,23 +175,51 @@ export function StudentAccount({ readOnly }) {
 
 function PayModal({ x, base, onClose, onDone }) {
   const open = x.charges.filter((c) => c.status === 'open');
-  const [v, setV] = useState({ amount: x.totals.pending, mode: 'cash', reference: '', paidOn: today(), note: '' });
+  const [v, setV] = useState({ amount: '', mode: 'cash', reference: '', paidOn: today(), note: '' });
+  const [amountEdited, setAmountEdited] = useState(false);
+  const [disc, setDisc] = useState({ on: false, type: 'amount', value: '', reason: '' });
   const [picked, setPicked] = useState([]);
   const [run, busy] = useAction();
   const due = picked.length ? open.filter((c) => picked.includes(c._id)).reduce((n, c) => n + c.outstanding, 0) : x.totals.pending;
+  // a discount is taken off the dues this receipt pays; what is left is what the person pays
+  const num = Number(disc.value) || 0;
+  const off = disc.on ? Math.round((disc.type === 'percent' ? (due * num) / 100 : num) * 100) / 100 : 0;
+  const discountOk = !disc.on || (off > 0 && off <= due + 0.001 && disc.reason.trim().length >= 3 && (disc.type !== 'percent' || num <= 100));
+  const net = Math.max(0, Math.round((due - off) * 100) / 100);
+  const amount = amountEdited ? Number(v.amount) : net; // by default the whole of what is left; the person may pay part of it
+  const clears = disc.on && off > 0 && net === 0;
+  const valid = discountOk && (clears || (amount > 0 && amount <= net + 0.001));
+  const submit = async () => {
+    const body = { studentId: x.student.id, ...(clears ? {} : { amount }), mode: v.mode, paidOn: v.paidOn, ...(v.reference ? { reference: v.reference } : {}), ...(v.note ? { note: v.note } : {}), ...(picked.length ? { chargeIds: picked } : {}),
+      ...(disc.on ? { discount: { type: disc.type, value: num, reason: disc.reason.trim() } } : {}) };
+    const p = await run(() => post(`${base}/payments`, body), (r) => (r.receiptNo ? `Receipt ${r.receiptNo} issued` : 'Discount applied. Nothing is left to pay for those dues.'));
+    if (!p) return;
+    if (p.receiptNo) { try { await download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`); } catch { /* receipt can be reprinted */ } }
+    onDone();
+  };
   return (
-    <Modal wide title="Collect payment" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!(v.amount > 0) || v.amount > due + 0.001} onClick={async () => {
-      const body = { studentId: x.student.id, amount: Number(v.amount), mode: v.mode, paidOn: v.paidOn, ...(v.reference ? { reference: v.reference } : {}), ...(v.note ? { note: v.note } : {}), ...(picked.length ? { chargeIds: picked } : {}) };
-      const p = await run(() => post(`${base}/payments`, body), (r) => `Receipt ${r.receiptNo} issued`); if (p) { try { await download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`); } catch { /* receipt can be reprinted */ } onDone(); } }}>Collect {fmtMoney(v.amount || 0)}</Button></>}>
+    <Modal wide title="Collect payment" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!valid} onClick={submit}>{clears ? 'Apply discount' : `Collect ${fmtMoney(amount || 0)}`}</Button></>}>
       <div className="stack">
         <div className="form-grid">
-          <Field label={`Amount (₹) — up to ${fmtMoney(due)}`}><Input type="number" min="1" value={v.amount} onChange={(e) => setV({ ...v, amount: e.target.value })} /></Field>
+          <Field label={`Amount (₹) — up to ${fmtMoney(net)}`}><Input type="number" min="1" disabled={clears} value={clears ? 0 : amountEdited ? v.amount : String(net)} onChange={(e) => { setAmountEdited(true); setV({ ...v, amount: e.target.value }); }} /></Field>
           <Field label="Mode"><Select value={v.mode} onChange={(e) => setV({ ...v, mode: e.target.value })} options={MODES} /></Field>
           <Field label="Reference (UPI id / cheque no)"><Input value={v.reference} onChange={(e) => setV({ ...v, reference: e.target.value })} /></Field><Field label="Date received"><Input type="date" max={today()} value={v.paidOn} onChange={(e) => setV({ ...v, paidOn: e.target.value })} /></Field>
         </div>
         <div><div className="bold small" style={{ marginBottom: 4 }}>Pay towards (leave unticked to clear the oldest dues first)</div>
-          {open.map((c) => <label key={c._id} className="row small"><input type="checkbox" checked={picked.includes(c._id)} onChange={(e) => setPicked(e.target.checked ? [...picked, c._id] : picked.filter((i) => i !== c._id))} /> {c.label} — {fmtMoney(c.outstanding)} {c.overdue && <Badge tone="red">overdue</Badge>}</label>)}</div>
-        {v.amount > due + 0.001 && <div className="alert">The amount is more than what is owed. Advance payments are not supported.</div>}
+          {open.map((c) => <label key={c._id} className="row small"><input type="checkbox" checked={picked.includes(c._id)} onChange={(e) => { setPicked(e.target.checked ? [...picked, c._id] : picked.filter((i) => i !== c._id)); setAmountEdited(false); }} /> {c.label} — {fmtMoney(c.outstanding)} {c.overdue && <Badge tone="red">overdue</Badge>}</label>)}</div>
+        <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+          <label className="row bold"><input type="checkbox" checked={disc.on} onChange={(e) => { setDisc({ ...disc, on: e.target.checked }); setAmountEdited(false); }} /> Give a discount or concession on {picked.length ? 'the ticked dues' : 'these dues'}</label>
+          {disc.on && <>
+            <div className="form-grid">
+              <Field label="Discount type"><Select aria-label="Discount type" value={disc.type} onChange={(e) => { setDisc({ ...disc, type: e.target.value }); setAmountEdited(false); }} options={[{ value: 'amount', label: 'Rupees (₹)' }, { value: 'percent', label: 'Percent (%) of what is due' }]} /></Field>
+              <Field label={disc.type === 'percent' ? 'Percent off' : 'Rupees off'}><Input aria-label="Discount value" type="number" min="1" value={disc.value} onChange={(e) => { setDisc({ ...disc, value: e.target.value }); setAmountEdited(false); }} /></Field>
+              <Field label="Reason (kept on the dues)" full><Input aria-label="Discount reason" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} placeholder="e.g. Sibling discount, scholarship, staff child" /></Field>
+            </div>
+            <p className="small" role="status">{off > 0 ? <>Due {fmtMoney(due)} − discount <b>{fmtMoney(off)}</b> = <b>{fmtMoney(net)}</b> to pay{clears ? ' (nothing left, so no receipt is made)' : ''}.</> : 'Enter the discount to see what is left to pay.'}</p>
+            {disc.on && num > 0 && !discountOk && <div className="alert">{off > due + 0.001 ? `The discount cannot be more than what is due (${fmtMoney(due)}).` : disc.type === 'percent' && num > 100 ? 'A percentage must be between 0 and 100.' : 'Give a reason for the discount.'}</div>}
+          </>}
+        </div>
+        {!clears && amount > net + 0.001 && <div className="alert">The amount is more than what is owed. Advance payments are not supported.</div>}
       </div>
     </Modal>
   );
@@ -246,20 +274,19 @@ export function OnlinePayments({ readOnly }) {
 
 // ───────────── reports & defaulters ─────────────
 export function FinanceReports({ readOnly }) {
-  const { base, path } = ctxOf(readOnly);
+  const { base } = ctxOf(readOnly);
   const [tab, setTab] = useState('collection');
   const [range, setRange] = useState({ from: '', to: '' });
   const col = useApi(tab === 'collection' ? `${base}/reports/collection` : null, range);
   const classes = useApi(tab === 'classes' ? `${base}/reports/classes` : null);
   return (
     <div className="stack">
-      <PageHeader title="Reports & defaulters" subtitle="Collection, outstanding fees by class, and students who are overdue" />
-      <Tabs tabs={[['collection', 'Collection'], ['classes', 'Outstanding by class'], ['defaulters', 'Defaulters']]} value={tab} onChange={setTab} />
+      <PageHeader title="Reports" subtitle="What was collected, and what is still outstanding by class. Students who are overdue are under Defaulters." />
+      <Tabs tabs={[['collection', 'Collection'], ['classes', 'Outstanding by class']]} value={tab} onChange={setTab} />
       {tab === 'collection' && <Async state={col}>{(c) => (<>
         <div className="row wrap"><Input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} aria-label="From" /><Input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} aria-label="To" /><Badge tone="green">Net collected {fmtMoney(c.total)}</Badge><span className="muted small">{fmtDate(c.from, true)} – {fmtDate(c.to, true)}</span></div>
         <div className="grid g-main"><Card title="By day"><BarsChart data={c.byDay} x="date" bars={[{ key: 'amount', name: 'Collected', color: 'rgb(var(--c-success))' }]} /></Card><Card title="By payment mode" flush><DataTable rows={c.byMode} rowKey="mode" columns={[{ label: 'Mode', render: (m) => label(m.mode) }, { label: 'Receipts', key: 'count' }, { label: 'Amount', render: (m) => fmtMoney(m.amount) }]} /></Card></div></>)}</Async>}
       {tab === 'classes' && <Card flush><Async state={classes} empty={<Empty title="Nothing billed yet" />}>{(rows) => <DataTable rows={rows} rowKey="className" columns={[{ label: 'Class', render: (r) => <b>{r.className}</b> }, { label: 'Students', key: 'students' }, { label: 'Billed', render: (r) => fmtMoney(r.billed) }, { label: 'Collected', render: (r) => fmtMoney(r.collected) }, { label: 'Pending', render: (r) => fmtMoney(r.pending) }, { label: 'Overdue', render: (r) => (r.overdue ? <Badge tone="red">{fmtMoney(r.overdue)}</Badge> : '—') }]} />}</Async></Card>}
-      {tab === 'defaulters' && <Defaulters base={base} path={path} readOnly={readOnly} />}
     </div>
   );
 }
@@ -270,6 +297,17 @@ const defCols = (path) => [
   { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> }, { label: 'Overdue', render: (s) => <Badge tone="red">{fmtMoney(s.overdue)}</Badge> },
   { label: 'Days overdue', render: (s) => (s.daysOverdue ? `${s.daysOverdue}d` : '—') }, { label: 'Pending', render: (s) => fmtMoney(s.pending) },
 ];
+
+/** Defaulters as a page of its own (a main tab of the fees area): students who are overdue. */
+export function FinanceDefaulters({ readOnly }) {
+  const { base, path } = ctxOf(readOnly);
+  return (
+    <div className="stack">
+      <PageHeader title="Defaulters" subtitle="Students with overdue fees, in one list or class by class. Filter by class, then send reminders or export." />
+      <Defaulters base={base} path={path} readOnly={readOnly} />
+    </div>
+  );
+}
 
 /** Students with overdue fees: one list (any class), or class by class. The School Admin sees both, read-only. */
 function Defaulters({ base, path, readOnly }) {

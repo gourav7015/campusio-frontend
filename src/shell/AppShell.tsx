@@ -10,7 +10,7 @@ import { cn } from '../design/lib/cn';
 import { ease } from '../design/lib/motion';
 import { useSession } from '../types/auth';
 import { Logo } from '../pages/PublicPage';
-import { flatNav, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
+import { flatNav, HIDDEN_PAGES, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
 import { NavList } from './NavList';
 import { Notifications } from './Notifications';
 import { CommandSearch } from './CommandSearch';
@@ -39,6 +39,8 @@ function Brand({ portal, schoolName, collapsed, dark }: { portal: Portal; school
 function useCrumbs(portal: Portal): Crumb[] {
   const { pathname } = useLocation();
   return useMemo(() => {
+    const hidden = Object.entries(HIDDEN_PAGES).find(([to]) => pathname === to || pathname.startsWith(`${to}/`));
+    if (hidden) return [{ label: portal.title, to: portal.home }, { label: hidden[1].parent.label, to: hidden[1].parent.to }, { label: hidden[1].label }];
     const items = flatNav(portal).filter((i) => !i.end);
     const section = items.filter((i) => pathname === i.to || pathname.startsWith(`${i.to}/`)).sort((a, b) => b.to.length - a.to.length)[0];
     if (!section) return [];
@@ -50,13 +52,13 @@ function useCrumbs(portal: Portal): Crumb[] {
 
 export function AppShell({ area }: { area: PortalKey }) {
   const { user, school, acting, setActing } = useSession();
-  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[] } | null);
+  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null);
   const { pathname } = useLocation();
   const nav = useNavigate();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
   const crumbs = useCrumbs(portal);
-  usePageTitle(crumbs[1]?.label ?? 'Dashboard', portal.title);
+  usePageTitle((crumbs.length === 3 && crumbs[2].label !== 'Details' ? crumbs[2].label : crumbs[1]?.label) ?? 'Dashboard', portal.title);
   useRobots(false);
   const dark = portal.variant === 'control';
   const personal = portal.variant === 'personal';

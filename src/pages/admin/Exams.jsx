@@ -3,10 +3,12 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, put, del, download } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, statusTone, fmtDate, label } from '../../components/ui.jsx';
+import DateSheet from '../../components/DateSheet.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useDebounced, statusTone, fmtDate, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import { ComponentsEditor, cleanComponents, componentsText } from '../../components/Marks.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
+import ExamOverview from '../../components/ExamOverview.jsx';
 import { useDialogs } from '../../design/ui';
 
 export const EXAM_TYPES = [['unit_test', 'Unit test'], ['class_test', 'Class test'], ['surprise_test', 'Surprise test'], ['half_yearly', 'Half-yearly'], ['annual', 'Annual'], ['practical', 'Practical'], ['other', 'Other']].map(([value, label]) => ({ value, label }));
@@ -26,27 +28,58 @@ export function Exams() {
 
 function ClassAnalysis() {
   const L = useLookups();
+  const nav = useNavigate();
+  const [sp, setSp] = useSearchParams();
+  const view = sp.get('view') === 'graphs' ? 'graphs' : 'summary';
+  const setView = (v) => { const n = new URLSearchParams(sp); if (v === 'summary') n.delete('view'); else n.set('view', v); setSp(n, { replace: true }); };
   const [classId, setClassId] = useState(''); const [sectionId, setSectionId] = useState('');
   const sections = L.sections.filter((s) => s.classId === classId && s.yearId === L.currentYear?._id && s.status === 'active');
+  const cls = L.classes.find((c) => c._id === classId)?.name; const sec = sections.find((x) => x._id === sectionId)?.name;
   return (
     <div className="stack">
-      <PageHeader title="Class analysis" subtitle="Choose a class to see the exams held and every student's performance across them." actions={<>
+      <PageHeader title="Class analysis" subtitle={classId ? `Marks and exams of ${cls}${sec ? ` ${sec}` : ''}. Switch between the tables and the graphs below.` : 'The whole school at a glance. Choose a class, or click one below, to see its exams and every student.'} actions={<>
         <Select aria-label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setSectionId(''); }} placeholder="Choose a class" options={L.classOptions} />
         <Select aria-label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} placeholder="All sections" options={sections.map((x) => ({ value: x._id, label: x.name }))} disabled={!classId} /></>} />
-      <ExamAnalysis classId={classId} sectionId={sectionId} />
+      <Tabs tabs={[['summary', 'Tables'], ['graphs', 'Graphs']]} value={view} onChange={setView} />
+      {!classId && <StudentFinder onPick={(id) => nav(`/admin/exams/student/${id}`)} />}
+      {classId ? <ExamAnalysis classId={classId} sectionId={sectionId} view={view} /> : <ExamOverview view={view} onPickClass={(id) => { setClassId(id); setSectionId(''); }} />}
     </div>
   );
 }
+
+/** Find any student by name or admission number and open their marks. */
+function StudentFinder({ onPick }) {
+  const [q, setQ] = useState(''); const dq = useDebounced(q);
+  const res = useApi(dq.trim().length >= 2 ? '/api/school/students' : null, { q: dq.trim(), limit: 8 });
+  return (
+    <Card>
+      <Field label="Find a student" hint="Type a name or an admission number to open that student's marks.">
+        <Input aria-label="Find a student" placeholder="Name or admission number" value={q} onChange={(e) => setQ(e.target.value)} />
+      </Field>
+      {dq.trim().length >= 2 && res.data && (
+        <ul className="timeline" style={{ margin: '8px 0 0' }}>
+          {res.data.items.length ? res.data.items.map((s) => (
+            <li key={s._id} style={{ cursor: 'pointer' }} onClick={() => onPick(s._id)}><div className="grow"><b>{s.name}</b><div className="small muted">{s.admissionNo}{s.enrolment?.className ? ` · ${s.enrolment.className}${s.enrolment.section ? ` ${s.enrolment.section}` : ''}` : ''}</div></div><div className="right"><Button size="sm" onClick={(e) => { e.stopPropagation(); onPick(s._id); }}>Open marks</Button></div></li>
+          )) : <li><div className="grow muted">No student matches “{dq}”.</div></li>}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+const STANDARD_EXAMS = ['Unit Test 1', 'Unit Test 2', 'Half-Yearly', 'Unit Test 3', 'Unit Test 4', 'Final Exam'];
 
 function ExamList() {
   const nav = useNavigate();
   const L = useLookups();
   const list = useApi('/api/school/exams');
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState(false); const [run, busy] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Examinations" subtitle="Create exams, set the schedule, review teachers' marks and publish results" actions={<Button variant="primary" onClick={() => setModal(true)}>+ New examination</Button>} />
-      <Card flush><Async state={list} empty={<Empty title="No examinations yet" />}>{(rows) => <DataTable rows={rows} onRowClick={(e) => nav(`/admin/exams/${e._id}`)} columns={[
+      <PageHeader title="Examinations" subtitle="The standard examinations of the year, each with a date sheet for every class. Then review teachers' marks and publish results." actions={<>
+        {STANDARD_EXAMS.some((n) => !(list.data || []).some((e) => e.name === n)) && <Button loading={busy} onClick={async () => { await run(() => post('/api/school/exams/standard'), (r) => `${r.created} examination(s) added`); list.reload(); }}>Add the standard exams</Button>}
+        <Button variant="primary" onClick={() => setModal(true)}>+ New examination</Button></>} />
+      <Card flush><Async state={list} empty={<Empty title="No examinations yet">Use “Add the standard exams” for Unit Test 1 to 4, Half-Yearly and the Final Exam, then fill each class's date sheet.</Empty>}>{(rows) => <DataTable rows={rows} onRowClick={(e) => nav(`/admin/exams/${e._id}`)} columns={[
         { label: 'Examination', render: (e) => <><b>{e.name}</b> <Badge>{label(e.type)}</Badge>{e.createdByName && <div className="small muted">Added by {e.createdByName}</div>}</> }, { label: 'Classes', render: (e) => e.classNames.join(', ') }, { label: 'Dates', render: (e) => (e.startDate ? `${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}` : '—') }, { label: 'Subjects', key: 'subjectCount' },
         { label: 'Schedule', render: (e) => <Badge tone={e.schedulePublished ? 'green' : 'amber'}>{e.schedulePublished ? 'Published' : 'Draft'}</Badge> },
         { label: 'Marks', render: (e) => Object.entries(e.sheetStatus).map(([k, v]) => <Badge key={k} tone={statusTone(k)}>{v} {label(k)}</Badge>) },
@@ -62,7 +95,7 @@ export function ExamDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const L = useLookups();
-  const [tab, setTab] = useState('subjects');
+  const [tab, setTab] = useState('datesheet');
   const ex = useApi(`/api/school/exams/${id}`);
   const sheets = useApi(tab === 'marks' ? `/api/school/exams/${id}/sheets` : null);
   const results = useApi(tab === 'results' ? `/api/school/exams/${id}/results` : null);
@@ -77,7 +110,8 @@ export function ExamDetail() {
           <Button onClick={async () => { await run(() => post(`/api/school/exams/${id}/subjects/generate`), (r) => `${r.created} subject(s) added from offerings`); ex.reload(); }}>Add subjects from offerings</Button>
           <Button variant="primary" onClick={async () => { await run(() => post(`/api/school/exams/${id}/publish-schedule`), 'Schedule published to students'); ex.reload(); }} disabled={!e.subjects.length}>{e.schedulePublished ? 'Re-notify schedule' : 'Publish schedule'}</Button>
           <ConfirmButton variant="danger" message="Delete this examination? Only possible before marks entry." onConfirm={async () => { const ok = await run(() => del(`/api/school/exams/${id}`), 'Deleted'); if (ok) nav('/admin/exams'); }}>Delete</ConfirmButton></>} />
-        <Tabs tabs={[['subjects', 'Subjects & schedule'], ['marks', 'Marks review & publish'], ['results', 'Published results']]} value={tab} onChange={setTab} />
+        <Tabs tabs={[['datesheet', 'Date sheet'], ['subjects', 'All papers'], ['marks', 'Marks review & publish'], ['results', 'Published results']]} value={tab} onChange={setTab} />
+        {tab === 'datesheet' && <DateSheet examId={id} exam={e} onChanged={ex.reload} />}
         {tab === 'subjects' && (<Card flush action={<Button size="sm" onClick={() => setModal({})}>+ Add / edit subject</Button>} title="Exam subjects">
           <DataTable rows={e.subjects} empty="No subjects yet — add them from offerings or manually" columns={[{ label: 'Class', key: 'className' }, { label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Date', render: (s) => fmtDate(s.date) }, { label: 'Time', render: (s) => (s.startTime ? `${s.startTime}–${s.endTime}` : '—') }, { label: 'Room', key: 'room' },
             { label: 'Marks fields', render: (s) => `${componentsText(s.components)} = ${s.max}` }, { label: 'Pass', key: 'passMarks' },

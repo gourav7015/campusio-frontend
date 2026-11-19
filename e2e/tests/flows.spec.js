@@ -27,9 +27,10 @@ test('each role has its own login URL; the wrong portal is refused; routes are p
   await expect(page.getByRole('alert')).toContainText('Invalid login id or password');
   // right password, wrong door
   await signIn(page, 'teacher', 'gps.adm20260001', 'Student@12345', { expectFail: true });
-  await expect(page.getByRole('alert')).toContainText('belongs to the Student portal');
+  await expect(page.getByRole('alert')).toContainText('Invalid login id or password'); // the same answer as a wrong password: it does not say the credentials are right
+  await expect(page.getByRole('alert')).toContainText('sign-in page for your role');
   await signIn(page, 'admin', 'superadmin@erp.local', 'Super@12345', { expectFail: true });
-  await expect(page.getByRole('alert')).toContainText('Platform Admin portal');
+  await expect(page.getByRole('alert')).toContainText('Invalid login id or password');
   await signIn(page, 'student', 'gps.adm20260001', 'Student@12345');
   await expect(page).toHaveURL(/\/student$/);
   for (const p of ['/admin', '/platform/schools', '/teacher', '/finance', '/library']) { await page.goto(p); await expect(page).toHaveURL(/\/student$/); }
@@ -39,7 +40,7 @@ test('each role has its own login URL; the wrong portal is refused; routes are p
   await page.goto('/admin/students'); await expect(page).toHaveURL(/\/teacher$/);
 });
 
-test('only the class teacher takes attendance; submitted registers are locked; the admin corrects with a reason', async ({ page }) => {
+test('only the class teacher takes attendance and may change it later; the admin corrects with a reason', async ({ page }) => {
   const problems = watch(page);
   // Gupta teaches English in 8-A but is not a class teacher of any section he/she can mark: no attendance desk for subject-only teachers
   await signIn(page, 'teacher', 'khan@gps.test', 'Teach@12345');
@@ -60,27 +61,27 @@ test('only the class teacher takes attendance; submitted registers are locked; t
   await expect(page.getByText('Draft saved')).toBeVisible();
   await page.getByRole('button', { name: 'Submit attendance' }).click();
   await expect(page.getByText(/Submitted: \d+ present, 1 absent/)).toBeVisible();
-  await expect(page.getByText(/It is now locked/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Correct', exact: true })).toHaveCount(0); // no teacher edit after submit
-  await expect(page.getByRole('button', { name: 'Absent', exact: true })).toHaveCount(0);
+  // the class teacher can reopen the submitted register and change it: here Aarav is moved to present and back to absent
+  await expect(page.getByText(/You can still change it/)).toBeVisible();
+  await page.getByRole('row').nth(1).getByRole('button', { name: 'Present', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved: 1 change(s)')).toBeVisible();
+  await page.getByRole('row').nth(1).getByRole('button', { name: 'Absent', exact: true }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.getByText('Saved: 1 change(s)')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/flow-attendance-locked.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Request correction' }).click();
-  await page.getByLabel('What needs to change, and why?').fill('Aarav was present, I marked him absent by mistake');
-  await page.getByRole('button', { name: 'Send to admin' }).click();
-  await expect(page.getByText('Request sent to the school admin')).toBeVisible();
   await signOut(page);
 
   // the admin sees the request and corrects the register with a reason
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/messages');
-  await expect(page.getByText(/Attendance correction request/).first()).toBeVisible();
-  await page.goto('/admin/classes?tab=attendance'); // attendance lives inside Classes & sections
+  await page.goto('/admin/classes?tab=attendance'); // the old address opens the Attendance page (Administration)
   await page.getByRole('row').filter({ hasText: 'Class 8 A' }).getByRole('button', { name: 'Open register' }).click();
-  const select = page.getByRole('dialog').getByRole('row').nth(1).locator('select');
-  await select.selectOption('late');
-  const why = page.getByRole('dialog', { name: 'Correct attendance' }); // the admin must give a reason
-  await why.getByRole('textbox').fill('Parent brought a note');
-  await why.getByRole('button', { name: 'Confirm' }).click();
+  // the admin's register is the class teacher's register: a submitted one is corrected with a reason, through the same "Correct" window
+  await page.getByRole('dialog').getByRole('button', { name: 'Correct', exact: true }).first().click();
+  const why = page.getByRole('dialog', { name: /^Correct attendance/ });
+  await why.getByLabel('New status').selectOption('late');
+  await why.getByRole('textbox').last().fill('Parent brought a note');
+  await why.getByRole('button', { name: 'Save correction' }).click();
   await expect(page.getByText('Correction recorded')).toBeVisible();
   await expect(page.getByRole('dialog').getByText('corrected').first()).toBeVisible();
   await page.keyboard.press('Escape');
@@ -111,28 +112,24 @@ test('student sees an attendance heat map of the whole year', async ({ page }) =
   await page.screenshot({ path: `${SHOTS}/flow-heatmap.png`, fullPage: true });
 });
 
-test('teacher publishes homework → student sees it, with a notification', async ({ page }) => {
+test('teacher adds homework → student sees it on the dashboard, with a notification', async ({ page }) => {
   const problems = watch(page);
   const title = `Algebra drill ${uid}`;
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
   await page.goto('/teacher/homework');
-  await page.getByRole('button', { name: '+ Create homework' }).click();
+  await page.getByRole('button', { name: '+ Add homework' }).click();
   await page.getByLabel('Title').fill(title);
   await page.getByLabel('Class & subject').selectOption({ label: 'Class 8 A · Mathematics' });
   await page.getByLabel('Due date').fill(plusDays(4));
-  await page.getByLabel('Visibility').selectOption('published');
-  await page.getByLabel('Description').fill('Questions 1 to 20');
+  await page.getByLabel('What to do').fill('Questions 1 to 20');
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('dialog', { name: 'Add an attachment?' }).getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('cell', { name: title })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Attach a file?' }).getByRole('button', { name: 'No, done' }).click();
+  await expect(page.getByRole('cell', { name: new RegExp(title) })).toBeVisible();
   await signOut(page);
 
   await signIn(page, 'student', 'gps.adm20260001', 'Student@12345');
-  await page.goto('/student/homework');
-  await expect(page.getByRole('cell', { name: title })).toBeVisible();
-  await page.getByRole('cell', { name: title }).click();
-  await expect(page.getByRole('dialog')).toContainText('Questions 1 to 20');
-  await page.keyboard.press('Escape');
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
+  await expect(page.getByText('Questions 1 to 20')).toBeVisible();
   await page.getByRole('button', { name: 'Notifications' }).click();
   await expect(page.getByRole('dialog', { name: 'Notifications' }).getByText(new RegExp(`${title}|Mathematics homework`)).first()).toBeVisible();
   await signOut(page);
@@ -286,18 +283,19 @@ test('admin: subjects come from teachers (no master list); staff accounts for fi
   await expect(page.getByRole('link', { name: 'Subjects', exact: true })).toHaveCount(0);
   await page.goto('/admin/classes?tab=subjects'); // subject teachers are nested inside Classes & sections
   await page.getByRole('button', { name: '+ Assign teacher to a subject' }).click();
-  await page.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Priya Rao (T006)' });
-  await page.getByLabel('Section').selectOption({ index: 1 });
-  await page.getByLabel('Subject', { exact: true }).fill(`Robotics ${letters(uid)}`);
+  const asg = page.getByRole('dialog', { name: 'Assign teacher to a subject' }); // the page behind has filters with the same names
+  await asg.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Priya Rao (T006)' });
+  await asg.getByLabel('Section').selectOption({ index: 1 });
+  await asg.getByLabel('Subject', { exact: true }).fill(`Robotics ${letters(uid)}`);
   await page.getByLabel('Periods per week').fill('2');
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: `Robotics ${letters(uid)}` })).toBeVisible(); // created on the spot
   // staff
   await page.goto('/admin/staff');
-  await page.getByRole('button', { name: '+ Add staff' }).click();
+  await page.getByRole('button', { name: '+ Add sign-in' }).click();
   await page.getByLabel('Full name').fill('Fatima Clerk');
   await page.getByLabel('Email (login id)').fill(`clerk${uid}@gps.test`);
-  await page.getByLabel('Desk').selectOption('finance');
+  await page.getByLabel('Portal').selectOption('finance');
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   const creds = page.getByRole('dialog', { name: 'Staff account' });
   await expect(creds).toContainText('Temporary password');
@@ -307,7 +305,7 @@ test('admin: subjects come from teachers (no master list); staff accounts for fi
   await signOut(page);
   // the new clerk must use the FINANCE door and change the temporary password
   await signIn(page, 'student', loginId, tempPw, { expectFail: true });
-  await expect(page.getByRole('alert')).toContainText('Finance portal');
+  await expect(page.getByRole('alert')).toContainText('Invalid login id or password'); // the wrong door says no more than a wrong password
   await signIn(page, 'finance', loginId, tempPw);
   await expect(page).toHaveURL(/account\?force=1/);
   expect(problems.filter((p) => !/HTTP 40[0-9] POST .*auth\/login/.test(p))).toEqual([]);
@@ -557,9 +555,10 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   // the old stand-alone tabs live inside Classes & sections now
-  for (const name of ['Subjects & assignments', 'Attendance', 'Homework & materials']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
+  for (const name of ['Subjects & assignments', 'Homework & materials']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
   await page.goto('/admin/classes');
-  for (const t of ['Subjects & teachers', 'Attendance', 'Homework by day']) await expect(page.getByRole('tab', { name: t })).toBeVisible();
+  for (const t of ['Subjects & teachers', 'Homework by day']) await expect(page.getByRole('tab', { name: t })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toHaveCount(0); // attendance is one page under Administration now
   await page.getByRole('link', { name: 'Class 8 A' }).first().click();
   await expect(page.getByRole('heading', { name: 'Class 8 A' })).toBeVisible();
   const sectionUrl = page.url();
@@ -671,61 +670,27 @@ test('staff attendance: admin marks teachers and staff, the officer marks the cr
   expect(problems.filter((p) => !p.includes('HTTP 40'))).toEqual([]);
 });
 
-test('staff portal: a staff member signs in, checks in, applies for leave, is approved, reads their payslip', async ({ page }) => {
+test('staff portal: the office clerk records leave for a non-teaching staff member; the admin sees it', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'staff', 'gps.s0001', 'Staff@12345');
-  await expect(page.getByRole('heading', { name: 'Hello, Kamla Devi' })).toBeVisible();
-  await expect(page.getByText('Casual leave left')).toBeVisible();
-  // check in and out: only on a working day, and only while check-in is open (an hour before the shift until it ends). Outside that the button is disabled and says why.
-  if (new Date().getDay() !== 0) {
-    const checkIn = page.getByRole('button', { name: 'Check in' });
-    if (await checkIn.isEnabled()) {
-      await checkIn.click();
-      await expect(page.getByText('Checked in', { exact: true }).first()).toBeVisible();
-      await expect(page.getByText(/Checked in at/)).toBeVisible();
-      await page.getByRole('button', { name: 'Check out' }).click();
-      await expect(page.getByText(/Checked out at/)).toBeVisible();
-    } else {
-      await expect(page.getByText(/Check-in (opens at|closed at) \d\d:\d\d/)).toBeVisible();
-    }
-  }
-  await page.goto('/staff/attendance');
-  await expect(page.getByText('Attendance heat map — this academic year')).toBeVisible();
-  // leave
+  await expect(page.getByRole('heading', { name: 'Hello, Neha Shah' })).toBeVisible();
   await page.goto('/staff/leave');
-  await page.getByRole('button', { name: 'Apply for leave' }).click();
-  await page.getByLabel('Leave type').selectOption('casual');
-  await page.getByLabel('Start date').fill(plusDays(20));
-  await page.getByLabel('End date').fill(plusDays(22));
-  await page.getByLabel('Reason').fill(`Family function ${uid}`);
-  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('row', { name: new RegExp(`Family function ${uid}`) })).toContainText('Submitted');
-  // payslips: last month's was paid in the demo data
-  await page.goto('/staff/payslips');
-  await expect(page.getByRole('heading', { name: 'Salary & payslips' })).toBeVisible();
-  const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).first().click()]);
-  expect(pdf.suggestedFilename()).toMatch(/^payslip-PAY\d{6}-S0001\.pdf$/);
-  await signOut(page);
-  // the school office decides it
-  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/staff-leave');
-  const row = page.getByRole('row', { name: new RegExp(`Family function ${uid}`) });
-  await expect(row).toContainText('Kamla Devi');
-  await row.getByRole('button', { name: 'Approve' }).click();
-  await expect(row).toHaveCount(0); // it leaves the waiting list …
+  await page.getByRole('button', { name: 'Record leave' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Record a leave' });
+  await dlg.getByLabel('Staff member').selectOption({ label: /Savita Ben/ }).catch(async () => { await dlg.getByLabel('Staff member').selectOption(await dlg.getByLabel('Staff member').locator('option', { hasText: 'Savita Ben' }).getAttribute('value')); });
+  await dlg.getByLabel('Leave type').selectOption('casual');
+  await dlg.getByLabel('From', { exact: true }).fill(plusDays(20));
+  await dlg.getByLabel('To', { exact: true }).fill(plusDays(22));
+  await dlg.getByLabel('Reason').fill(`Family function ${uid}`);
+  await dlg.getByRole('button', { name: 'Record' }).click();
   await page.getByLabel('Status').selectOption('approved');
-  await expect(page.getByRole('row', { name: new RegExp(`Family function ${uid}`) })).toContainText('Approved'); // … and shows under Approved
-  // the admin can give a staff member a login from the staff list; the driver belongs to the Transport officer
-  await page.goto('/admin/support-staff');
-  await expect(page.getByRole('row', { name: /Kamla Devi/ })).toContainText('Has login');
-  await expect(page.getByRole('row', { name: /Ramu Kaka/ }).getByRole('button', { name: 'Create login' })).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(`Family function ${uid}`) })).toContainText('Savita Ben');
   await signOut(page);
-  await signIn(page, 'staff', 'gps.s0001', 'Staff@12345');
-  await page.goto('/staff/leave');
-  await expect(page.getByRole('row', { name: new RegExp(`Family function ${uid}`) })).toContainText('Approved');
-  // a staff login reaches only the staff portal
-  await page.goto('/admin'); await expect(page).toHaveURL(/\/staff/);
-  expect(problems.filter((p) => !p.includes('HTTP 40'))).toEqual([]);
+  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
+  await page.goto('/admin/leave?tab=general');
+  await page.getByLabel('Status').selectOption('approved');
+  await expect(page.getByRole('row', { name: new RegExp(`Family function ${uid}`) })).toBeVisible();
+  expect(problems.filter((p) => !/HTTP 40/.test(p))).toEqual([]);
 });
 
 test('admin: a teacher\'s whole picture — classes, class teacher of, results, attendance from leave, salary, library', async ({ page }) => {
@@ -892,7 +857,7 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await expect(page).toHaveURL(/\/student$/, { timeout: 10000 });
   await expect(page.getByText('No attendance recorded yet').first()).toBeVisible();
   await expect(page.getByText('No published results yet')).toBeVisible();
-  await expect(page.getByText('No homework pending')).toBeVisible();
+  await expect(page.getByText('Nothing has been given right now.')).toBeVisible();
   await page.goto('/student/fees'); // billed automatically on admission
   await expect(page.getByText('What you are charged for')).toBeVisible();
   await expect(page.getByText(/Admission/).first()).toBeVisible();
@@ -900,7 +865,7 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await expect(page.getByText(`Tuition fee — ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`).first()).toBeVisible();
   await page.goto('/student/results'); await page.getByRole('tab', { name: 'All tests of my class' }).click();
   await expect(page.getByText('No tests have been held for your class yet')).toBeVisible();
-  await page.goto('/student/materials'); await expect(page.getByText('No study materials yet')).toBeVisible();
+  await page.goto('/student/materials'); await expect(page).toHaveURL(/\/student$/); // study materials are left for the later learning system
   await page.screenshot({ path: `${SHOTS}/flow-new-student-empty.png`, fullPage: true });
   expect(problems.filter((p) => !/HTTP 400 POST .*change-password|HTTP 409/.test(p))).toEqual([]);
 });
@@ -928,7 +893,7 @@ test('super admin creates a school, acts inside it for data setup, and exits', a
   await page.getByRole('button', { name: '+ Class' }).click();
   // only LKG, UKG and Class 1-12 can be added: there is no way to type a class name, and no Class 13
   const gradeSelect = page.getByRole('dialog').getByLabel('Class', { exact: true });
-  await expect(gradeSelect.locator('option')).toHaveCount(15); // 14 grades + the "Select…" placeholder
+  await expect(gradeSelect.locator('option')).toHaveCount(23); // 14 grades + the 8 streams of Class 11 and 12 + the "Select…" placeholder
   await expect(gradeSelect.locator('option', { hasText: 'Class 13' })).toHaveCount(0);
   await expect(gradeSelect.locator('option', { hasText: 'LKG' })).toHaveCount(1);
   await gradeSelect.selectOption('Class 1');

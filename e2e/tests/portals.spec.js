@@ -7,14 +7,13 @@ test.describe('every page of every portal renders against real data', () => {
   test('landing page offers one sign-in card per role; each role has its own URL', async ({ page }) => {
     await page.goto('/');
     await page.screenshot({ path: `${process.env.SHOTS_DIR || './shots'}/landing.png` });
-    for (const t of ['Login as Student & Parent', 'Login as Teacher', 'Login as Finance', 'Login as Library', 'Login as Transport', 'Login as School Admin']) await expect(page.getByRole('heading', { name: t })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Login as Staff' })).toHaveCount(0); // non-teaching staff are managed by the school office; they have no card
+    for (const t of ['Login as Student and parent', 'Login as Teacher', 'Login as Staff', 'Login as Finance', 'Login as Library', 'Login as Transport', 'Login as School admin']) await expect(page.getByRole('link', { name: t })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Platform administrator' })).toBeVisible();
-    await page.getByRole('heading', { name: 'Login as Teacher' }).click();
+    await page.getByRole('link', { name: 'Login as Teacher' }).click();
     await expect(page).toHaveURL(/\/teacher\/login$/);
-    await expect(page.getByRole('heading', { name: 'Teacher sign in' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in to Teacher' })).toBeVisible();
     await page.goto('/platform/login');
-    await expect(page.getByRole('heading', { name: 'Platform Admin sign in' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Platform sign in' })).toBeVisible();
   });
 
   test('super admin', async ({ page }) => {
@@ -49,7 +48,7 @@ test.describe('every page of every portal renders against real data', () => {
   test('staff', async ({ page }) => {
     const problems = watch(page);
     await signIn(page, 'staff', 'gps.s0001', 'Staff@12345');
-    await expect(page.getByRole('heading', { name: /Hello, Kamla Devi/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Hello, Neha Shah/ })).toBeVisible();
     for (const p of STAFFP) await visit(page, p, problems, { shot: `staff-${p.replace(/\W+/g, '_')}` });
   });
 

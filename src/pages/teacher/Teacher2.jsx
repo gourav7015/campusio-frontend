@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { leaveFields, leavePayload, daysText } from '../../components/leaveForm.js';
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post, put, patch, del, upload, openFile } from '../../api/client.js';
@@ -25,42 +26,31 @@ function useMyAssignments() {
 export function Homework() {
   const dlg = useDialogs();
   const [sp, setSp] = useSearchParams();
-  const [tab, setTab] = useState('all');
-  const list = useApi(`${T}/homework`, { tab });
+  const list = useApi(`${T}/homework`, { tab: 'all' });
   const { pairs } = useMyAssignments();
   const [modal, setModal] = useState(sp.get('new') ? {} : null);
-  const [detail, setDetail] = useState(null);
   const [run] = useAction();
   const fileRef = useRef(); const target = useRef(null);
-  const types = ['written', 'reading', 'project', 'worksheet', 'practical', 'revision', 'other'].map((t) => ({ value: t, label: label(t) }));
-  const act = async (h, action, body) => { await run(() => post(`${T}/homework/${h._id}/${action}`, body || {}), `Homework ${action}ed`); list.reload(); };
+  // Kept simple: a homework is saved and the students of that class see it on their dashboard. No drafts, no marks, no hand-in.
   const fields = (edit) => [
-    { name: 'title', label: 'Title', required: true, full: true },
     ...(edit ? [] : [{ name: 'pair', label: 'Class & subject', type: 'select', required: true, options: pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label })) }]),
-    { name: 'type', label: 'Assignment type', type: 'select', options: types, default: 'written', required: true }, { name: 'assignedDate', label: 'Assigned date', type: 'date', default: today() }, { name: 'dueDate', label: 'Due date', type: 'date', required: true },
-    { name: 'maxMarks', label: 'Maximum marks (optional)', type: 'number', min: 1 }, { name: 'description', label: 'Description', type: 'textarea' }, { name: 'instructions', label: 'Instructions', type: 'textarea' },
-    ...(edit ? [] : [{ name: 'status', label: 'Visibility', type: 'select', options: [{ value: 'draft', label: 'Draft (only you)' }, { value: 'published', label: 'Publish now' }, { value: 'scheduled', label: 'Schedule' }], default: 'draft', required: true }, { name: 'publishAt', label: 'Publish at (for scheduled)', type: 'datetime-local' }]),
+    { name: 'title', label: 'Title', required: true, full: true },
+    { name: 'description', label: 'What to do', type: 'textarea', full: true },
+    { name: 'dueDate', label: 'Due date', type: 'date', required: true },
   ];
   return (
     <div className="stack">
-      <PageHeader title="Homework & assignments" subtitle="Publish work for the classes you teach" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Create homework</Button>} />
-      <Tabs tabs={[['all', 'All'], ['draft', 'Draft'], ['published', 'Published'], ['scheduled', 'Scheduled'], ['completed', 'Completed'], ['archived', 'Archived']]} value={tab} onChange={setTab} />
-      <Card flush><Async state={list} empty={<Empty title="No homework here" />}>{(rows) => <DataTable rows={rows} onRowClick={setDetail} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{label(h.effectiveStatus)}</Badge> },
-        { label: '', render: (h) => <div className="row" onClick={(e) => e.stopPropagation()}>
-          {h.effectiveStatus === 'draft' && <Button size="sm" variant="primary" onClick={() => act(h, 'publish')}>Publish</Button>}{h.effectiveStatus === 'published' && <Button size="sm" onClick={() => act(h, 'unpublish')}>Unpublish</Button>}
-          {h.effectiveStatus !== 'archived' && <Button size="sm" onClick={() => setModal(h)}>Edit</Button>}{h.effectiveStatus !== 'archived' && <Button size="sm" onClick={() => act(h, 'archive')}>Archive</Button>}
-          {h.effectiveStatus === 'draft' && <ConfirmButton size="sm" variant="danger" message="Delete this draft?" onConfirm={async () => { await run(() => del(`${T}/homework/${h._id}`), 'Deleted'); list.reload(); }}>Delete</ConfirmButton>}</div> }]} />}</Async></Card>
-      <input type="file" hidden ref={fileRef} onChange={async (e) => { const f = e.target.files[0]; if (!f || !target.current) return; const fd = new FormData(); fd.append('file', f); await run(() => upload(`${T}/homework/${target.current}/attachments`, fd), 'Attachment added'); e.target.value = ''; list.reload(); setDetail(null); }} />
-      {modal && <FormModal wide title={modal._id ? 'Edit homework' : 'Create homework'} initial={modal} fields={fields(!!modal._id)} onClose={() => { setModal(null); if (sp.get('new')) setSp({}); }}
+      <PageHeader title="Homework" subtitle="Give homework to a class. The students see it on their dashboard." actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add homework</Button>} />
+      <Card flush><Async state={list} empty={<Empty title="No homework yet" />}>{(rows) => <DataTable rows={rows.filter((h) => h.status !== 'archived')} columns={[{ label: 'Title', render: (h) => <><b>{h.title}</b>{h.description && <div className="small muted" style={{ maxWidth: 420, whiteSpace: 'pre-line' }}>{h.description}</div>}</> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate, true) },
+          { label: 'File', render: (h) => h.attachmentFiles?.length ? h.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>) : <Button size="sm" onClick={() => { target.current = h._id; fileRef.current.click(); }}>Add a file</Button> },
+          { label: '', render: (h) => <div className="row"><Button size="sm" onClick={() => setModal(h)}>Edit</Button><ConfirmButton size="sm" variant="danger" message="Delete this homework? Students will no longer see it." onConfirm={async () => { await run(() => del(`${T}/homework/${h._id}`), 'Deleted'); list.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>
+      <input type="file" hidden ref={fileRef} onChange={async (e) => { const f = e.target.files[0]; if (!f || !target.current) return; const fd = new FormData(); fd.append('file', f); await run(() => upload(`${T}/homework/${target.current}/attachments`, fd), 'File added'); e.target.value = ''; list.reload(); }} />
+      {modal && <FormModal title={modal._id ? 'Edit homework' : 'Add homework'} initial={modal} fields={fields(!!modal._id)} onClose={() => { setModal(null); if (sp.get('new')) setSp({}); }}
         onSubmit={async (v) => {
           if (modal._id) { await patch(`${T}/homework/${modal._id}`, v); list.reload(); return true; }
-          const { pair, publishAt, ...rest } = v; const [sectionId, subjectId] = pair.split('|');
-          const h = await post(`${T}/homework`, { ...rest, sectionId, subjectId, ...(rest.status === 'scheduled' && publishAt ? { publishAt: new Date(publishAt).toISOString() } : {}) });
-          list.reload(); target.current = h._id; if ((await dlg.confirm('Homework saved. Add an attachment now?', { title: 'Add an attachment?', confirmLabel: 'Add attachment' }))) fileRef.current.click(); return true; }} />}
-      {detail && <Modal title={detail.title} wide onClose={() => setDetail(null)} footer={detail.effectiveStatus !== 'archived' ? <Button onClick={() => { target.current = detail._id; fileRef.current.click(); }}>Add attachment</Button> : null}>
-        <dl className="kv"><dt>Class</dt><dd>{detail.className} {detail.section} · {detail.subject}</dd><dt>Type</dt><dd>{label(detail.type)}</dd><dt>Assigned</dt><dd>{fmtDate(detail.assignedDate, true)}</dd><dt>Due</dt><dd>{fmtDate(detail.dueDate, true)}</dd><dt>Status</dt><dd><Badge tone={statusTone(detail.effectiveStatus)}>{label(detail.effectiveStatus)}</Badge></dd><dt>Description</dt><dd>{detail.description || '—'}</dd><dt>Instructions</dt><dd>{detail.instructions || '—'}</dd>
-          <dt>Attachments</dt><dd>{detail.attachmentFiles.length ? detail.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>) : '—'}</dd></dl>
-        <h3 style={{ margin: '14px 0 6px' }}>Edit history</h3><ul className="timeline">{[...detail.editHistory].reverse().map((e, i) => <li key={i}><span className="dotc" /><div className="small">{fmtDateTime(e.at)} — {e.byName || 'Teacher'}: {e.changes.join(', ')}</div></li>)}</ul></Modal>}
+          const { pair, ...rest } = v; const [sectionId, subjectId] = pair.split('|');
+          const h = await post(`${T}/homework`, { ...rest, sectionId, subjectId, status: 'published', type: 'written' });
+          list.reload(); target.current = h._id; if ((await dlg.confirm('Homework added. Attach a file (a worksheet, for example)?', { title: 'Attach a file?', confirmLabel: 'Attach a file', cancelLabel: 'No, done' }))) fileRef.current.click(); return true; }} />}
     </div>
   );
 }
@@ -168,11 +158,23 @@ export function Exams() {
   const [modal, setModal] = useState(null);
   const [run] = useAction();
   const [tab, setTab] = useState('all');
-  const filtered = (rows) => rows.filter((r) => tab === 'all' || (tab === 'todo' ? EDITABLE.includes(r.status) : tab === 'mine' ? r.createdByMe : ['submitted', 'under_review', 'approved', 'published'].includes(r.status)));
+  const [fClass, setFClass] = useState(''); const [fSubject, setFSubject] = useState('');
+  const all = list.data || [];
+  const classOf = (r) => `${r.className} ${r.section}`;
+  const classOptions = [...new Set(all.map(classOf))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const subjectOptions = [...new Set(all.map((r) => r.subject).filter(Boolean))].sort();
+  const filtered = (rows) => rows.filter((r) => (!fClass || classOf(r) === fClass) && (!fSubject || r.subject === fSubject)).filter((r) => tab === 'all' || (tab === 'todo' ? EDITABLE.includes(r.status) : tab === 'mine' ? r.createdByMe : ['submitted', 'under_review', 'approved', 'published'].includes(r.status)));
   return (
     <div className="stack">
       <PageHeader title="Examinations & marks" subtitle="Exams for your classes and subjects — add your own tests, enter marks, and follow them through approval" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add exam</Button>} />
-      <Tabs tabs={[['all', 'All'], ['todo', 'Marks to enter'], ['done', 'Submitted / done'], ['mine', 'Tests I added']]} value={tab} onChange={setTab} />
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <Tabs tabs={[['all', 'All'], ['todo', 'Marks to enter'], ['done', 'Submitted / done'], ['mine', 'Tests I added']]} value={tab} onChange={setTab} />
+        <div className="row" style={{ alignItems: 'center', gap: 10 }}>
+          <Select aria-label="Class" value={fClass} onChange={(e) => setFClass(e.target.value)} options={classOptions} placeholder="All classes" />
+          <Select aria-label="Subject" value={fSubject} onChange={(e) => setFSubject(e.target.value)} options={subjectOptions} placeholder="All subjects" />
+          {(fClass || fSubject) && <Button size="sm" onClick={() => { setFClass(''); setFSubject(''); }}>Clear</Button>}
+        </div>
+      </div>
       <Card flush><Async state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
         { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge tone={r.type === 'surprise_test' ? 'amber' : r.createdByMe ? 'blue' : ''}>{label(r.type)}</Badge></> }, { label: 'Class', render: (r) => `${r.className} ${r.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) },
         { label: 'Marks fields', render: (r) => componentsText(r.components) }, { label: 'Max', key: 'max' }, { label: 'Deadline', render: (r) => <>{fmtDate(r.deadline)} {r.overdue && <Badge tone="red">Overdue</Badge>}</> }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> },
@@ -309,11 +311,12 @@ export function Leave() {
     <div className="stack">
       <PageHeader title="Leave management" subtitle="Leave is approved by the school administrator" actions={<Button variant="primary" onClick={() => setModal(true)}>+ Apply for leave</Button>} />
       <Async state={l}>{(d) => (<>
-        <div className="grid g4">{Object.entries(d.balances).filter(([, b]) => b.allowance > 0).map(([k, b]) => <Stat key={k} value={b.remaining} label={`${label(k)} leave left`} sub={`${b.used} used of ${b.allowance}`} />)}</div>
-        <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{label(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
+        <div className="grid g4">{Object.entries(d.balances).filter(([, b]) => b.allowance > 0).map(([k, b]) => <Stat key={k} value={b.remaining} label={`${label(k)} leave left`} sub={`${b.used} used of ${b.allowance}${b.granted ? ` (${b.granted} extra from the school)` : ''}`} />)}</div>
+        {d.grants?.length > 0 && <Card title="Extra leave given to me this year" flush><DataTable rows={d.grants} rowKey="_id" columns={[{ label: 'Type', render: (g) => label(g.leaveType) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Given on', render: (g) => fmtDate(g.createdAt, true) }]} /></Card>}
+        <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{label(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
           { label: '', render: (x) => ['draft', 'submitted', 'approved'].includes(x.status) && <ConfirmButton size="sm" message="Cancel this leave application?" onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/cancel`), 'Cancelled'); l.reload(); }}>Cancel</ConfirmButton> }]} /></Card></>)}</Async>
-      {modal && <FormModal title="Apply for leave" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true, default: 'casual', hint: 'Unpaid leave is deducted from your salary for those days.' }, { name: 'startDate', label: 'Start date', type: 'date', required: true }, { name: 'endDate', label: 'End date', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
-        onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${T}/leave`, v); l.reload(); return true; }} />}
+      {modal && <FormModal title="Apply for leave" fields={leaveFields({ typeHint: 'Unpaid leave is deducted from your salary for those days.' })}
+        onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${T}/leave`, leavePayload(v)); l.reload(); return true; }} />}
     </div>
   );
 }

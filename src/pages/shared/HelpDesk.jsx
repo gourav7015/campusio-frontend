@@ -60,7 +60,7 @@ const StatusBadge = ({ s, handler }) => <Badge tone={STATUS_TONE[s]}>{handler ? 
  *  handler=true : the side that answers. An inbox with filters, replies, private notes, status, priority and assignment.
  * `base` is the API path of the portal (for example /api/teacher/tickets or /api/platform/helpdesk).
  */
-export default function HelpDesk({ base, handler = false, platform = false, title, subtitle }) {
+export default function HelpDesk({ base, handler = false, platform = false, title, subtitle, noun = 'ticket' }) {
   const [params, setParams] = useSearchParams();
   const [openId, setOpenId] = useState(params.get('open')); // a notification or an email can open one ticket directly
   const [modal, setModal] = useState(false);
@@ -83,7 +83,7 @@ export default function HelpDesk({ base, handler = false, platform = false, titl
   const rows = (d) => (handler ? d.tickets : d);
   return (
     <div className="stack">
-      <PageHeader title={title} subtitle={subtitle} actions={!handler && <Button variant="primary" onClick={() => setModal(true)}>+ New ticket</Button>} />
+      <PageHeader title={title} subtitle={subtitle} actions={!handler && <Button variant="primary" onClick={() => setModal(true)}>+ New {noun}</Button>} />
       {handler && (
         <Card>
           <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
@@ -95,22 +95,22 @@ export default function HelpDesk({ base, handler = false, platform = false, titl
         </Card>
       )}
       <Card flush>
-        <Async state={list} empty={<Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : 'Use “New ticket” to ask for help.'}</Empty>}>
+        <Async state={list} empty={<Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : `Use “New ${noun}” to ask for help.`}</Empty>}>
           {(d) => (rows(d).length ? <DataTable rows={rows(d)} columns={columns} onRowClick={(t) => setOpenId(t._id)} /> : <Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : 'Use “New ticket” to ask for help.'}</Empty>)}
         </Async>
       </Card>
-      {modal && <NewTicket base={base} onClose={() => setModal(false)} onCreated={(t) => { list.reload(); setOpenId(t._id); }} />}
+      {modal && <NewTicket noun={noun} base={base} onClose={() => setModal(false)} onCreated={(t) => { list.reload(); setOpenId(t._id); }} />}
     </div>
   );
 }
 
-function NewTicket({ base, onClose, onCreated }) {
+function NewTicket({ base, onClose, onCreated, noun = 'ticket' }) {
   const [files, setFiles] = useState([]);
   return (
-        <FormModal wide title="New ticket" submitLabel="Send"
+        <FormModal wide title={`New ${noun}`} submitLabel="Send"
           fields={[{ name: 'subject', label: 'Subject', required: true, placeholder: 'A short summary' }, { name: 'category', label: 'About', type: 'select', options: CATEGORIES, default: 'general', required: true },
             { name: 'priority', label: 'How urgent?', type: 'select', options: [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }], default: 'normal', required: true },
-            { name: 'body', label: 'What happened?', type: 'textarea', required: true, full: true, placeholder: 'Tell us what you were trying to do and what went wrong.' }]}
+            { name: 'body', label: noun === 'query' ? 'Your question' : 'What happened?', type: 'textarea', required: true, full: true, placeholder: noun === 'query' ? 'Say what you would like the office to check or answer.' : 'Tell us what you were trying to do and what went wrong.' }]}
           onClose={onClose} onSubmit={async (v) => { const t = await sendForm(base, v, files); onCreated(t); return true; }}>
           <div style={{ marginTop: 12 }}><FilePicker files={files} setFiles={setFiles} /></div>
         </FormModal>

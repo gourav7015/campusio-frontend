@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { get, post, patch, del, download } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
+import FilterMenu from '../../components/FilterMenu.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import PayItems, { cleanItems } from '../../components/PayItems.jsx';
 
@@ -94,8 +95,10 @@ function Salaries({ onChange }) {
   return (
     <>
       <Card title="Salaries" action={<div className="row wrap"><Input aria-label="Search people" placeholder="Search name or id…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select aria-label="Who" value={type} onChange={(e) => setType(e.target.value)} options={[{ value: 'all', label: 'Everyone' }, { value: 'teachers', label: 'Teachers' }, { value: 'staff', label: 'Non-teaching & transport staff' }]} />
-        <Select aria-label="Filter" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, { value: 'with', label: 'Salary set' }, { value: 'without', label: 'No salary yet' }]} />
+        <FilterMenu count={(type !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0)} onClear={() => { setType('all'); setStatus('all'); }}>
+          <Field label="Who"><Select aria-label="Who" value={type} onChange={(e) => setType(e.target.value)} options={[{ value: 'all', label: 'Everyone' }, { value: 'teachers', label: 'Teachers' }, { value: 'staff', label: 'Non-teaching & transport staff' }]} /></Field>
+          <Field label="Salary"><Select aria-label="Filter" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, { value: 'with', label: 'Salary set' }, { value: 'without', label: 'No salary yet' }]} /></Field>
+        </FilterMenu>
         <Button size="sm" onClick={() => setBulk('teachers')} disabled={!forGroup('teachers').length}>Apply level to teachers…</Button>
         <Button size="sm" onClick={() => setBulk('staff')} disabled={!forGroup('staff').length}>Apply level to staff…</Button></div>} flush>
         <Async state={list}>{(d) => (

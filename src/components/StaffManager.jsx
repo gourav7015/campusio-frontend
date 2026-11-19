@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
 import { del, patch, post } from '../api/client.js';
+import { useDialogs } from '../design/ui';
 import { Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Empty, Field, Input, Modal, Select, useAction, fmtDate, label } from './ui.jsx';
 
 const soon = (iso, today = new Date().toISOString().slice(0, 10)) => iso && iso <= new Date(Date.parse(today) + 30 * 864e5).toISOString().slice(0, 10);
@@ -15,7 +16,8 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
   const list = useApi(staffBase, { q: q || undefined, designationId: designationId || undefined, status, limit: 200 });
   const designations = useApi(designationBase);
   const [edit, setEdit] = useState(null); const [manage, setManage] = useState(false); const [creds, setCreds] = useState(null);
-  const [run] = useAction();
+  const logins = group !== 'transport'; // transport crew (drivers, conductors) have no sign-in: the Transport officer looks after them
+  const [run] = useAction(); const dlg = useDialogs();
   const reload = () => { list.reload(); designations.reload(); };
   const active = (designations.data || []).filter((d) => d.status === 'active');
   return (
@@ -31,18 +33,21 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
             { label: 'Designation', render: (s) => <Badge tone={s.group === 'transport' ? 'blue' : ''}>{s.designation}</Badge> },
             { label: 'On bus', render: (s) => (s.bus ? <Badge tone="green">{s.bus.busNo} · {s.bus.as}</Badge> : s.busRole ? <Badge tone="amber">Not on a bus</Badge> : <span className="muted">—</span>) },
             { label: 'Licence', render: (s) => (s.licenseNo ? <>{s.licenseNo}<div className="small"><Badge tone={soon(s.licenseExpiry) ? 'red' : 'green'}>{s.licenseExpiry ? `valid to ${fmtDate(s.licenseExpiry, true)}` : 'no expiry set'}</Badge></div></> : <span className="muted">—</span>) },
-            { label: 'Joined', render: (s) => fmtDate(s.joiningDate, true) }, { label: 'Login', render: (s) => (s.hasLogin ? <Badge tone="green">Has login</Badge> : <span className="muted">None</span>) }, { label: 'Status', render: (s) => <Badge tone={s.status === 'active' ? 'green' : ''}>{label(s.status)}</Badge> },
+            { label: 'Joined', render: (s) => fmtDate(s.joiningDate, true) }, ...(logins ? [{ label: 'Sign-in', render: (s) => (s.hasLogin ? <><Badge tone="green">Office desk sign-in</Badge></> : s.canMarkAttendance ? <Badge tone="amber">Desk, no sign-in yet</Badge> : <span className="muted">None</span>) }] : []), { label: 'Status', render: (s) => <Badge tone={s.status === 'active' ? 'green' : ''}>{label(s.status)}</Badge> },
             ...(canEdit ? [{ label: '', render: (s) => <div className="row"><Button size="sm" onClick={() => setEdit(s)}>Edit</Button>
-              {s.status === 'active' && (s.hasLogin
-                ? <Button size="sm" onClick={async () => { const r = await run(() => post(`${staffBase}/${s._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
-                : <Button size="sm" onClick={async () => { const r = await run(() => post(`${staffBase}/${s._id}/login`), 'Login created'); if (r) { setCreds(r); reload(); } }}>Create login</Button>)}
+              {logins && s.status === 'active' && (s.hasLogin
+                ? <><Button size="sm" onClick={async () => { const r = await run(() => post(`${staffBase}/${s._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button><ConfirmButton size="sm" message={`Remove ${s.name}'s sign-in? They stay on the staff list; they just no longer work for the office desk.`} onConfirm={async () => { await run(() => post(`${staffBase}/${s._id}/remove-login`), 'Sign-in removed'); reload(); }}>Remove sign-in</ConfirmButton></>
+                : <Button size="sm" onClick={async () => {
+                if (!s.canMarkAttendance && !(await dlg.confirm(`${s.name} will work for the office desk: take attendance, record staff leave, see the employee list and answer teachers' queries. Only staff with these duties have a sign-in.`, { title: 'Give the office desk?', confirmLabel: 'Give the desk and create a sign-in' }))) return;
+                if (!s.canMarkAttendance) await run(() => patch(`${staffBase}/${s._id}`, { canMarkAttendance: true }));
+                const r = await run(() => post(`${staffBase}/${s._id}/login`), 'Sign-in created'); if (r) { setCreds(r); reload(); } }}>Give office-desk sign-in</Button>)}
               {s.status === 'active' ? <ConfirmButton size="sm" variant="danger" message={`Deactivate ${s.name}?`} onConfirm={async () => { await run(() => post(`${staffBase}/${s._id}/deactivate`), 'Deactivated'); reload(); }}>Deactivate</ConfirmButton>
                 : <Button size="sm" onClick={async () => { await run(() => post(`${staffBase}/${s._id}/reactivate`), 'Reactivated'); reload(); }}>Reactivate</Button>}</div> }] : []),
           ]} />
         )}</Async>
       </Card>
-      <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Staff portal login" />
-      {edit && <StaffModal member={edit._id ? edit : null} designations={active} staffBase={staffBase} noun={noun} onClose={() => setEdit(null)} onSaved={reload} />}
+      <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Staff portal sign-in" />
+      {edit && <StaffModal member={edit._id ? edit : null} designations={active} staffBase={staffBase} noun={noun} canDesk={logins} onClose={() => setEdit(null)} onSaved={reload} />}
       {manage && <DesignationsModal base={designationBase} group={group} onClose={() => { setManage(false); reload(); }} />}
     </>
   );
@@ -51,14 +56,14 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
 const blank = { name: '', designationId: '', phone: '', gender: '', dob: '', bloodGroup: '', joiningDate: '', address: '', licenseNo: '', licenseExpiry: '', idProof: '', emergencyName: '', emergencyPhone: '', notes: '', bankName: '', accountName: '', accountNo: '', ifsc: '', uan: '', esiNo: '', pan: '' };
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null));
 
-function StaffModal({ member, designations, staffBase, noun, onClose, onSaved }) {
+function StaffModal({ member, designations, staffBase, noun, canDesk, onClose, onSaved }) {
   const [f, setF] = useState({ ...blank, ...(member ? { ...member, designationId: member.designationId, emergencyName: member.emergencyContact?.name || '', emergencyPhone: member.emergencyContact?.phone || '', bankName: member.bank?.bankName || '', accountName: member.bank?.accountName || '', accountNo: member.bank?.accountNo || '', ifsc: member.bank?.ifsc || '', uan: member.statutory?.uan || '', esiNo: member.statutory?.esiNo || '', pan: member.statutory?.pan || '' } : {}) });
   const [run, busy] = useAction();
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const d = designations.find((x) => x._id === f.designationId);
   const save = async () => {
     const { emergencyName, emergencyPhone, ...rest } = f;
-    const body = { ...clean({ name: rest.name.trim(), designationId: rest.designationId, phone: rest.phone, gender: rest.gender, dob: rest.dob, bloodGroup: rest.bloodGroup, joiningDate: rest.joiningDate, address: rest.address, licenseNo: rest.licenseNo, licenseExpiry: rest.licenseExpiry, idProof: rest.idProof, notes: rest.notes }),
+    const body = { ...(canDesk ? { canMarkAttendance: !!rest.canMarkAttendance } : {}), ...clean({ name: rest.name.trim(), designationId: rest.designationId, phone: rest.phone, gender: rest.gender, dob: rest.dob, bloodGroup: rest.bloodGroup, joiningDate: rest.joiningDate, address: rest.address, licenseNo: rest.licenseNo, licenseExpiry: rest.licenseExpiry, idProof: rest.idProof, notes: rest.notes }),
       ...((emergencyName || emergencyPhone) ? { emergencyContact: clean({ name: emergencyName, phone: emergencyPhone }) } : {}),
       ...(rest.accountNo || rest.ifsc || rest.bankName || rest.accountName ? { bank: clean({ bankName: rest.bankName, accountName: rest.accountName, accountNo: rest.accountNo, ifsc: rest.ifsc }) } : {}),
       ...(rest.uan || rest.esiNo || rest.pan ? { statutory: clean({ uan: rest.uan, esiNo: rest.esiNo, pan: rest.pan }) } : {}) };
@@ -88,6 +93,7 @@ function StaffModal({ member, designations, staffBase, noun, onClose, onSaved })
         <Field label="ESI number"><Input value={f.esiNo} onChange={(e) => set('esiNo', e.target.value)} /></Field>
         <Field label="PAN"><Input value={f.pan} onChange={(e) => set('pan', e.target.value.toUpperCase())} placeholder="ABCDE1234F" /></Field>
         <Field label="Notes" full><Input value={f.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
+        {canDesk && <Field label="Office desk" full hint="Work for the school office: take the attendance of teachers and staff, record the leave of non-teaching staff, see the employee list and answer teachers' queries, from the Staff portal. Only staff with this have a sign-in."><label className="row"><input type="checkbox" checked={!!f.canMarkAttendance} onChange={(e) => set('canMarkAttendance', e.target.checked)} /> This person works for the office desk</label></Field>}
       </div>
     </Modal>
   );

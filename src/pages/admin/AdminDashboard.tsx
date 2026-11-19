@@ -11,7 +11,7 @@ interface Recent { id: string; at: string; actor: string; actingAsSuperAdmin?: b
 interface Dashboard {
   today: string; year?: { name: string };
   cards: { students: number; teachers: number; sections: number; pendingLeave: number; unreadMessages: number; unresolvedPeriods: number };
-  attendance: { students: number; present: number; absent: number; late: number; leave: number; excused: number; pending: number; submitted: number; sections: number };
+  attendance: { students: number; present: number; absent: number; late: number; half_day?: number; leave: number; excused: number; pending: number; submitted: number; sections: number };
   attendanceTrend: { date: string; percentage: number }[];
   exams: { total: number; awaitingReview: number; approved: number; published: number; returned: number };
   finance: { collectedMonth: number; pending: number; overdue: number };
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
   if (!x) return <PageSkeleton />;
 
   const a = x.attendance;
-  const marked = a.present + a.late + a.absent + a.leave + a.excused;
+  const marked = a.present + a.late + a.absent + (a.half_day ?? 0) + a.leave + a.excused;
   const rate = marked ? Math.round(((a.present + a.late) / marked) * 1000) / 10 : null;
   const submittedPct = a.sections ? (a.submitted / a.sections) * 100 : 0;
 
@@ -43,14 +43,14 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2"><AttentionList items={[
-          { label: 'Attendance registers not submitted today', count: a.pending, to: '/admin/classes?tab=attendance', icon: ClipboardCheck },
+          { label: 'Attendance registers not submitted today', count: a.pending, to: '/admin/attendance', icon: ClipboardCheck },
           { label: 'Leave applications to review', count: x.cards.pendingLeave, to: '/admin/leave', icon: PlaneTakeoff },
           { label: 'Mark sheets waiting for review', count: x.exams.awaitingReview, to: '/admin/exams', icon: ClipboardCheck },
           { label: 'Timetable periods with no teacher', count: x.cards.unresolvedPeriods, to: '/admin/timetable', icon: CalendarX2, tone: 'danger' },
           { label: 'Unread messages', count: x.cards.unreadMessages, to: '/admin/messages', icon: Mail, tone: 'neutral' },
           { label: 'Overdue library books', count: x.library.overdue, to: '/admin/library?tab=loans', icon: BookMarked, tone: 'neutral' },
         ]} /></div>
-        <LinkCard title="Today's registers" to="/admin/classes?tab=attendance" linkLabel="Open">
+        <LinkCard title="Today's registers" to="/admin/attendance" linkLabel="Open">
           <p className="text-3xl font-semibold tabular-nums tracking-tight">{a.submitted}<span className="text-lg font-normal text-muted-foreground"> / {a.sections}</span></p>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">sections have submitted attendance</p>
           <Progress value={submittedPct} label="Registers submitted" />
@@ -60,12 +60,12 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active students" value={x.cards.students.toLocaleString('en-IN')} to="/admin/students" />
         <StatCard label="Active teachers" value={x.cards.teachers.toLocaleString('en-IN')} to="/admin/teachers" />
-        <StatCard label="Attendance today" value={rate == null ? '—' : `${rate}%`} hint={rate == null ? 'No register submitted yet' : `${marked.toLocaleString('en-IN')} students marked`} to="/admin/classes?tab=attendance" />
+        <StatCard label="Attendance today" value={rate == null ? '—' : `${rate}%`} hint={rate == null ? 'No register submitted yet' : `${marked.toLocaleString('en-IN')} students marked`} to="/admin/attendance" />
         <StatCard label="Fees pending" value={<Money amount={x.finance.pending} />} hint={x.finance.overdue ? `${fmtMoney(x.finance.overdue)} overdue` : 'None overdue'} to="/admin/fees?tab=students" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <ChartCard className="xl:col-span-2" title="Attendance, last 14 days" description="Share of marked students present or late" to="/admin/classes?tab=attendance" height={280}>
+        <ChartCard className="xl:col-span-2" title="Attendance, last 14 days" description="Share of marked students present or late" to="/admin/attendance" height={280}>
           {x.attendanceTrend?.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={x.attendanceTrend} margin={{ left: -12, right: 8, top: 4 }}>
@@ -76,7 +76,7 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           ) : <p className="grid h-full place-items-center text-sm text-muted-foreground">Not enough days recorded yet</p>}
         </ChartCard>
-        <LinkCard title="Who is in today" to="/admin/classes?tab=attendance" linkLabel="Details">
+        <LinkCard title="Who is in today" to="/admin/attendance" linkLabel="Details">
           {marked ? <ShareList total={marked} items={[
             { label: 'Present', value: a.present, tone: 'success' }, { label: 'Late', value: a.late, tone: 'warning' },
             { label: 'Absent', value: a.absent, tone: 'danger' }, { label: 'On leave', value: a.leave + a.excused, tone: 'neutral' },

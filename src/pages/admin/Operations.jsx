@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { leaveFields, leavePayload, daysText } from '../../components/leaveForm.js';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
-import { post, patch, del } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, statusTone, fmtDate, fmtDateTime, dayName, label } from '../../components/ui.jsx';
+import { post, patch, del, download } from '../../api/client.js';
+import { Download } from 'lucide-react';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, statusTone, fmtDate, dayName, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
-import { useDialogs } from '../../design/ui';
+import RegisterEditor from '../../components/Register.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 
@@ -19,7 +21,7 @@ export function Timetable() {
   const asg = useApi(sid ? '/api/school/teaching-assignments' : null, { sectionId: sid, open: 'true' });
   const unresolved = useApi('/api/school/timetable/unresolved');
   const subs = useApi('/api/school/substitutions');
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(null); const [save2, setSave2] = useState(false);
   const [run] = useAction();
   const section = L.sections.find((s) => s._id === sid);
   const lessons = (periods.data || []).filter((p) => p.type === 'lesson');
@@ -32,7 +34,7 @@ export function Timetable() {
   };
   return (
     <div className="stack">
-      <PageHeader title="Timetable" subtitle="Teacher, room and section conflicts are checked automatically" actions={<Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={L.sectionOptions} aria-label="Section" />} />
+      <PageHeader title="Timetable" subtitle="Teacher, room and section conflicts are checked automatically" actions={<><Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={L.sectionOptions} aria-label="Section" /><Button onClick={() => setSave2(true)} aria-label="Download timetable" title="Download timetable"><Download size={16} aria-hidden /> Download</Button></>} />
       {unresolved.data?.length > 0 && <div className="alert">{unresolved.data.length} period(s) have no teacher because an assignment ended: {unresolved.data.slice(0, 4).map((u) => `${u.section} ${u.period} (${u.subject})`).join(', ')}. Click the period in the grid to assign a teacher.</div>}
       <Tabs tabs={[['grid', 'Weekly grid'], ['periods', 'Period timings'], ['subs', 'Substitutions']]} value={tab} onChange={setTab} />
       {tab === 'grid' && (
@@ -57,6 +59,7 @@ export function Timetable() {
         onClose={() => setModal(null)} onSubmit={save}>
         {modal.entry && <div style={{ marginTop: 12 }}><ConfirmButton variant="danger" size="sm" message="Remove this period?" onConfirm={async () => { await run(() => del(`/api/school/timetable/entries/${modal.entry._id}`), 'Removed'); setModal(null); reloadAll(); }}>Remove period</ConfirmButton></div>}</FormModal>}
       {modal?.sub && <SubstituteModal L={L} onClose={() => setModal(null)} onDone={() => { setModal(null); subs.reload(); }} />}
+      {save2 && <TimetableDownload L={L} current={section} onClose={() => setSave2(false)} />}
     </div>
   );
 }
@@ -95,50 +98,36 @@ function SubstituteModal({ L, onClose, onDone }) {
   );
 }
 
-// ───────────── Attendance (school-wide) ─────────────
-export function AttendanceAdmin() {
-  const dlg = useDialogs();
-  const [date, setDate] = useState(today());
-  const ov = useApi('/api/school/attendance/overview', { date });
-  const queries = useApi('/api/school/attendance/queries', { status: 'open' });
-  const [open, setOpen] = useState(null);
-  const [run] = useAction();
+/** A section's register in a window, with the same controls the class teacher has (mark all present or absent, half day with its session, remarks, corrections with a reason). */
+/**
+ * Download the timetable. Choose what to print with the filters: every section, one class, or one section; as a PDF (a page per section) or a CSV.
+ * It starts on the section that is open, so one tap prints what you are looking at.
+ */
+function TimetableDownload({ L, current, onClose }) {
+  const [f, setF] = useState({ classId: current?.classId || '', sectionId: current?._id || '', format: 'pdf' });
+  const [run, busy] = useAction();
+  const secs = L.sections.filter((x) => x.yearId === L.currentYear?._id && x.status === 'active' && (!f.classId || x.classId === f.classId));
+  const cls = L.classes.find((c) => c._id === f.classId); const sec = secs.find((x) => x._id === f.sectionId);
+  const what = f.sectionId ? `${cls?.name || ''} ${sec?.name || ''}`.trim() : f.classId ? `all of ${cls?.name}` : 'every section';
+  const name = f.sectionId ? `timetable-${`${cls?.name}-${sec?.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : f.classId ? `timetable-${cls?.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : 'timetable-all-sections';
   return (
-    <div className="stack">
-      <PageHeader title="Attendance" subtitle="See which registers are submitted, and correct them with a recorded reason" actions={<Input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />} />
-      <Async state={ov}>{(o) => (<>
-        {!o.working && <div className="alert info">This is not a working day for the school.</div>}
-        <div className="grid g4"><Stat value={`${o.totals.submitted}/${o.totals.sections}`} label="Registers submitted" tone={o.totals.pending ? 'amber' : 'green'} /><Stat value={o.totals.present + o.totals.late} label="Present" tone="green" /><Stat value={o.totals.absent} label="Absent" tone="red" /><Stat value={o.totals.leave + o.totals.excused} label="On leave" tone="blue" /></div>
-        <Card flush><DataTable rows={o.rows} rowKey="sectionId" columns={[{ label: 'Section', render: (r) => <b>{r.className} {r.section}</b> }, { label: 'Register', render: (r) => <Badge tone={r.status === 'submitted' ? 'green' : r.status === 'draft' ? 'amber' : ''}>{label(r.status)}</Badge> },
-          { label: 'Present', render: (r) => r.totals ? r.totals.present + r.totals.late : '—' }, { label: 'Absent', render: (r) => r.totals?.absent ?? '—' }, { label: 'Leave', render: (r) => r.totals ? r.totals.leave + r.totals.excused : '—' }, { label: 'Submitted', render: (r) => fmtDateTime(r.submittedAt) },
-          { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r)}>Open register</Button> }]} /></Card></>)}</Async>
-      <Card title="Open attendance queries from students" flush><Async state={queries} empty={<div className="empty">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date, true) }, { label: 'Message', key: 'message' },
-        { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = await dlg.prompt('Reply to the student', { title: 'Answer the query', required: true }); if (!response) return; await run(() => post(`/api/school/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
-      {open && <RegisterModal sectionId={open.sectionId} title={`${open.className} ${open.section}`} date={date} onClose={() => { setOpen(null); ov.reload(); }} />}
-    </div>
+    <Modal title="Download timetable" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={async () => { await run(() => download('/api/school/timetable/export', `${name}.${f.format}`, { format: f.format, ...(f.sectionId ? { sectionId: f.sectionId } : f.classId ? { classId: f.classId } : {}) }), 'Timetable downloaded'); onClose(); }}>Download {f.format.toUpperCase()}</Button></>}>
+      <div className="stack">
+        <div className="form-grid">
+          <Field label="Class"><Select aria-label="Class" value={f.classId} onChange={(e) => setF({ ...f, classId: e.target.value, sectionId: '' })} placeholder="All classes" options={L.classes.filter((c) => c.status === 'active').map((c) => ({ value: c._id, label: c.name }))} /></Field>
+          <Field label="Section"><Select aria-label="Section to download" value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value })} placeholder="All sections" options={secs.map((x) => ({ value: x._id, label: `${L.classes.find((c) => c._id === x.classId)?.name || ''} ${x.name}`.trim() }))} /></Field>
+          <Field label="Format"><Select aria-label="Format" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value })} options={[{ value: 'pdf', label: 'PDF (a page per section, ready to print)' }, { value: 'csv', label: 'CSV (one row per lesson, opens in Excel)' }]} /></Field>
+        </div>
+        <p className="small muted">You will get the timetable of <b>{what}</b> for the current session.</p>
+      </div>
+    </Modal>
   );
 }
 
 export function RegisterModal({ sectionId, title, date, onClose }) {
-  const dlg = useDialogs();
-  const reg = useApi('/api/school/attendance/register', { sectionId, date });
-  const [run] = useAction();
-  const [rows, setRows] = useState(null);
-  const data = reg.data;
-  const list = rows || data?.students || [];
-  const setStatus = (id, status) => setRows(list.map((s) => (s.studentId === id ? { ...s, status } : s)));
-  const entries = () => list.filter((s) => s.status).map((s) => ({ studentId: s.studentId, status: s.status }));
   return (
-    <Modal wide title={`${title} · ${fmtDate(date, true)}`} onClose={onClose} footer={data?.canEdit ? <><Button onClick={async () => { await run(() => (import('../../api/client.js')).then((m) => m.put('/api/school/attendance/register', { sectionId, date, entries: entries() })), 'Draft saved'); reg.reload(); }}>Save draft</Button>
-      <Button variant="primary" onClick={async () => { await run(() => post('/api/school/attendance/register/submit', { sectionId, date, entries: entries() }), 'Register submitted'); setRows(null); reg.reload(); }}>Submit</Button></> : null}>
-      <Async state={reg}>{(d) => (<>
-        {d.blocked && <div className="alert info">Attendance cannot be taken for this date ({d.blocked.replace('_', ' ')}).</div>}
-        {d.session?.status === 'submitted' && <div className="alert ok" style={{ marginBottom: 10 }}>Submitted {fmtDateTime(d.session.submittedAt)}. Changes below are recorded as corrections.</div>}
-        <div className="table-wrap"><table><thead><tr><th>Roll</th><th>Student</th><th>Status</th></tr></thead><tbody>{list.map((s) => (
-          <tr key={s.studentId}><td>{s.rollNo}</td><td>{s.name} {s.corrected && <Badge tone="amber">corrected</Badge>}</td><td>
-            {d.canEdit ? <div className="status-seg">{['present', 'absent', 'late', 'leave'].map((st) => <button key={st} className={`${s.status === st ? 'on' : ''} ${st}`} onClick={() => setStatus(s.studentId, st)}>{label(st)}</button>)}</div>
-              : <div className="row"><Badge tone={statusTone(s.status)}>{label(s.status) || 'Not marked'}</Badge>{d.canCorrect && <select aria-label={`Correct ${s.name}`} value="" onChange={async (e) => { const status = e.target.value; if (!status) return; const reason = await dlg.prompt('Reason for this correction (required)', { title: 'Correct attendance', required: true }); if (!reason) return; await run(() => post('/api/school/attendance/correct', { sectionId, date, studentId: s.studentId, status, reason }), 'Correction recorded'); reg.reload(); }} style={{ width: 130 }}><option value="">Correct…</option>{['present', 'absent', 'late', 'leave', 'excused'].filter((x) => x !== s.status).map((x) => <option key={x} value={x}>{label(x)}</option>)}</select>}</div>}
-          </td></tr>))}</tbody></table></div></>)}</Async>
+    <Modal wide title={`${title} · ${fmtDate(date, true)}`} onClose={onClose}>
+      <RegisterEditor base="/api/school" sectionId={sectionId} date={date} />
     </Modal>
   );
 }
@@ -162,7 +151,7 @@ export function Learning() {
 }
 
 // ───────────── Teacher leave ─────────────
-export function LeaveAdmin() {
+export function LeaveAdmin({ embedded = false }) {
   const [status, setStatus] = useState('submitted');
   const list = useApi('/api/school/leave', { status });
   const L = useLookups();
@@ -170,9 +159,11 @@ export function LeaveAdmin() {
   const [run, busy] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={<Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />} />
-      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{l.status}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
-      {editing && <FormModal title={`Edit leave · ${editing.teacherId?.name}`} initial={editing} submitLabel="Save changes" fields={[{ name: 'leaveType', label: 'Leave type', type: 'select', options: ['casual', 'sick', 'earned', 'other', 'unpaid'], required: true }, { name: 'startDate', label: 'From', type: 'date', required: true }, { name: 'endDate', label: 'To', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }, { name: 'editNote', label: 'Note to the teacher (optional)', full: true }]} onClose={() => setEditing(null)} onSubmit={async (v) => { await patch(`/api/school/leave/${editing._id}`, v); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The days are counted again from the working days in the new dates, and the teacher is told what changed.</p></FormModal>}
+      {(() => { const pick = <Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />;
+        return embedded ? <div className="row between"><p className="muted small" style={{ margin: 0 }}>Approve or reject leave and arrange substitutes for the periods that are missed.</p>{pick}</div>
+          : <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={pick} />; })()}
+      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{l.status}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
+      {editing && <FormModal title={`Edit leave · ${editing.teacherId?.name}`} initial={editing} submitLabel="Save changes" fields={leaveFields({ startLabel: 'From', endLabel: 'To', after: [{ name: 'editNote', label: 'Note to the teacher (optional)', full: true }] })} onClose={() => setEditing(null)} onSubmit={async (v) => { await patch(`/api/school/leave/${editing._id}`, leavePayload(v)); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The days are counted again from the working days in the new dates, and the teacher is told what changed.</p></FormModal>}
       {view && <LeaveReview leave={view} L={L} onClose={() => { setView(null); list.reload(); }} run={run} busy={busy} />}
     </div>
   );
@@ -186,7 +177,7 @@ function LeaveReview({ leave, L, onClose, run, busy }) {
   const [subFor, setSubFor] = useState(null);
   return (
     <Modal wide title={`Leave · ${leave.teacherId?.name}`} onClose={onClose} footer={status === 'submitted' ? <><Button variant="danger" loading={busy} onClick={() => decide('reject')}>Reject</Button><Button variant="primary" loading={busy} onClick={() => decide('approve')}>Approve</Button></> : null}>
-      <dl className="kv"><dt>Dates</dt><dd>{fmtDate(leave.startDate, true)} → {fmtDate(leave.endDate, true)} ({leave.days} working days)</dd><dt>Type</dt><dd>{leave.leaveType}</dd><dt>Reason</dt><dd>{leave.reason}</dd><dt>Status</dt><dd><Badge tone={statusTone(status)}>{status}</Badge></dd></dl>
+      <dl className="kv"><dt>Dates</dt><dd>{leave.halfDay ? `${fmtDate(leave.startDate, true)}, ${leave.halfSession === 'first' ? 'first' : 'second'} half (half a day)` : `${fmtDate(leave.startDate, true)} → ${fmtDate(leave.endDate, true)} (${leave.days} working days)`}</dd><dt>Type</dt><dd>{leave.leaveType}</dd><dt>Reason</dt><dd>{leave.reason}</dd><dt>Status</dt><dd><Badge tone={statusTone(status)}>{status}</Badge></dd></dl>
       {status === 'submitted' && <Field label="Remark (optional)"><Input value={remark} onChange={(e) => setRemark(e.target.value)} /></Field>}
       <h3 style={{ margin: '16px 0 8px' }}>Periods affected</h3>
       <Async state={affected} empty={<div className="empty small">This teacher has no periods on those dates</div>}>{(rows) => <DataTable rows={rows} rowKey="entryId" columns={[{ label: 'Date', render: (a) => fmtDate(a.date) }, { label: 'Period', render: (a) => `${a.period} ${a.startTime}` }, { label: 'Class', render: (a) => `${L.sectionName(a.sectionId)}` }, { label: 'Subject', key: 'subject' },

@@ -10,17 +10,16 @@ vi.mock('../auth/AuthContext.jsx', () => ({ useAuth: () => ({ user: null, login 
 const { default: PortalLogin, Landing, homeFor, loginFor, PORTALS } = await import('../pages/Login.jsx');
 
 describe('one sign-in page per role', () => {
-  it('the landing page shows a card per role and a separate link for the platform administrator', () => {
+  it('the landing page shows a row per role and a separate link for the platform administrator', () => {
     render(<MemoryRouter><Landing /></MemoryRouter>);
-    for (const t of ['Student & Parent', 'Teacher', 'Finance', 'Library', 'Transport', 'School Admin']) expect(screen.getByRole('heading', { name: `Login as ${t}` })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Login as Staff' })).toBeNull(); // non-teaching staff have no card; the school office manages them
-    expect(screen.getAllByRole('link', { name: /Login as|Continue|Student|Teacher|Finance|Library|Transport|Staff|School Admin/ }).map((a) => a.getAttribute('href')).sort()).toEqual(['/admin/login', '/finance/login', '/library/login', '/student/login', '/teacher/login', '/transport/login']);
+    for (const t of ['Student and parent', 'Teacher', 'Staff', 'Finance', 'Library', 'Transport', 'School admin']) expect(screen.getByRole('link', { name: `Login as ${t}` })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /^Login as/ }).map((a) => a.getAttribute('href')).sort()).toEqual(['/admin/login', '/finance/login', '/library/login', '/staff/login', '/student/login', '/teacher/login', '/transport/login']);
     expect(screen.getByRole('link', { name: 'Platform administrator' })).toHaveAttribute('href', '/platform/login');
-    expect(screen.queryByRole('heading', { name: /Platform/ })).toBeNull(); // not advertised as a card
+    expect(screen.queryByRole('link', { name: /Login as Platform/ })).toBeNull(); // not advertised as a row
   });
   it('the sign-in form is one the browser can remember: named fields, the right autocomplete hints, a real form', () => {
     render(<MemoryRouter initialEntries={['/admin/login']}><Routes><Route path="/admin/login" element={<PortalLogin portal="admin" />} /></Routes></MemoryRouter>);
-    const id = screen.getByLabelText('Login id'); const pw = screen.getByLabelText('Password');
+    const id = screen.getByLabelText('Login ID'); const pw = screen.getByLabelText('Password');
     expect(id).toHaveAttribute('name', 'username'); expect(id).toHaveAttribute('autocomplete', 'username');
     expect(pw).toHaveAttribute('name', 'password'); expect(pw).toHaveAttribute('autocomplete', 'current-password');
     expect(pw.closest('form')).toBe(id.closest('form')); // both fields sit in the same form, which is what lets the browser offer to save them
@@ -31,14 +30,16 @@ describe('one sign-in page per role', () => {
     expect(homeFor('school_admin')).toBe('/admin'); expect(loginFor('super_admin')).toBe('/platform/login'); expect(loginFor('finance')).toBe('/finance/login'); expect(loginFor('transport')).toBe('/transport/login'); expect(loginFor('staff')).toBe('/staff/login'); expect(homeFor('unknown')).toBe('/');
   });
   it('a portal login sends the portal with the credentials and shows the server error', async () => {
-    login.mockRejectedValueOnce(new Error('This login belongs to the Student portal.'));
+    login.mockRejectedValueOnce(new Error('Invalid login id or password'));
     render(<MemoryRouter initialEntries={['/teacher/login']}><Routes><Route path="/teacher/login" element={<PortalLogin portal="teacher" />} /></Routes></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: 'Teacher sign in' })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Login id'), { target: { value: 'sharma@gps.test' } });
+    expect(screen.getByRole('heading', { name: 'Sign in to Teacher' })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Teacher sign in' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'sharma@gps.test' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(login).toHaveBeenCalledWith('sharma@gps.test', 'secret', 'teacher'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('belongs to the Student portal');
+    await waitFor(() => expect(login).toHaveBeenCalledWith('sharma@gps.test', 'secret', 'teacher', false));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid login id or password');
+    expect(screen.getByRole('alert')).toHaveTextContent('sign-in page for your role'); // a hint, shown for every failed sign-in, so nothing about the account is revealed
   });
 });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { FinanceReports } from '../pages/finance/Finance.jsx';
+import { FinanceDefaulters } from '../pages/finance/Finance.jsx';
 import { ToastProvider } from '../components/ui.jsx';
 
 const stu = (i, over = {}) => ({ studentId: `s${i}`, name: `Student ${i}`, className: 'Class 8', section: 'A', guardian: 'Parent', guardianPhone: '98', overdue: 1000 * i, pending: 2000 * i, daysOverdue: 10 * i, nextDue: '2026-12-10', ...over });
@@ -19,8 +19,8 @@ beforeEach(() => {
     return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body, text: async () => JSON.stringify(body) };
   });
 });
-const mount = (readOnly) => render(<MemoryRouter><ToastProvider><FinanceReports readOnly={readOnly} /></ToastProvider></MemoryRouter>);
-const openTab = async () => { fireEvent.click(await screen.findByRole('tab', { name: 'Defaulters' }).catch(() => screen.getByText('Defaulters'))); };
+const mount = (readOnly) => render(<MemoryRouter><ToastProvider><FinanceDefaulters readOnly={readOnly} /></ToastProvider></MemoryRouter>);
+const openTab = async () => { expect(await screen.findByRole('heading', { name: 'Defaulters' })).toBeInTheDocument(); }; // Defaulters is its own page now, not a tab inside Reports
 
 describe('Defaulters', () => {
   it('lists every defaulter with paging (no silent cap of 200) and a class filter', async () => {

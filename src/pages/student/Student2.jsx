@@ -110,7 +110,8 @@ export function StudentPerformance() {
   );
 }
 
-export function StudentCalendar() {
+/** The school calendar. The student's own view also carries exams and homework deadlines; every other portal reads the school's holidays and events, which the School Admin keeps up to date. */
+export function StudentCalendar({ base = S, subtitle = 'Exams, holidays, events and homework deadlines' }) {
   const [view, setView] = useState('month');
   const [anchor, setAnchor] = useState(() => new Date());
   const [agendaEnd] = useState(() => new Date(Date.now() + 90 * 864e5).toLocaleDateString('en-CA'));
@@ -118,7 +119,7 @@ export function StudentCalendar() {
   const ym = (d) => d.toLocaleDateString('en-CA').slice(0, 7);
   const from = `${ym(anchor)}-01`;
   const to = `${ym(anchor)}-${String(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
-  const cal = useApi(`${S}/calendar`, { from: view === 'agenda' ? todayIso : from, to: view === 'agenda' ? agendaEnd : to });
+  const cal = useApi(`${base}/calendar`, { from: view === 'agenda' ? todayIso : from, to: view === 'agenda' ? agendaEnd : to });
   const [picked, setPicked] = useState(null); // the day whose full list is shown below, like tapping a day in a phone calendar
   const colour = { holiday: 'red', exam: 'amber', deadline: 'blue', event: 'primary', ptm: 'primary' };
   const tone = (e) => (e.kind === 'government' ? 'green' : colour[e.type]);
@@ -129,7 +130,7 @@ export function StudentCalendar() {
   const shift = (n) => { const d = new Date(anchor); if (view === 'week') d.setDate(d.getDate() + 7 * n); else d.setMonth(d.getMonth() + n); setAnchor(d); };
   return (
     <div className="stack">
-      <PageHeader title="School calendar" subtitle="Exams, holidays, events and homework deadlines" actions={view !== 'agenda' && <><Button onClick={() => shift(-1)}>←</Button><b>{anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><Button onClick={() => shift(1)}>→</Button></>} />
+      <PageHeader title="School calendar" subtitle={subtitle} actions={view !== 'agenda' && <><Button onClick={() => shift(-1)}>←</Button><b>{anchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b><Button onClick={() => shift(1)}>→</Button></>} />
       <Tabs tabs={[['month', 'Monthly'], ['week', 'Weekly'], ['agenda', 'Agenda']]} value={view} onChange={setView} />
       <Async state={cal}>{(items) => (<Card>
         {view === 'month' && <div className="cal" style={{ gap: 6 }}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((x) => <div key={x} className="h">{x}</div>)}{Array.from({ length: days.offset }).map((_, i) => <div key={i} className="d blank" />)}

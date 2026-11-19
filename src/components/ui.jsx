@@ -119,7 +119,7 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
         );
       })}</tr></thead>
       <tbody>{sorted.map((r, i) => (
-        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={onRowClick ? 'clickable' : ''} onClick={onRowClick ? () => onRowClick(r) : undefined}>
+        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={onRowClick ? 'clickable' : ''} onClick={onRowClick ? (e) => { if (e.target.closest?.('button, a, input, select, textarea, label, [role="button"]')) return; onRowClick(r); } : undefined}>
           {columns.map((c, ci) => <td key={`${ci}-${c.label}`} className={c.right ? 'right' : ''}>{c.render ? c.render(r) : r[c.key]}</td>)}
         </tr>))}</tbody>
     </table></div>

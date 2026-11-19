@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, patch, del } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Input, Modal, PageHeader, useAction, statusTone, fmtDate } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import { sectionKey } from '../../utils/grades.js';
 import NextYearModal from '../../components/NextYearModal.jsx';
 
 /**
@@ -73,14 +74,16 @@ export function Years() {
 }
 
 /** The only classes a school can have, in promotion order. The server enforces the same list. */
-const GRADE_NAMES = ['LKG', 'UKG', ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`)];
+const GRADE_NAMES = ['LKG', 'UKG', ...Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`), ...[11, 12].flatMap((n) => ['Medical', 'Non-Medical', 'Commerce', 'Arts'].map((st) => `Class ${n} ${st}`))]; // Classes 11 and 12 also come by stream
 
 export function Classes() {
+  const nav = useNavigate();
   const L = useLookups();
   const [run] = useAction();
   const [modal, setModal] = useState(null);
   const yid = L.currentYear?._id; // always the current session; earlier sessions are read under "Past sessions"
-  const sections = L.sections.filter((s) => !yid || s.yearId === yid);
+  const className = (id) => L.classes.find((c) => c._id === id)?.name;
+  const sections = L.sections.filter((s) => !yid || s.yearId === yid).sort((a, b) => sectionKey(className(a.classId), a.name).localeCompare(sectionKey(className(b.classId), b.name)));
   const availableGrades = GRADE_NAMES.filter((n) => !L.classes.some((c) => c.name === n));
   return (
     <div className="stack">
@@ -92,14 +95,14 @@ export function Classes() {
           { label: '', render: (c) => <div className="row"><Button size="sm" onClick={async () => { await run(() => patch(`/api/school/classes/${c._id}`, { status: c.status === 'active' ? 'archived' : 'active' }), c.status === 'active' ? 'Class archived' : 'Class restored'); L.reload(); }}>{c.status === 'active' ? 'Archive' : 'Restore'}</Button>
             <ConfirmButton size="sm" variant="danger" message={`Delete ${c.name}?`} onConfirm={async () => { await run(() => del(`/api/school/classes/${c._id}`), 'Class deleted'); L.reload(); }}>Delete</ConfirmButton></div> },
         ]} /></Card>
-        <Card title="Sections" flush><DataTable rows={sections} empty={yid ? 'No sections for this year' : 'Create an academic year first'} columns={[
+        <Card title="Sections" flush><DataTable rows={sections} onRowClick={(s) => nav(`/admin/classes/${s._id}`)} empty={yid ? 'No sections for this year' : 'Create an academic year first'} columns={[
           { label: 'Section', render: (s) => <Link to={`/admin/classes/${s._id}`}><b>{L.classes.find((c) => c._id === s.classId)?.name} {s.name}</b></Link> }, { label: 'Room', key: 'room' },
           { label: 'Students', render: (s) => `${s.studentCount} / ${s.capacity}` }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{s.status}</Badge> },
           { label: '', render: (s) => <div className="row"><Link className="btn sm" to={`/admin/classes/${s._id}`}>Open</Link><Button size="sm" onClick={() => setModal({ t: 'section', row: s })}>Edit</Button>
             <ConfirmButton size="sm" variant="danger" message="Delete this section?" onConfirm={async () => { await run(() => del(`/api/school/sections/${s._id}`), 'Section deleted'); L.reload(); }}>Delete</ConfirmButton></div> },
         ]} /></Card>
       </div>
-      {modal?.t === 'class' && <FormModal title="Add class" submitLabel="Add class" fields={[{ name: 'name', label: 'Class', type: 'select', options: availableGrades, required: true, hint: 'Only LKG, UKG and Class 1 to 12 can be added. Promotion follows this order.' }]}
+      {modal?.t === 'class' && <FormModal title="Add class" submitLabel="Add class" fields={[{ name: 'name', label: 'Class', type: 'select', options: availableGrades, required: true, hint: 'LKG, UKG and Class 1 to 12 can be added. For Class 11 and 12 you can add the streams: Medical, Non-Medical, Commerce and Arts, each with its own subjects and date sheet. Promotion follows this order.' }]}
         onClose={() => setModal(null)} onSubmit={async (v) => { await post('/api/school/classes', { name: v.name }); L.reload(); return true; }} />}
       {modal?.t === 'section' && <FormModal title={modal.row ? 'Edit section' : 'New section'} initial={modal.row}
         fields={[...(modal.row ? [] : [{ name: 'classId', label: 'Class', type: 'select', options: L.classOptions, required: true }]), { name: 'name', label: 'Section name', required: true, placeholder: 'A' }, { name: 'capacity', label: 'Capacity', type: 'number', min: 1, default: 40, required: true }, { name: 'room', label: 'Default room' }]}

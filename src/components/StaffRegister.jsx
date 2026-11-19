@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
 import { post, put } from '../api/client.js';
-import { Async, Badge, Button, Card, DataTable, Input, Modal, Select, Stat, Tabs, useAction } from './ui.jsx';
+import { Async, Badge, Button, Card, DataTable, Field, Input, Modal, Select, Stat, Tabs, useAction } from './ui.jsx';
 import { parseCsv } from '../lib.js';
+import FilterMenu from './FilterMenu.jsx';
 import { useDialogs } from '../design/ui';
 
 const today = () => new Date().toLocaleDateString('en-CA');
-const STATUSES = ['present', 'late', 'half_day', 'absent', 'leave'];
-const NAME = { present: 'Present', late: 'Late', half_day: 'Half day', absent: 'Absent', leave: 'Leave' };
+import { STATUSES, STATUS_NAME as NAME, StatusControl, BulkMarkBar, statusText, SESSION_SHORT } from './attendanceUi.jsx';
 const monthOf = (d) => d.slice(0, 7);
 /** Name or staff/employee code, any part of it, ignoring case and surrounding spaces. */
 export const matchesPerson = (p, q) => { const t = (q || '').trim().toLowerCase(); return !t || (p.name || '').toLowerCase().includes(t) || (p.code || '').toLowerCase().includes(t); };
@@ -42,24 +42,26 @@ function Register({ base, group, canEdit }) {
 function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
   const [edits, setEdits] = useState({});
   const [importing, setImporting] = useState(false);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(''); const [desig, setDesig] = useState(''); const [statusF, setStatusF] = useState('');
   const [note, setNote] = useState('');
   const [bulk, setBulk] = useState({ checkIn: d.policy?.shiftStart || '', checkOut: d.policy?.shiftEnd || '', keep: true });
   const [run, busy] = useAction();
   const set = (id, patch) => setEdits((e) => ({ ...e, [id]: { ...e[id], ...patch } }));
   const rows = d.rows.map((r) => ({ ...r, ...(edits[r.personId] || {}) }));
-  const entries = rows.filter((r) => edits[r.personId]).map((r) => ({ personId: r.personId, status: r.status, ...(r.remark ? { remark: r.remark } : {}), ...(edits[r.personId].checkIn !== undefined || edits[r.personId].checkOut !== undefined ? { checkIn: r.checkIn || null, checkOut: r.checkOut || null } : {}) }));
+  const entries = rows.filter((r) => edits[r.personId]).map((r) => ({ personId: r.personId, status: r.status, ...(r.status === 'half_day' ? { halfSession: r.halfSession || 'first' } : {}), ...(r.remark ? { remark: r.remark } : {}), ...(edits[r.personId].checkIn !== undefined || edits[r.personId].checkOut !== undefined ? { checkIn: r.checkIn || null, checkOut: r.checkOut || null } : {}) }));
   const t = (s) => rows.filter((r) => r.status === s).length;
-  const shown = rows.filter((r) => matchesPerson(r, q));
+  const shown = rows.filter((r) => matchesPerson(r, q) && (!desig || r.designation === desig) && (!statusF || r.status === statusF));
+  const designations = [...new Set(rows.map((r) => r.designation).filter(Boolean))].sort();
+  const filtered = !!(q.trim() || desig || statusF);
   // bulk actions only change what is on screen: they reach the server with Save draft or Submit. They always act on the WHOLE register, not just the rows the search is showing.
-  const markAllPresent = () => {
+  const markAll = (status) => {
     let marked = 0; let onLeave = 0; const next = {};
     for (const r of rows) {
       if (onApprovedLeave(r)) { onLeave += 1; continue; }
-      next[r.personId] = { ...edits[r.personId], status: 'present' }; marked += 1;
+      next[r.personId] = { ...edits[r.personId], status, halfSession: null }; marked += 1;
     }
     setEdits((e) => ({ ...e, ...next }));
-    setNote(`Marked ${marked} present${onLeave ? `, ${onLeave} on approved leave left as is` : ''}${q.trim() ? ` (everyone in the register, not only the ${shown.length} shown)` : ''}. Save or submit to keep it.`);
+    setNote(`Marked ${marked} ${NAME[status].toLowerCase()}${onLeave ? `, ${onLeave} on approved leave left as is` : ''}${q.trim() || desig || statusF ? ` (everyone in the register, not only the ${shown.length} shown)` : ''}. Save or submit to keep it.`);
   };
   const applyTimes = () => {
     let changed = 0; const next = {};
@@ -75,10 +77,11 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
   };
   const save = (submit) => run(() => put(`${base}/register`, { group, date, submit, entries }), submit ? 'Register submitted' : 'Draft saved').then((x) => x && reload());
   const dlg = useDialogs();
-  const correct = async (r, status) => {
-    const reason = await dlg.prompt(`Why is ${r.name} being changed to ${NAME[status]}? (recorded)`, { title: 'Reason for the change', required: true });
+  const correct = async (r, value) => {
+    const [status, halfSession] = value.split(':');
+    const reason = await dlg.prompt(`Why is ${r.name} being changed to ${statusText(status, halfSession)}? (recorded)`, { title: 'Reason for the change', required: true });
     if (!reason) return;
-    await run(() => post(`${base}/correct`, { group, date, personId: r.personId, status, reason }), 'Correction recorded'); reload();
+    await run(() => post(`${base}/correct`, { group, date, personId: r.personId, status, ...(status === 'half_day' ? { halfSession } : {}), reason }), 'Correction recorded'); reload();
   };
   const editable = canEdit && d.canEdit && !d.blocked;
   return (
@@ -90,7 +93,7 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
       {editable && (
         <Card title="Everyone at once"><div className="stack">
           <div className="row wrap" style={{ alignItems: 'end', gap: 12 }}>
-            <Button onClick={markAllPresent}>Mark all present</Button>
+            <BulkMarkBar onAll={markAll} />
             <label className="field"><span>In</span><Input type="time" aria-label="Time in for everyone" value={bulk.checkIn} onChange={(e) => setBulk({ ...bulk, checkIn: e.target.value })} style={{ width: 120 }} /></label>
             <label className="field"><span>Out</span><Input type="time" aria-label="Time out for everyone" value={bulk.checkOut} min={bulk.checkIn || undefined} onChange={(e) => setBulk({ ...bulk, checkOut: e.target.value })} style={{ width: 120 }} /></label>
             <Button onClick={applyTimes} disabled={(!bulk.checkIn && !bulk.checkOut) || !timeOk(bulk.checkIn, bulk.checkOut)}>Apply to all</Button>
@@ -102,13 +105,20 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
       )}
       {d.blocked && <div className="alert info">{d.blocked === 'future' ? 'Attendance cannot be taken for a future date.' : d.blocked === 'not_working_day' ? 'This is not a working day for the school.' : `This date is a holiday (${d.blocked.split(':')[1]}).`}</div>}
       <div className="grid g4"><Stat value={rows.length} label="People" /><Stat value={t('present') + t('late')} label="Present" sub={t('late') ? `${t('late')} late` : undefined} tone="green" /><Stat value={t('absent') + t('half_day')} label="Absent / half day" sub={`${t('absent')} absent · ${t('half_day')} half day`} tone={t('absent') ? 'red' : t('half_day') ? 'amber' : 'green'} /><Stat value={t('leave')} label="On leave" tone="blue" /></div>
-      <div className="row between wrap"><Input type="search" aria-label="Search staff by name or ID" placeholder="Search by name or ID" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 320 }} /><span className="muted small" aria-live="polite">Showing {shown.length} of {rows.length}</span></div>
-      <Card flush><DataTable rows={shown} rowKey="personId" empty={q.trim() ? 'No one matches' : 'Nobody in this group yet'} columns={[
+      <div className="row wrap" style={{ gap: 12, alignItems: 'center' }}>
+        <Input type="search" aria-label="Search staff by name or ID" placeholder="Search by name or ID" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 280 }} />
+        <FilterMenu count={[desig, statusF].filter(Boolean).length} onClear={() => { setDesig(''); setStatusF(''); }}>
+          {designations.length > 1 && <Field label="Designation"><Select aria-label="Designation" value={desig} onChange={(e) => setDesig(e.target.value)} placeholder="All designations" options={designations.map((x) => ({ value: x, label: `${x} (${rows.filter((r) => r.designation === x).length})` }))} /></Field>}
+          <Field label="Status"><Select aria-label="Status filter" value={statusF} onChange={(e) => setStatusF(e.target.value)} placeholder="Any status" options={STATUSES.map((x) => ({ value: x, label: `${NAME[x]} (${t(x)})` }))} /></Field>
+        </FilterMenu>
+        <span className="muted small" aria-live="polite" style={{ marginLeft: 'auto' }}>Showing {shown.length} of {rows.length}</span>
+      </div>
+      <Card flush><DataTable rows={shown} rowKey="personId" empty={filtered ? 'No one matches' : 'Nobody in this group yet'} columns={[
         { label: 'Name', render: (r) => <><b>{r.name}</b> {r.corrected && <Badge tone="amber">corrected</Badge>}<div className="small muted">{r.code} · {r.designation}</div></> },
         { label: 'Status', render: (r) => (editable
-          ? <div className="status-seg" role="group" aria-label={`Status of ${r.name}`}>{STATUSES.map((s) => <button key={s} type="button" className={`${r.status === s ? 'on' : ''} ${s}`} onClick={() => set(r.personId, { status: s })}>{NAME[s]}</button>)}</div>
-          : <div className="row"><Badge tone={{ present: 'green', late: 'amber', half_day: 'amber', absent: 'red', leave: 'blue' }[r.status]}>{NAME[r.status]}</Badge>
-            {canEdit && d.canCorrect && <select aria-label={`Correct ${r.name}`} value="" onChange={(e) => e.target.value && correct(r, e.target.value)}><option value="">Correct…</option>{STATUSES.filter((s) => s !== r.status).map((s) => <option key={s} value={s}>{NAME[s]}</option>)}</select>}</div>) },
+          ? <StatusControl name={r.name} status={r.status} halfSession={r.halfSession} onChange={(st, hs) => set(r.personId, { status: st, halfSession: hs })} />
+          : <div className="row"><Badge tone={{ present: 'green', late: 'amber', half_day: 'amber', absent: 'red', leave: 'blue' }[r.status]}>{statusText(r.status, r.halfSession)}</Badge>
+            {canEdit && d.canCorrect && <select aria-label={`Correct ${r.name}`} value="" onChange={(e) => e.target.value && correct(r, e.target.value)}><option value="">Correct…</option>{STATUSES.flatMap((s) => (s === 'half_day' ? ['first', 'second'].map((x) => ({ v: `half_day:${x}`, l: `Half day · ${SESSION_SHORT[x]}`, same: r.status === 'half_day' && (r.halfSession || 'first') === x })) : [{ v: s, l: NAME[s], same: r.status === s }])).filter((o) => !o.same).map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}</div>) },
         { label: 'In', render: (r) => { const late = minutesLate(r.checkIn, d.policy); return (<>{editable ? <Input aria-label={`Check-in of ${r.name}`} type="time" value={r.checkIn || ''} onChange={(e) => set(r.personId, { checkIn: e.target.value, checkOut: r.checkOut || '', status: r.status })} style={{ width: 110, ...(late ? { borderColor: 'rgb(var(--c-danger))', color: 'rgb(var(--c-danger-ink))', fontWeight: 600 } : {}) }} /> : (late ? <b style={{ color: 'rgb(var(--c-danger-ink))' }}>{r.checkIn}</b> : (r.checkIn || '—'))}{late > 0 && <div className="small" style={{ color: 'rgb(var(--c-danger-ink))' }}>{late} min late</div>}</>); } },
         { label: 'Out', render: (r) => (editable ? <Input aria-label={`Check-out of ${r.name}`} type="time" value={r.checkOut || ''} onChange={(e) => set(r.personId, { checkOut: e.target.value, checkIn: r.checkIn || '', status: r.status })} style={{ width: 110 }} /> : (r.checkOut || '—')) },
         { label: 'Hours', render: (r) => (r.hours != null ? r.hours : '—') },
@@ -124,13 +134,18 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
 function Month({ base, group }) {
   const [month, setMonth] = useState(monthOf(today()));
   const q = useApi(`${base}/month`, { group, month });
-  const [find, setFind] = useState('');
+  const [find, setFind] = useState(''); const [desig, setDesig] = useState(''); const [band, setBand] = useState('');
+  const pass = (p) => matchesPerson(p, find) && (!desig || p.designation === desig) && (!band || (band === 'low' ? p.percentage != null && p.percentage < 75 : band === 'mid' ? p.percentage != null && p.percentage >= 75 && p.percentage < 90 : band === 'high' ? p.percentage != null && p.percentage >= 90 : p.absent > 0));
+  const designations = [...new Set((q.data?.people || []).map((p) => p.designation).filter(Boolean))].sort();
   return (
-    <Card title="This month, from submitted registers" action={<div className="row"><Input type="search" aria-label="Search staff by name or ID" placeholder="Search by name or ID" value={find} onChange={(e) => setFind(e.target.value)} /><Input type="month" aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>} flush>
+    <Card title="This month, from submitted registers" action={<div className="row"><Input type="search" aria-label="Search staff by name or ID" placeholder="Search by name or ID" value={find} onChange={(e) => setFind(e.target.value)} /><FilterMenu count={[desig, band].filter(Boolean).length} onClear={() => { setDesig(''); setBand(''); }}>
+          {designations.length > 1 && <Field label="Designation"><Select aria-label="Designation" value={desig} onChange={(e) => setDesig(e.target.value)} placeholder="All designations" options={designations.map((x) => ({ value: x, label: x }))} /></Field>}
+          <Field label="Attendance"><Select aria-label="Attendance band" value={band} onChange={(e) => setBand(e.target.value)} placeholder="Any attendance" options={[{ value: 'low', label: 'Below 75%' }, { value: 'mid', label: '75% to 90%' }, { value: 'high', label: '90% and above' }, { value: 'absent', label: 'Has absences' }]} /></Field>
+        </FilterMenu><Input type="month" aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>} flush>
       <Async state={q}>{(d) => (
         <>
-          <div className="card-b muted small">{d.registers} register(s) submitted this month. Showing {d.people.filter((p) => matchesPerson(p, find)).length} of {d.people.length}.</div>
-          <DataTable rows={d.people.filter((p) => matchesPerson(p, find))} rowKey="personId" empty={find.trim() ? 'No one matches' : 'Nobody in this group yet'} columns={[
+          <div className="card-b muted small">{d.registers} register(s) submitted this month. Showing {d.people.filter(pass).length} of {d.people.length}.</div>
+          <DataTable rows={d.people.filter(pass)} rowKey="personId" empty={find.trim() || desig || band ? 'No one matches these filters' : 'Nobody in this group yet'} columns={[
             { label: 'Name', render: (p) => <><b>{p.name}</b><div className="small muted">{p.code} · {p.designation}</div></> }, { label: 'Present', key: 'present' }, { label: 'Late', key: 'late' }, { label: 'Half day', key: 'half_day' },
             { label: 'Absent', render: (p) => (p.absent ? <Badge tone="red">{p.absent}</Badge> : 0) }, { label: 'Leave', key: 'leave' }, { label: 'Attendance', render: (p) => (p.percentage != null ? <Badge tone={p.percentage < 75 ? 'red' : p.percentage < 90 ? 'amber' : 'green'}>{p.percentage}%</Badge> : '—') },
           ]} />

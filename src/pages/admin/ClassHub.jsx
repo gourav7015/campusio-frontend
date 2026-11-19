@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, put } from '../../api/client.js';
@@ -9,7 +9,7 @@ import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { Classes as Structure } from './Academics.jsx';
 import { Assignments } from './People.jsx';
-import { AttendanceAdmin, RegisterModal } from './Operations.jsx';
+import { RegisterModal } from './Operations.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const daysAgo = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
@@ -18,10 +18,11 @@ const daysAgo = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString('en-C
 export function ClassHub() {
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') || 'structure';
+  if (tab === 'attendance') return <Navigate to="/admin/attendance" replace />; // attendance of students and staff is one page now, under Administration
   return (
     <div className="stack">
-      <Tabs tabs={[['structure', 'Classes & sections'], ['subjects', 'Subjects & teachers'], ['attendance', 'Attendance'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
-      {tab === 'structure' && <Structure />}{tab === 'subjects' && <Assignments />}{tab === 'attendance' && <AttendanceAdmin />}{tab === 'homework' && <HomeworkByDay />}
+      <Tabs tabs={[['structure', 'Classes & sections'], ['subjects', 'Subjects & teachers'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
+      {tab === 'structure' && <Structure />}{tab === 'subjects' && <Assignments />}{tab === 'homework' && <HomeworkByDay />}
     </div>
   );
 }
@@ -70,10 +71,10 @@ export function ClassDetail() {
     <Async state={ov}>{(o) => (
       <div className="stack">
         <PageHeader title={`${o.className} ${o.section}`} subtitle={`Class teacher: ${o.classTeacher || 'not assigned'}${o.room ? ` · Room ${o.room}` : ''} · ${o.students} of ${o.capacity} students`} actions={<Link className="btn" to="/admin/classes">← All classes</Link>} />
-        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ['periods', 'By period'], ['homework', 'Homework'], ['subjects', 'Subjects & teachers'], ['exams', 'Exams & performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ...(o.periodWise ? [['periods', 'By period']] : []), ['homework', 'Homework'], ['subjects', 'Subjects & teachers'], ['exams', 'Exams & performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
         {tab === 'overview' && <Overview o={o} go={(t) => setSp({ tab: t })} />}
         {tab === 'students' && <SectionStudents sectionId={sectionId} />}
-        {tab === 'periods' && <SectionPeriods sectionId={sectionId} />}
+        {tab === 'periods' && o.periodWise && <SectionPeriods sectionId={sectionId} />}
         {tab === 'attendance' && <SectionAttendance sectionId={sectionId} title={`${o.className} ${o.section}`} />}
         {tab === 'homework' && <HomeworkDay sectionId={sectionId} />}
         {tab === 'subjects' && <SectionSubjects o={o} sectionId={sectionId} onChange={ov.reload} />}

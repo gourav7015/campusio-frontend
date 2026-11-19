@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { Async, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Tabs, fmtDate, label, statusTone } from '../../components/ui.jsx';
 
@@ -19,7 +19,7 @@ export default function PastSessions() {
   return (
     <div className="stack">
       <PageHeader title="Past sessions" subtitle="Look back at an earlier academic year. This is a read-only record: the dashboard and every other page always show the current session."
-        actions={past.length > 0 && <Select value={yearId} onChange={(e) => setParams({ year: e.target.value })} aria-label="Past session" options={past.map((y) => ({ value: y._id, label: `${y.name}${y.status === 'closed' ? ' (closed)' : ''}` }))} />} />
+        actions={<><Link className="btn" to="/admin/years">← Academic years</Link>{past.length > 0 && <Select value={yearId} onChange={(e) => setParams({ year: e.target.value })} aria-label="Past session" options={past.map((y) => ({ value: y._id, label: `${y.name}${y.status === 'closed' ? ' (closed)' : ''}` }))} />}</>} />
       <Async state={years} empty={null}>{() => !past.length ? (
         <Card><Empty title="No past sessions yet">When a year ends and the next one begins, the earlier year is kept here for reference.</Empty></Card>
       ) : year && (

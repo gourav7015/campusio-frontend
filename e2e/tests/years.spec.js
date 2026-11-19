@@ -34,9 +34,12 @@ test('a past session is read in its own section and nowhere else; classes can ru
     await page.goto('/admin');
     await expect(page.getByText('You are looking at')).toHaveCount(0);
 
-    // the earlier session lives under "Past sessions"
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Past sessions' }).click();
+    // the earlier session opens from "View data" on the Academic years page (there is no menu entry for it)
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Past sessions' })).toHaveCount(0);
+    await page.goto('/admin/years');
+    await page.getByRole('link', { name: 'View 2026-2027 data' }).click();
     await expect(page.getByRole('heading', { name: 'Past sessions' })).toBeVisible();
+    await expect(page.getByLabel('Breadcrumb').getByText('Academic years')).toBeVisible(); // the breadcrumb says where it came from
     await page.getByLabel('Past session').selectOption({ label: '2026-2027' });
     await expect(page.getByText('Nothing here can be changed')).toBeVisible();
     await page.getByRole('row').filter({ hasText: 'Class 8' }).first().click();
