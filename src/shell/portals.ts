@@ -1,7 +1,7 @@
 import {
   Award, BarChart3, Building2, Bus, CalendarDays, CalendarRange, ClipboardList, Clock, CreditCard, FileSpreadsheet, FileText, GraduationCap,
   IndianRupee, KeyRound, Layers, LayoutDashboard, Mail, Megaphone, MessagesSquare, NotebookPen, PlaneTakeoff, Scale, School, ScrollText, Settings, SlidersHorizontal, TrendingUp,
-  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, type LucideIcon,
+  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, type LucideIcon,
 } from 'lucide-react';
 
 export type PortalKey = 'platform' | 'admin' | 'teacher' | 'student' | 'finance' | 'library' | 'transport' | 'staff';
@@ -41,7 +41,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       { label: 'Administration', items: [
         { to: '/admin/attendance', label: 'Attendance', icon: UserCheck }, { to: '/admin/years', label: 'Academic years', icon: CalendarRange }, { to: '/admin/promotion', label: 'Year-end promotion', icon: TrendingUp },
         { to: '/admin/import', label: 'Data import', icon: Upload }, { to: '/admin/reports', label: 'Reports and exports', icon: BarChart3 }, { to: '/admin/staff', label: 'Desk logins', icon: KeyRound },
-        { to: '/admin/sub-admins', label: 'Sub-admins', icon: ShieldCheck }, { to: '/admin/settings', label: 'School settings', icon: Settings }, { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
+        { to: '/admin/sub-admins', label: 'Sub-admins', icon: ShieldCheck }, { to: '/admin/settings', label: 'School settings', icon: Settings }, { to: '/admin/documents', label: 'Receipts and payslips', icon: FilePenLine }, { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
         { to: '/admin/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/school/helpdesk/summary' }, { to: '/admin/guide', label: 'Quick guide', icon: HelpCircle },
       ] },
     ],

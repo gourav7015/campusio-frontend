@@ -568,7 +568,18 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   await expect(page.getByText('Exams held').first()).toBeVisible();
   await expect(page.getByRole('columnheader', { name: /Unit Test 1/ }).first()).toBeVisible();
   await page.getByRole('tab', { name: 'Homework', exact: true }).click();
-  await expect(page.getByText('Last 14 days — homework given per day')).toBeVisible();
+  await expect(page.getByText('Homework given per day')).toBeVisible();
+  // the week strip stays put when a day is picked; the arrows move a whole week
+  const days = page.locator('button.chip');
+  await expect(days).toHaveCount(7);
+  const before = await days.allTextContents();
+  await days.first().click();
+  expect(await days.allTextContents()).toEqual(before);
+  await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Previous week' }).click();
+  await expect(days).toHaveCount(7);
+  await expect(page.getByRole('button', { name: 'Next week' })).toBeEnabled();
+  await expect.poll(async () => (await days.allTextContents())[0]).not.toBe(before[0]);
   await page.getByRole('tab', { name: 'Library' }).click();
   await expect(page.getByText('Borrowed a book this year')).toBeVisible();
   await page.getByRole('tab', { name: 'Attendance' }).click();

@@ -23,6 +23,7 @@ test('class analysis has Tables and Graphs, a student finder, and a marks-only s
   await finder.fill('ADM2026');
   await expect(page.getByRole('button', { name: 'Open marks' }).first()).toBeVisible();
   await finder.fill('Aarav');
+  await expect(page.getByText('Aadhya Sharma')).toHaveCount(0); // wait for the list to narrow before opening a row
   await page.getByRole('button', { name: 'Open marks' }).first().click();
   await expect(page).toHaveURL(/\/admin\/exams\/student\//);
   await expect(page.getByRole('heading', { name: /Aarav/ })).toBeVisible();

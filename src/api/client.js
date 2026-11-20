@@ -91,6 +91,18 @@ export async function download(path, filename, query) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+/** Open an authenticated PDF in a new tab (a preview), or save it when the browser blocks the new tab. */
+export async function openPdf(path, filename = 'document.pdf') {
+  const tab = window.open('', '_blank');
+  try {
+    const res = await send(`${BASE}${path}`, { headers: headers() });
+    if (!res.ok) throw await parseError(res);
+    const url = URL.createObjectURL(await res.blob());
+    if (tab) tab.location.href = url; else { const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { tab?.close(); throw e; }
+}
+
 /** Files are never public: ask for a short-lived signed link, then open it. */
 export async function openFile(fileId, linkPath) {
   const { url } = await post(linkPath || `/api/shared/files/${fileId}/link`); // linkPath: a page that checks access its own way (a help desk ticket)

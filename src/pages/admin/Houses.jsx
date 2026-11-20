@@ -5,11 +5,13 @@ import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Modal, Pag
 import FormModal from '../../components/FormModal.jsx';
 import { useLookups } from '../../hooks/useLookups.js';
 
+const HOUSE_COLOURS = [{ value: '#dc2626', label: 'Red' }, { value: '#16a34a', label: 'Green' }, { value: '#2563eb', label: 'Blue' }, { value: '#eab308', label: 'Yellow' }];
+
 /** The school's own houses. Students and teachers each belong to one; a teacher in a house mentors its students. There are no houses until the school makes them. */
 export default function Houses() {
   const list = useApi('/api/school/houses');
   const [edit, setEdit] = useState(null); const [roster, setRoster] = useState(null); const [run, busy] = useAction();
-  const fields = [{ name: 'name', label: 'House name', required: true, placeholder: 'e.g. Aravali' }, { name: 'color', label: 'Colour (optional)', type: 'color', hint: 'Shown on its card' }, { name: 'motto', label: 'Motto (optional)', full: true }];
+  const fieldsFor = (d) => [{ name: 'name', label: 'House name', required: true, placeholder: 'e.g. Aravali' }, { name: 'color', label: 'Colour (optional)', type: 'swatches', choices: HOUSE_COLOURS.map((c) => ({ ...c, takenBy: d.houses.find((h) => h._id !== edit?._id && (h.color || '').toLowerCase() === c.value)?.name })), hint: 'Shown on its card. Each house has its own colour; tap again to clear.' }, { name: 'motto', label: 'Motto (optional)', full: true }];
   return (
     <Async state={list}>{(d) => (
       <div className="stack">
@@ -27,7 +29,7 @@ export default function Houses() {
                 <ConfirmButton size="sm" variant="danger" message={`Delete the house ${h.name}? Only possible when no one is in it.`} onConfirm={async () => { const r = await run(() => del(`/api/school/houses/${h._id}`), 'Deleted'); if (r) list.reload(); }}>Delete</ConfirmButton>
               </div>
             </Card>))}</div>)}
-        {edit && <FormModal title={edit._id ? `Edit ${edit.name}` : 'Add a house'} initial={edit} fields={fields} onClose={() => setEdit(null)}
+        {edit && <FormModal title={edit._id ? `Edit ${edit.name}` : 'Add a house'} initial={edit} fields={fieldsFor(d)} onClose={() => setEdit(null)}
           onSubmit={async (v) => { const body = { ...v, color: v.color || '' }; if (edit._id) await patch(`/api/school/houses/${edit._id}`, body); else await post('/api/school/houses', body); list.reload(); return true; }} />}
         {roster && <Roster house={roster} onClose={() => { setRoster(null); list.reload(); }} />}
       </div>)}</Async>

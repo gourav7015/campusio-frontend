@@ -30,6 +30,10 @@ export default function FormModal({ title, fields, initial = {}, onSubmit, onClo
           <Field key={f.name} label={typeof f.label === 'function' ? f.label(v) : f.label} hint={f.hint} full={f.full || f.type === 'textarea'}>
             {f.type === 'select' ? <Select value={v[f.name]} onChange={(e) => set(f.name, e.target.value)} options={f.options || []} placeholder={f.required ? 'Select…' : '—'} />
               : f.type === 'textarea' ? <textarea rows={3} value={v[f.name]} onChange={(e) => set(f.name, e.target.value)} placeholder={f.placeholder} />
+              : f.type === 'swatches' ? <div className="row" role="radiogroup" aria-label={typeof f.label === 'string' ? f.label : undefined} style={{ gap: 8, flexWrap: 'wrap' }}>
+                {f.choices.map((c) => <button type="button" key={c.value} role="radio" aria-checked={v[f.name] === c.value} disabled={!!c.takenBy} title={c.takenBy ? `Already used by ${c.takenBy}` : undefined} onClick={() => set(f.name, v[f.name] === c.value ? '' : c.value)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'var(--surface, #fff)', cursor: c.takenBy ? 'not-allowed' : 'pointer', opacity: c.takenBy ? 0.4 : 1, font: 'inherit', border: v[f.name] === c.value ? `2px solid ${c.value}` : '1px solid var(--border, #cbd5e1)' }}>
+                  <span aria-hidden style={{ width: 14, height: 14, borderRadius: 7, background: c.value, display: 'inline-block' }} />{c.label}{c.takenBy ? ` · ${c.takenBy}` : ''}</button>)}</div>
               : f.type === 'checkbox' ? <input type="checkbox" checked={!!v[f.name]} onChange={(e) => set(f.name, e.target.checked)} />
               : <Input type={f.type || 'text'} list={f.list} value={v[f.name]} min={f.min} max={f.max} step={f.step} placeholder={f.placeholder} onChange={(e) => set(f.name, e.target.value)} />}
           </Field>

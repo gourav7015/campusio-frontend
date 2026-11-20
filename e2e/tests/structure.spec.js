@@ -19,6 +19,10 @@ test('the school makes its own houses; students and teachers can be put only in 
   await page.getByRole('button', { name: '+ Add house' }).click();
   const add = page.getByRole('dialog', { name: 'Add a house' });
   await add.getByLabel('House name').fill('Sahyadri');
+  // the colour is chosen from four swatches only
+  await expect(add.getByRole('radio')).toHaveCount(4);
+  // the four demo houses already use all four, so none can be picked again
+  for (const c of ['Red', 'Green', 'Blue', 'Yellow']) await expect(add.getByRole('radio', { name: new RegExp(`^${c}`) })).toBeDisabled();
   await add.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Sahyadri', { exact: true })).toBeVisible();
   // the student form offers only the school's houses

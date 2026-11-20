@@ -15,6 +15,7 @@ const Refunds = lazy(() => import('./pages/legal/Legal').then((m) => ({ default:
 import PortalLogin, { Landing, homeFor } from './pages/Login.jsx';
 const Approvals = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.Approvals })));
 const SubAdmins = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SubAdmins })));
+const DocumentSettings = lazy(() => import('./pages/admin/DocumentSettings.jsx'));
 const SchoolInfoAdmin = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SchoolInfoAdmin })));
 const Guide = lazy(() => import('./pages/shared/Guide.jsx'));
 const SchoolInfoPage = lazy(() => import('./pages/shared/SchoolInfo.jsx').then((m) => ({ default: m.SchoolInfoPage })));
@@ -152,7 +153,7 @@ export default function App() {
           <Route path="fees" element={<AdminFees />} /><Route path="fees/students/:id" element={<StudentAccount readOnly />} /><Route path="library" element={<AdminLibrary />} /><Route path="library/books/:id" element={<BookDetail readOnly />} />
           <Route path="announcements" element={<AnnouncementsAdmin />} /><Route path="events" element={<Events />} /><Route path="messages" element={<MessagesAdmin />} />
           <Route path="payroll" element={<Payroll />} /><Route path="transport" element={<AdminTransport />} /><Route path="support-staff" element={<SupportStaff />} /><Route path="staff-attendance" element={<StaffAttendanceRedirect />} /><Route path="staff-leave" element={<Navigate to="/admin/leave?tab=general" replace />} /><Route path="promotion" element={<Promotion />} /><Route path="import" element={<Import />} /><Route path="reports" element={<Reports />} /><Route path="settings" element={<Settings />} /><Route path="audit" element={<Audit />} />
-          <Route path="guide" element={<Guide role="admin" />} /><Route path="approvals" element={<Approvals />} /><Route path="sub-admins" element={<SubAdmins />} /><Route path="school-info" element={<SchoolInfoAdmin />} />
+          <Route path="guide" element={<Guide role="admin" />} /><Route path="approvals" element={<Approvals />} /><Route path="sub-admins" element={<SubAdmins />} /><Route path="school-info" element={<SchoolInfoAdmin />} /><Route path="documents" element={<DocumentSettings />} />
           <Route path="notifications" element={<NotificationsPage role="admin" base="/api/school" />} />
           <Route path="helpdesk" element={askCampusio('/api/school/helpdesk')} /><Route path="past-sessions" element={<PastSessions />} /><Route path="employees" element={<Employees />} /><Route path="houses" element={<Houses />} /><Route path="designations" element={<Designations />} /><Route path="queries" element={<HelpDesk noun="query" handler base="/api/school/queries" title="Teachers' queries" subtitle="Questions teachers have sent to the office. The office desk and you can answer; the teacher reads the reply in their portal." />} /><Route path="exams/student/:id" element={<StudentMarks />} />
         </Route>

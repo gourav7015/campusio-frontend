@@ -13,6 +13,9 @@ import { RegisterModal } from './Operations.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const daysAgo = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
+const shiftDay = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+const mondayOf = (d) => shiftDay(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
+const validDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2000-01-01' && d <= today(); // a half-typed date (year 0002…) is ignored
 
 /** Classes & sections: the one place the School Admin looks at classes — structure, subject teachers, attendance, homework, and per-class analysis. */
 export function ClassHub() {
@@ -44,12 +47,22 @@ function HomeworkByDay() {
 
 export function HomeworkDay({ sectionId }) {
   const [date, setDate] = useState(today());
-  const q = useApi(`/api/school/sections/${sectionId}/homework`, { date });
+  const [weekStart, setWeekStart] = useState(mondayOf(today()));
+  const q = useApi(`/api/school/sections/${sectionId}/homework`, { date, weekStart });
+  const pick = (d) => { if (!validDay(d)) return; setDate(d); setWeekStart(mondayOf(d)); };
+  const moveWeek = (n) => { const w = shiftDay(weekStart, 7 * n); setWeekStart(w); setDate((cur) => { const d = shiftDay(cur, 7 * n); return d > today() ? today() : d; }); };
+  const thisWeek = weekStart >= mondayOf(today());
+  const weekLabel = `${fmtDate(weekStart)} – ${fmtDate(shiftDay(weekStart, 6))}`;
   return (
     <Async state={q}>{(d) => (
       <div className="stack">
-        <Card title="Last 14 days — homework given per day" action={<Input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />}>
-          <div className="row wrap">{d.days.map((x) => <button key={x.date} className={`chip${x.date === date ? ' active' : ''}`} onClick={() => setDate(x.date)} aria-label={`${fmtDate(x.date)}: ${x.count} homework`}>{fmtDate(x.date)} · <b>{x.count}</b></button>)}</div>
+        <Card title="Homework given per day" action={<Input type="date" value={date} max={today()} onChange={(e) => pick(e.target.value)} aria-label="Date" />}>
+          <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+            <Button size="sm" onClick={() => moveWeek(-1)} aria-label="Previous week">‹</Button>
+            <div className="row wrap" style={{ flex: 1, justifyContent: 'center' }}>{d.days.map((x) => <button key={x.date} disabled={x.date > today()} className={`chip${x.date === date ? ' active' : ''}`} onClick={() => setDate(x.date)} aria-label={`${fmtDate(x.date)}: ${x.count} homework`}>{new Date(`${x.date}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })} {fmtDate(x.date)} · <b>{x.count}</b></button>)}</div>
+            <Button size="sm" onClick={() => moveWeek(1)} disabled={thisWeek} aria-label="Next week">›</Button>
+          </div>
+          <div className="small muted" style={{ textAlign: 'center', marginTop: 8 }}>{weekLabel}{thisWeek ? ' · this week' : ''}</div>
         </Card>
         {d.subjectsWithout.length > 0 && <div className="alert info">No homework was set on {fmtDate(date, true)} for: {d.subjectsWithout.join(', ')}.</div>}
         <Card title={`Homework on ${fmtDate(date, true)}`} flush><DataTable rows={d.items} empty="No homework was given or due on this day" columns={[
@@ -121,13 +134,14 @@ function SectionStudents({ sectionId }) {
 }
 
 function SectionAttendance({ sectionId, title }) {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState('');
   const [open, setOpen] = useState(null);
   const hist = useApi('/api/school/attendance/history', { sectionId, from: daysAgo(45) });
+  const pick = (d) => { if (d === '' || validDay(d)) setDate(d); };
   return (
     <div className="stack">
-      <Card title="Registers — last 45 days" action={<div className="row"><Input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /><Button size="sm" onClick={() => setOpen(date)}>Open register for this date</Button></div>} flush>
-        <Async state={hist}>{(rows) => <DataTable rows={rows} rowKey="id" empty="No registers yet" columns={[
+      <Card title={date ? `Register on ${fmtDate(date, true)}` : 'Registers — last 45 days'} action={<div className="row"><Input type="date" value={date} max={today()} onChange={(e) => pick(e.target.value)} aria-label="Date" />{date && <Button size="sm" onClick={() => setDate('')}>Show all</Button>}<Button size="sm" disabled={!date} onClick={() => setOpen(date)}>Open register for this date</Button></div>} flush>
+        <Async state={hist}>{(rows) => <DataTable rows={date ? rows.filter((r) => r.date === date) : rows} rowKey="id" empty={date ? 'No register was taken on this date — use “Open register for this date” to see or fill it' : 'No registers yet'} columns={[
           { label: 'Date', render: (r) => <b>{fmtDate(r.date, true)}</b> }, { label: 'Register', render: (r) => <Badge tone={r.status === 'submitted' ? 'green' : 'amber'}>{label(r.status)}</Badge> },
           { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }, { label: 'Leave', render: (r) => r.totals.leave + r.totals.excused }, { label: 'Of', render: (r) => r.totals.total },
           { label: 'Attendance', render: (r) => (r.totals.total ? `${Math.round(((r.totals.present + r.totals.late) / r.totals.total) * 100)}%` : '—') }, { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r.date)}>Open</Button> },
