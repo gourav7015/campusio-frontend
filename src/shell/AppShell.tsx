@@ -29,7 +29,7 @@ function Brand({ portal, schoolName, collapsed, dark }: { portal: Portal; school
       {!collapsed && (
         <div className="min-w-0 leading-tight">
           <p className={cn('truncate text-sm font-semibold', dark && 'text-white')}>{portal.title}</p>
-          <p className={cn('truncate text-xs', dark ? 'text-white/55' : 'text-muted-foreground')}>{portal.key === 'platform' ? 'Campusio' : schoolName}</p>
+          <p className={cn('truncate text-xs', dark ? 'text-white/55' : 'text-muted-foreground')}>{portal.key === 'platform' ? 'AtKaksha' : schoolName}</p>
         </div>
       )}
     </Link>
@@ -100,7 +100,7 @@ export function AppShell({ area }: { area: PortalKey }) {
             <Breadcrumbs items={crumbs} className="hidden min-w-0 sm:block" />
             <div className="flex-1" />
             {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch base={portal.api} role={area} />}
-            {school?.academicYear && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>}
+            {school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>}
             <ThemeToggle />
             {portal.api && <Notifications base={portal.api} role={area} />}
             <UserMenu hasProfile={area === 'teacher' || area === 'student' || area === 'staff'} area={area} />
@@ -116,7 +116,7 @@ export function AppShell({ area }: { area: PortalKey }) {
             )}
             <motion.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary></motion.div>
           </main>
-          <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} Campusio</span><span className="flex gap-4"><Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
+          <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} AtKaksha</span><span className="flex gap-4"><Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
           <BackToTop />
         </div>
 

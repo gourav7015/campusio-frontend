@@ -6,7 +6,7 @@ test.describe('public pages, metadata and accessibility basics', () => {
   test('landing links to the four policy pages, which show no placeholders', async ({ page }) => {
     const problems = watch(page);
     await page.goto('/');
-    await expect(page).toHaveTitle(/Campusio/);
+    await expect(page).toHaveTitle(/AtKaksha/);
     for (const [name, path, heading] of [['Privacy policy', '/privacy', 'Privacy policy'], ['Terms', '/terms', 'Terms and conditions'], ['Cookies and storage', '/cookies', 'Cookies and browser storage'], ['Refunds and cancellation', '/refunds', 'Refund and cancellation policy']]) {
       await page.getByRole('navigation', { name: 'Legal' }).getByRole('link', { name }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
@@ -20,16 +20,16 @@ test.describe('public pages, metadata and accessibility basics', () => {
 
   test('the copyright year is the current year, and the skip link reaches the content', async ({ page }) => {
     await page.goto('/privacy');
-    await expect(page.getByText(`© ${new Date().getFullYear()} Campusio`)).toBeVisible();
+    await expect(page.getByText(`© ${new Date().getFullYear()} AtKaksha`)).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('#main-content')).toBeFocused();
   });
 
-  test('the logo is the Campusio mark and the favicon is set', async ({ page }) => {
+  test('the logo is the AtKaksha mark and the favicon is set', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Campusio home' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'AtKaksha home' })).toBeVisible();
     await expect(page.locator('header img[src="/logo.png"]')).toBeVisible();
     expect((await page.request.get('/logo.png')).ok()).toBe(true);
     expect(await page.locator('link[rel="icon"]').getAttribute('href')).toBe('/favicon.png');
@@ -50,7 +50,7 @@ test.describe('public pages, metadata and accessibility basics', () => {
     await page.goto('/admin/login'); expect(await robots()).toBe('noindex, nofollow');
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
     await page.goto('/admin/students'); expect(await robots()).toBe('noindex, nofollow');
-    await expect(page).toHaveTitle(/Students · School admin · Campusio/);
+    await expect(page).toHaveTitle(/Students · School admin · AtKaksha/);
     const txt = await (await page.request.get('/robots.txt')).text();
     expect(txt).toMatch(/Disallow: \//); expect(txt).not.toMatch(/Allow: \/admin/);
   });

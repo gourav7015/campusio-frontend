@@ -14,13 +14,13 @@ async function as(browser, portal, loginId, password) {
 const platform = (browser) => as(browser, 'platform', 'superadmin@erp.local', 'Super@12345');
 const done = async (...people) => { for (const x of people) { expect(x.problems, x.problems.join('\n')).toEqual([]); await x.ctx.close(); } };
 
-/** Everyone who signs in to a school writes to Campusio support; only the platform administrators answer. */
+/** Everyone who signs in to a school writes to AtKaksha support; only the platform administrators answer. */
 test.describe('help desk', () => {
-  test('a student writes to Campusio support, the platform administrator answers, the student sees the reply', async ({ browser }) => {
+  test('a student writes to AtKaksha support, the platform administrator answers, the student sees the reply', async ({ browser }) => {
     const s = await as(browser, 'student', 'gps.adm20260001', 'Student@12345');
     await s.page.goto('/student/helpdesk');
     await expect(s.page.getByRole('heading', { name: 'Help desk' })).toBeVisible();
-    await expect(s.page.getByText('Write to the Campusio support team')).toBeVisible();
+    await expect(s.page.getByText('Write to the AtKaksha support team')).toBeVisible();
     await s.page.getByRole('button', { name: '+ New ticket' }).click();
     await s.page.getByLabel('Subject').fill('Cannot open my timetable');
     await s.page.getByLabel('What happened?').fill('The timetable page stays empty on my phone.');
@@ -61,7 +61,7 @@ test.describe('help desk', () => {
     await done(s, a, p);
   });
 
-  test('a school admin writes to Campusio support and the platform administrator answers', async ({ browser }) => {
+  test('a school admin writes to AtKaksha support and the platform administrator answers', async ({ browser }) => {
     const a = await as(browser, 'admin', 'admin@gps.test', 'Admin@12345');
     await a.page.goto('/admin/helpdesk');
     await expect(a.page.getByRole('heading', { name: 'Help desk' })).toBeVisible();

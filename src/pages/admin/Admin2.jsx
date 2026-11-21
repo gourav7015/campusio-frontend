@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { post, put, patch, del, upload } from '../../api/client.js';
+import { post, put, patch, del, upload, openFile } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Tabs, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import CredentialsCard from '../../components/CredentialsCard.jsx';
@@ -24,12 +24,18 @@ export function Approvals() {
   const buttons = (path, what) => <div className="row"><Button size="sm" variant="primary" onClick={() => decide(path, true, what)}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(path, false, what)}>Reject</Button></div>;
   return (
     <div className="stack">
-      <PageHeader title="Approvals" subtitle="Things waiting for your decision: expenses from Finance, period swaps and attendance on days the school is closed" />
+      <PageHeader title="Approvals" subtitle="Things waiting for your decision: expenses and vendors from Finance, period swaps and attendance on days the school is closed" />
       <Async state={q}>{(d) => (<>
-        {!d.counts.expenses && !d.counts.swaps && !d.counts.exceptions && <Card><Empty title="Nothing is waiting for you">New requests appear here and in your notifications.</Empty></Card>}
+        {!d.counts.expenses && !d.counts.vendors && !d.counts.swaps && !d.counts.exceptions && <Card><Empty title="Nothing is waiting for you">New requests appear here and in your notifications.</Empty></Card>}
         {d.counts.expenses > 0 && <Card title={`Expenses (${d.counts.expenses})`} flush><DataTable rows={d.expenses} columns={[
-          { label: 'Date', render: (e) => fmtDate(e.date) }, { label: 'Expense', render: (e) => <><b>{e.title}</b><div className="small muted">{e.department}{e.work ? ` · ${e.work}` : ''}{e.vendor ? ` · ${e.vendor}` : ''}</div></> },
+          { label: 'Date', render: (e) => fmtDate(e.date) }, { label: 'Expense', render: (e) => <><b>{e.title}</b> {e.nature === 'capital' && <Badge tone="blue">Capital</Badge>}<div className="small muted">{e.department}{e.work ? ` · ${e.work}` : ''}{e.vendor ? ` · ${e.vendor}` : ''}{e.billNo ? ` · bill ${e.billNo}` : ''}</div></> },
+          { label: 'Bills', render: (e) => (e.attachments?.length ? <div className="stack" style={{ gap: 2 }}>{e.attachments.map((a) => <Button key={a.fileId} size="sm" onClick={() => run(async () => { await openFile(a.fileId); return true; })} aria-label={`View ${a.name}`}>{a.name.length > 22 ? `${a.name.slice(0, 20)}…` : a.name}</Button>)}</div> : <Badge tone="amber">No bill attached</Badge>) },
           { label: 'Amount', render: (e) => <b>{fmtMoney(e.amount)}</b> }, { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (e) => buttons(`${A}/approvals/expenses/${e._id}`, 'expense') }]} /></Card>}
+        {d.counts.vendors > 0 && <Card title={`Vendors (${d.counts.vendors})`} action={<Button size="sm" variant="primary" onClick={async () => { if (await dlg.confirm(`Approve all ${d.counts.vendors} vendors waiting? They can then be chosen on expenses.`, { title: 'Approve all vendors' })) { await run(() => post(`${A}/approvals/vendors/decide`, { approve: true }), 'All approved'); q.reload(); } }}>Approve all</Button>} flush><DataTable rows={d.vendors} columns={[
+          { label: 'Vendor', render: (v) => <><b>{v.name}</b> <span className="small muted">{v.code}</span><div className="small muted">{v.category || 'No category'}{v.contactPerson ? ` · ${v.contactPerson}` : ''}{v.phone ? ` · ${v.phone}` : ''}</div></> },
+          { label: 'GSTIN / PAN', render: (v) => <><span className="small">{v.gstin || '—'}</span><div className="small muted">{v.pan || ''}</div></> },
+          { label: 'Bank', render: (v) => (v.bankName || v.accountNo ? <>{v.bankName}<div className="small muted">{v.accountName ? `${v.accountName} · ` : ''}{v.accountNo || ''}{v.ifsc ? ` · ${v.ifsc}` : ''}</div></> : <span className="muted">—</span>) },
+          { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (v) => buttons(`${A}/approvals/vendors/${v._id}`, 'vendor') }]} /></Card>}
         {d.counts.swaps > 0 && <Card title={`Period swaps agreed by both teachers (${d.counts.swaps})`} flush><DataTable rows={d.swaps} columns={[
           { label: 'Date', render: (s) => fmtDate(s.date, true) }, { label: 'Teachers', render: (s) => `${s.fromTeacher} → ${s.toTeacher}` },
           { label: 'Period', render: (s) => <>{s.fromPeriod?.period} · {s.fromPeriod?.section} · {s.fromPeriod?.subject}{s.toPeriod && <div className="small muted">in return: {s.toPeriod.period} · {s.toPeriod.section} · {s.toPeriod.subject}</div>}</> },

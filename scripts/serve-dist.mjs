@@ -13,7 +13,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const rules = []; let cur = null;
 for (const line of readFileSync(join(root, '_headers'), 'utf8').split('\n')) {
   if (!line.trim()) continue;
-  if (!line.startsWith(' ')) { cur = { pattern: line.trim(), headers: [] }; rules.push(cur); } else { const i = line.indexOf(':'); cur.headers.push([line.slice(0, i).trim(), line.slice(i + 1).trim()]); }
+  if (!line.startsWith(' ')) { cur = { pattern: line.trim(), headers: [] }; rules.push(cur); } else if (line.trim().startsWith('!')) cur.headers.push([line.trim(), '']); else { const i = line.indexOf(':'); cur.headers.push([line.slice(0, i).trim(), line.slice(i + 1).trim()]); }
 }
 const matches = (pattern, path) => (pattern.endsWith('*') ? path.startsWith(pattern.slice(0, -1)) : path === pattern);
 
@@ -28,7 +28,7 @@ http.createServer((req, res) => {
   if (!file.startsWith(root)) { res.writeHead(403); return res.end(); }
   const isAsset = existsSync(file) && statSync(file).isFile();
   if (!isAsset) file = join(root, 'index.html'); // single-page app: any other address is the app
-  for (const r of rules) if (matches(r.pattern, isAsset ? path : '/index.html')) for (const [k, v] of r.headers) res.setHeader(k, v);
+  for (const r of rules) if (matches(r.pattern, path)) for (const [k, v] of r.headers) { if (k.startsWith('!')) res.removeHeader(k.slice(1).trim()); else res.setHeader(k, v); }
   res.setHeader('Content-Type', TYPES[extname(file)] || 'application/octet-stream');
   res.end(readFileSync(file));
 }).listen(port, () => console.log(`serving dist on http://localhost:${port}`));

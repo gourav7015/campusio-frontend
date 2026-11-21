@@ -13,11 +13,11 @@ import { AdminHero, FinanceHero, LibraryShelf, StaffHero, StudentHero, TeacherHe
 const SkipLink = () => <a href="#main-content" className="sr-only z-[80] rounded-md bg-card px-3 py-2 text-sm font-medium shadow-md focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>;
 const mainProps = { id: 'main-content', tabIndex: -1 };
 
-/** The Campusio mark and the theme switch, along the top of every page. */
+/** The AtKaksha mark and the theme switch, along the top of every page. */
 function TopBar() {
   return (
     <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-between px-6 sm:px-10">
-      <Link to="/" aria-label="Campusio home" className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo size={32} className="rounded-lg" /><span className="text-[17px] font-semibold tracking-tight">Campusio</span></Link>
+      <Link to="/" aria-label="AtKaksha home" className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo size={32} className="rounded-lg" /><span className="text-[17px] font-semibold tracking-tight">AtKaksha</span></Link>
       <ThemeToggle />
     </header>
   );
@@ -36,7 +36,7 @@ export function LandingScreen() {
           <p className="mt-4 max-w-[380px] text-[17px] leading-[1.55] text-muted-foreground">Choose your portal. Your school creates every account, so there is nothing to sign up for.</p>
           <div aria-hidden="true" className="mt-9 flex h-1.5 w-60 overflow-hidden rounded-[3px]">{CHOICES.map((c) => <span key={c.key} data-portal={c.key} className="flex-1 bg-tone" />)}</div>
         </div>
-        <p className="hidden text-[13px] text-muted-foreground xl:block">© {new Date().getFullYear()} Campusio</p>
+        <p className="hidden text-[13px] text-muted-foreground xl:block">© {new Date().getFullYear()} AtKaksha</p>
       </section>
       <main {...mainProps} className="flex flex-1 flex-col px-6 pb-10 focus-visible:outline-none sm:px-10 xl:py-12 xl:pl-10 xl:pr-20">
         <nav aria-label="Portals" className="flex flex-col gap-2 xl:mt-14">

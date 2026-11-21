@@ -100,7 +100,7 @@ function TwoFactor({ user, onChange }) {
       )}
       {step !== 'codes' && user.twoFactor && (
         <div className="stack">
-          <p className="muted" style={{ margin: 0 }}>Sign-in asks for a code from your authenticator app. If you lose your phone, use a recovery code, or ask your School Admin (or Campusio) to reset it.</p>
+          <p className="muted" style={{ margin: 0 }}>Sign-in asks for a code from your authenticator app. If you lose your phone, use a recovery code, or ask your School Admin (or AtKaksha) to reset it.</p>
           {(step === 'idle') && <div className="row" style={{ gap: 8 }}><Button onClick={() => setStep('newcodes')}>New recovery codes</Button><Button variant="danger" onClick={() => setStep('off')}>Turn off</Button></div>}
           {(step === 'off' || step === 'newcodes') && (
             <form className="stack" onSubmit={async (e) => {

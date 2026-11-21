@@ -1,3 +1,4 @@
+import Instalments from '../../components/Instalments.jsx';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
@@ -155,6 +156,7 @@ export function StudentAccount({ readOnly }) {
           {!readOnly && <><Button onClick={() => setModal({ t: 'charge' })}>+ Add charge</Button><Button onClick={() => setModal({ t: 'advance' })} disabled={x.totals.pending <= 0}>Pay full year</Button><Button variant="primary" disabled={x.totals.pending <= 0} onClick={() => setModal({ t: 'pay' })}>Collect payment</Button></>}</>} />
         <div className="grid g4"><Stat value={fmtMoney(x.totals.assigned)} label="Total billed" /><Stat value={fmtMoney(x.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(x.totals.pending)} label="Pending" tone="amber" sub={x.totals.nextDue ? `Next due ${fmtDate(x.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(x.totals.overdue)} label="Overdue" tone={x.totals.overdue ? 'red' : undefined} sub={x.totals.concession ? `Concessions ${fmtMoney(x.totals.concession)}` : undefined} /></div>
         <PersonalDiscount x={x} base={base} readOnly={readOnly} onChanged={reload} />
+        <Instalments rows={x.installments} />
         <Card title="Charges" flush><DataTable rows={x.charges} empty="Nothing has been billed to this student yet" columns={[
           { label: 'Charge', render: (c) => <><b>{c.label}</b> {c.kind === 'library_fine' && <Badge tone="amber">Library</Badge>}{c.concessions?.map((k, i) => <div key={i} className="small muted">Concession {fmtMoney(k.amount)} — {k.reason}</div>)}</> }, { label: 'Due', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.amount) }, { label: 'Concession', render: (c) => (c.concession ? fmtMoney(c.concession) : '—') }, { label: 'Paid', render: (c) => fmtMoney(c.paidAmount) },
           { label: 'Outstanding', render: (c) => <b>{fmtMoney(c.outstanding)}</b> }, { label: 'Status', render: (c) => (c.status === 'paid' ? <Badge tone="green">Paid</Badge> : c.overdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="amber">Open</Badge>) },
@@ -163,6 +165,7 @@ export function StudentAccount({ readOnly }) {
           { label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Type', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : <Badge tone="green">Payment</Badge>) },
           { label: 'Amount', render: (p) => fmtMoney(p.amount) }, { label: 'Mode', render: (p) => <>{label(p.mode)}{p.reference && <div className="small muted">{p.reference}</div>}</> }, { label: 'Allocated to', render: (p) => p.allocations.map((al) => al.label).join(', ') }, { label: 'By', key: 'receivedByName' },
           ...(readOnly ? [] : [{ label: '', render: (p) => <div className="row"><Button size="sm" onClick={() => run(() => download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button>
+            {p.kind === 'payment' && <Button size="sm" onClick={() => run(() => post(`${base}/payments/${p._id}/email`, {}), (r) => `Receipt emailed to ${r.sent.join(', ')}`)}>Email receipt</Button>}
             {p.kind === 'payment' && p.status === 'completed' && <Button size="sm" variant="danger" onClick={() => setModal({ t: 'rev', p })}>Reverse</Button>}</div> }])]} /></Card>
         {modal?.t === 'advance' && <AdvanceModal x={x} base={base} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}
         {modal?.t === 'pay' && <PayModal x={x} base={base} onClose={() => setModal(null)} onDone={() => { setModal(null); reload(); }} />}

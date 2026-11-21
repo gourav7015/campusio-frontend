@@ -5,7 +5,7 @@ export type ErrorKind = 'crash' | 'update' | 'offline' | 'server' | 'notfound';
 
 const COPY: Record<ErrorKind, { code: string; title: string; text: string }> = {
   crash: { code: 'Oops', title: 'Our school bus broke down', text: 'Something went wrong while showing this page. Your data is safe. Try again, and if it keeps happening, tell your school office and quote the reference below.' },
-  update: { code: 'New', title: 'We have just updated Campusio', text: 'A newer version is ready. Reload the page to pick it up. You will not lose anything you have saved.' },
+  update: { code: 'New', title: 'We have just updated AtKaksha', text: 'A newer version is ready. Reload the page to pick it up. You will not lose anything you have saved.' },
   offline: { code: 'No signal', title: 'No signal on this route', text: 'We cannot reach the server right now. Check your internet connection and try again.' },
   server: { code: 'Busy', title: 'Our server is having a bad moment', text: 'The school server could not finish that request. Nothing you saved is lost. Wait a few seconds and try again, and if it keeps happening, tell your school office and quote the reference below.' },
   notfound: { code: '404', title: 'Wrong stop', text: 'This page is not on our route. The address may be mistyped, or the page may have moved.' },
@@ -19,6 +19,20 @@ export function kindOf(error: unknown): ErrorKind {
   const status = (error as { status?: number } | null)?.status;
   if (typeof status === 'number' && status >= 500) return 'server';
   return 'crash';
+}
+
+/**
+ * After a new version goes live, a page that was already open may ask for a file that no longer exists. The cure is one reload, so it is done
+ * automatically, once: if a reload was already tried in the last minute the "just updated" screen is shown instead, so it can never loop.
+ */
+export function reloadForUpdate(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem('erp.updateReload') || 0);
+    if (Date.now() - last < 60_000) return false;
+    sessionStorage.setItem('erp.updateReload', String(Date.now()));
+    window.location.reload();
+    return true;
+  } catch { return false; }
 }
 
 /** True when the failure is the connection or the server, not something the person typed wrong. Those get the full error page. */
@@ -52,7 +66,7 @@ function Illustration({ kind }: { kind: ErrorKind }) {
             {[68, 106, 144, 182].map((x) => <rect key={x} x={x} y="76" width="26" height="24" rx="5" fill="rgb(var(--c-surface))" />)}
             <path d="M212 76h22a8 8 0 0 1 8 8v16h-30z" fill="rgb(var(--c-surface))" />
             <circle cx="238" cy="122" r="5" fill="rgb(var(--c-fg))" opacity=".7" />
-            <text x="120" y="131" fontSize="11" fontWeight="700" fill="rgb(var(--c-fg))" opacity=".75">CAMPUSIO</text>
+            <text x="120" y="131" fontSize="11" fontWeight="700" fill="rgb(var(--c-fg))" opacity=".75">ATKAKSHA</text>
             {/* smoke */}
             <g fill="rgb(var(--c-fg-3))">
               {[0, 1, 2].map((i) => (

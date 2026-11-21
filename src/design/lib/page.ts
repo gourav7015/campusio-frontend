@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
-const SITE = 'Campusio';
+const SITE = 'AtKaksha';
 
-/** Set the browser tab title for this page: "Students · School admin · Campusio". */
+/** Set the browser tab title for this page: "Students · School admin · AtKaksha". */
 export function usePageTitle(...parts: (string | undefined)[]) {
   const title = [...parts.filter(Boolean), SITE].join(' · ');
   useEffect(() => { document.title = title; }, [title]);

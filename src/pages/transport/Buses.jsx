@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
 import { del, patch, post } from '../../api/client.js';
+import VehicleDocuments from '../../components/VehicleDocuments.jsx';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 
 const tone = (s) => ({ active: 'green', maintenance: 'amber', retired: '' }[s] || '');
-const blank = { busNo: '', registrationNo: '', vehicleModel: '', capacity: 40, status: 'active', routeName: '', startTime: '', endTime: '', monthlyFare: '', stops: [], driverId: '', conductorId: '', insuranceExpiry: '', fitnessExpiry: '', pollutionExpiry: '', notes: '' };
+const blank = { busNo: '', registrationNo: '', vehicleModel: '', capacity: 40, status: 'active', routeName: '', startTime: '', endTime: '', monthlyFare: '', stops: [], driverId: '', conductorId: '', notes: '' };
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null));
 
 /**
@@ -29,7 +30,8 @@ export default function Buses({ base, readOnly = false }) {
             { label: 'Driver', render: (b) => (b.driver ? <>{b.driver.name}<div className="small muted">{b.driver.phone}</div></> : <Badge tone="amber">No driver</Badge>) },
             { label: 'Conductor', render: (b) => (b.conductor ? <>{b.conductor.name}<div className="small muted">{b.conductor.phone}</div></> : <Badge tone="amber">No conductor</Badge>) },
             { label: 'Seats', render: (b) => <Badge tone={b.students >= b.capacity ? 'red' : b.students > b.capacity * 0.85 ? 'amber' : 'green'}>{b.students} / {b.capacity}</Badge> },
-            { label: '', render: (b) => <div className="row"><Button size="sm" onClick={(e) => { e.stopPropagation(); setView(b._id); }}>Open</Button>{!readOnly && <Button size="sm" onClick={(e) => { e.stopPropagation(); setEdit(b); }}>Edit</Button>}</div> },
+            { label: 'Documents', render: (b) => (b.documents?.total ? <Badge tone={b.documents.withCopy < b.documents.total ? 'amber' : 'green'}>{b.documents.total} on file</Badge> : <Badge tone="amber">None added</Badge>) },
+            { label: '', render: (b) => <div className="row"><Button size="sm" onClick={(e) => { e.stopPropagation(); setView(b._id); }}>{readOnly ? 'Open' : 'Documents'}</Button>{!readOnly && <Button size="sm" onClick={(e) => { e.stopPropagation(); setEdit(b); }}>Edit</Button>}</div> },
           ]} /></Card></>);
       }}</Async>
       {edit && <BusModal base={base} bus={edit} onClose={() => setEdit(null)} onSaved={list.reload} />}
@@ -48,7 +50,7 @@ function BusModal({ base, bus, onClose, onSaved }) {
   // only people who can fill the seat, and who are not already on another bus
   const crew = (role) => (staff.data?.items || []).filter((s) => s.busRole === role && (!s.bus || s.bus.busNo === bus.busNo)).map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})${s.licenseNo ? ` · ${s.licenseNo}` : ''}` }));
   const save = async () => {
-    const body = { monthlyFare: Number(f.monthlyFare) || 0, ...clean({ busNo: f.busNo.trim(), registrationNo: f.registrationNo, vehicleModel: f.vehicleModel, status: f.status, routeName: f.routeName, startTime: f.startTime, endTime: f.endTime, insuranceExpiry: f.insuranceExpiry, fitnessExpiry: f.fitnessExpiry, pollutionExpiry: f.pollutionExpiry, notes: f.notes }),
+    const body = { monthlyFare: Number(f.monthlyFare) || 0, ...clean({ busNo: f.busNo.trim(), registrationNo: f.registrationNo, vehicleModel: f.vehicleModel, status: f.status, routeName: f.routeName, startTime: f.startTime, endTime: f.endTime, notes: f.notes }),
       capacity: Number(f.capacity), driverId: f.driverId || null, conductorId: f.conductorId || null, stops: f.stops.filter((s) => s.name.trim()).map((s) => ({ ...clean({ name: s.name.trim(), pickupTime: s.pickupTime, dropTime: s.dropTime }), ...(s.fare !== '' && s.fare != null ? { fare: Number(s.fare) } : {}) })) };
     const ok = await run(() => (isNew ? post(`${base}/buses`, body) : patch(`${base}/buses/${bus._id}`, body)), isNew ? 'Bus added' : 'Bus updated');
     if (ok) { onSaved(); onClose(); }
@@ -68,9 +70,6 @@ function BusModal({ base, bus, onClose, onSaved }) {
           <Field label="Reaches school"><Input type="time" value={f.endTime} onChange={(e) => set('endTime', e.target.value)} /></Field>
           <Field label="Driver" hint="Add drivers in Transport staff first"><Select value={f.driverId} onChange={(e) => set('driverId', e.target.value)} placeholder="No driver yet" options={crew('driver')} /></Field>
           <Field label="Conductor" hint="Add conductors in Transport staff first"><Select value={f.conductorId} onChange={(e) => set('conductorId', e.target.value)} placeholder="No conductor yet" options={crew('conductor')} /></Field>
-          <Field label="Insurance valid until"><Input type="date" value={f.insuranceExpiry} onChange={(e) => set('insuranceExpiry', e.target.value)} /></Field>
-          <Field label="Fitness certificate until"><Input type="date" value={f.fitnessExpiry} onChange={(e) => set('fitnessExpiry', e.target.value)} /></Field>
-          <Field label="Pollution certificate until"><Input type="date" value={f.pollutionExpiry} onChange={(e) => set('pollutionExpiry', e.target.value)} /></Field>
         </div>
         <div className="stack" style={{ gap: 6 }}>
           <div className="row between"><div className="bold">Route stops</div><Button size="sm" type="button" onClick={() => set('stops', [...f.stops, { name: '', pickupTime: '', dropTime: '' }])}>+ Add stop</Button></div>
@@ -97,9 +96,10 @@ function BusDetail({ base, id, readOnly, onClose }) {
         <div className="stack">
           <div className="grid g2">
             <Card title="Vehicle & route"><dl className="kv"><dt>Registration</dt><dd>{b.registrationNo || '—'}</dd><dt>Model</dt><dd>{b.vehicleModel || '—'}</dd><dt>Route</dt><dd>{b.routeName || '—'}</dd><dt>Timing</dt><dd>{b.startTime || '—'} → {b.endTime || '—'}</dd><dt>Seats</dt><dd>{b.students.length} of {b.capacity} taken</dd><dt>Monthly fare</dt><dd>{b.monthlyFare ? fmtMoney(b.monthlyFare) : '—'}</dd>
-              <dt>Insurance</dt><dd>{fmtDate(b.insuranceExpiry, true)}</dd><dt>Fitness</dt><dd>{fmtDate(b.fitnessExpiry, true)}</dd><dt>Pollution</dt><dd>{fmtDate(b.pollutionExpiry, true)}</dd></dl></Card>
+              </dl></Card>
             <Card title="Driver & conductor"><dl className="kv"><dt>Driver</dt><dd><b>{b.driver?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.driver?.phone || '—'}</dd><dt>Licence</dt><dd>{b.driver?.licenseNo || '—'}{b.driver?.licenseExpiry ? ` (to ${fmtDate(b.driver.licenseExpiry, true)})` : ''}</dd><dt>Conductor</dt><dd><b>{b.conductor?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.conductor?.phone || '—'}</dd></dl></Card>
           </div>
+          <VehicleDocuments base={base} busId={id} readOnly={readOnly} onChange={d.reload} />
           {b.stops.length > 0 && <Card title="Stops" flush><DataTable rows={b.stops} rowKey="name" columns={[{ label: 'Stop', render: (s) => <b>{s.name}</b> }, { label: 'Pick-up', key: 'pickupTime' }, { label: 'Drop', key: 'dropTime' }, { label: 'Fare / month', render: (s) => (s.fare != null ? fmtMoney(s.fare) : '—') }, { label: 'Students', render: (s) => b.students.filter((x) => x.stop === s.name).length }]} /></Card>}
           <Card title={`Students on this bus (${b.students.length})`} action={!readOnly && <Button size="sm" variant="primary" onClick={() => setAdd(true)} disabled={b.status !== 'active' || b.students.length >= b.capacity}>+ Add students</Button>} flush>
             <DataTable rows={b.students} rowKey="studentId" empty="No students assigned yet" columns={[{ label: 'Student', render: (s) => <><b>{s.name}</b><div className="small muted">{s.admissionNo}</div></> }, { label: 'Class', render: (s) => (s.className ? `${s.className} ${s.section}` : '—') }, { label: 'Stop', key: 'stop' }, { label: 'Since', render: (s) => fmtDate(s.since, true) },

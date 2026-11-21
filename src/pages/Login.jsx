@@ -52,7 +52,7 @@ export default function PortalLogin({ portal }) {
   };
   if (down) return <ErrorScreen error={down} onRetry={() => setDown(null)} homeHref="/" homeLabel="All sign-in options" />;
   const forgot = portal === 'platform' ? 'Platform administrators are reset by another platform administrator.'
-    : portal === 'admin' ? 'Your password is reset by the Campusio platform team. Ask them to reset it for you.'
+    : portal === 'admin' ? 'Your password is reset by the AtKaksha platform team. Ask them to reset it for you.'
     : ['finance', 'library', 'transport'].includes(portal) ? 'Ask your School Admin to reset it for you.'
     : 'Ask the school office to reset it. They will set it back to your starting password (the first four letters of your name in capitals, then your date of birth, if your school uses that), or give you a new one.';
   return <PortalScreen portal={portal} form={<LoginForm portal={portal} title={cfg.title} theme={THEMES[portal]} busy={busy} error={err} onSubmit={submit} forgot={forgot} challenge={challenge} onBack={() => { setChallenge(null); setErr(''); }} emailReset={options.emailReset} />} />;

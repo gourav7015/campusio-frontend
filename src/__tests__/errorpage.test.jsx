@@ -48,7 +48,7 @@ describe('error page', () => {
     expect(kindOf(new TypeError('Failed to fetch'))).toBe('offline');
     expect(kindOf(new Error('Cannot read properties of undefined'))).toBe('crash');
     render(<ErrorScreen error={new Error('Failed to fetch dynamically imported module: x')} />);
-    expect(screen.getByRole('heading', { name: 'We have just updated Campusio' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'We have just updated AtKaksha' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reload now' })).toBeInTheDocument();
   });
 
@@ -75,5 +75,16 @@ describe('error page', () => {
     render(<ErrorBox error={Object.assign(new Error('Invalid login id or password'), { status: 401 })} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Invalid login id or password');
     expect(screen.queryByRole('heading')).toBeNull();
+  });
+
+  it('reloads once by itself after an update, and never loops', async () => {
+    const { reloadForUpdate } = await import('../design/ErrorScreen');
+    const reload = vi.fn();
+    const real = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...real, reload } });
+    sessionStorage.removeItem('erp.updateReload');
+    expect(reloadForUpdate()).toBe(true); expect(reload).toHaveBeenCalledTimes(1);
+    expect(reloadForUpdate()).toBe(false); expect(reload).toHaveBeenCalledTimes(1); // a second failure within a minute shows the screen instead
+    Object.defineProperty(window, 'location', { configurable: true, value: real });
   });
 });

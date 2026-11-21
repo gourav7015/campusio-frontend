@@ -771,7 +771,7 @@ test('transport officer: own designations, drivers and conductors, buses and rid
   const busRow = page.getByRole('row', { name: new RegExp(`BUS-${uid}`) });
   await expect(busRow).toContainText('Ramesh Driver');
   await expect(busRow).toContainText('Suresh Conductor');
-  await busRow.getByRole('button', { name: 'Open' }).click();
+  await busRow.getByRole('button', { name: 'Documents' }).click();
   await page.getByRole('button', { name: '+ Add students' }).click();
   const add = page.getByRole('dialog').last();
   await add.getByLabel('Class', { exact: true }).selectOption({ label: 'Class 8' });

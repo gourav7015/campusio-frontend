@@ -1,7 +1,7 @@
 import {
   Award, BarChart3, Building2, Bus, CalendarDays, CalendarRange, ClipboardList, Clock, CreditCard, FileSpreadsheet, FileText, GraduationCap,
   IndianRupee, KeyRound, Layers, LayoutDashboard, Mail, Megaphone, MessagesSquare, NotebookPen, PlaneTakeoff, Scale, School, ScrollText, Settings, SlidersHorizontal, TrendingUp,
-  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, type LucideIcon,
+  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, Store, type LucideIcon,
 } from 'lucide-react';
 
 export type PortalKey = 'platform' | 'admin' | 'teacher' | 'student' | 'finance' | 'library' | 'transport' | 'staff';
@@ -85,7 +85,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
     groups: [{ items: [
       dash('/finance'), { to: '/finance/structures', label: 'Fee structures', icon: FileSpreadsheet }, { to: '/finance/policy', label: 'Fee policy', icon: Scale },
       { to: '/finance/students', label: 'Students and dues', icon: Users }, { to: '/finance/payments', label: 'Payments and receipts', icon: CreditCard }, { to: '/finance/online', label: 'Online payments', icon: Smartphone }, { to: '/finance/defaulters', label: 'Defaulters', icon: AlertTriangle }, { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
-      { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
+      { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/vendors', label: 'Vendors', icon: Store }, { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
     ] }],
   },
   library: {

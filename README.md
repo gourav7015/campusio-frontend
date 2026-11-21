@@ -1,4 +1,4 @@
-# Campusio — Frontend (web app)
+# AtKaksha — Frontend (web app)
 
 React 18 + Vite web app for the eight school portals. The API lives in its own repository (`school-erp-backend`); this app only talks to it over HTTP.
 

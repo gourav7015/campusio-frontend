@@ -4,7 +4,7 @@ import { ThemeToggle } from '../design/ui';
 import { site } from '../config';
 import { useRobots, usePageTitle } from '../design/lib/page';
 
-/** The Campusio mark. The artwork is the product logo; it is decorative where the name is shown beside it. */
+/** The AtKaksha mark. The artwork is the product logo; it is decorative where the name is shown beside it. */
 export const Logo = ({ size = 32, className }: { size?: number; className?: string }) => (
   <img src="/logo.png" alt="" width={size} height={size} className={className} style={{ width: size, height: size }} />
 );

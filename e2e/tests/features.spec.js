@@ -98,11 +98,12 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
 
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   await page.goto('/finance/expenses');
-  await page.getByRole('button', { name: '+ Add an expense' }).click();
+  await page.getByRole('button', { name: '+ Add expense' }).click();
   await page.getByLabel('Amount (₹)').fill('4500');
   await page.getByRole('dialog').getByLabel('Department').fill('Science');
   await page.getByLabel('What was it for?').fill(`Lab beakers ${uid}`);
-  await page.getByRole('button', { name: 'Send for approval' }).click();
+  await page.getByRole('button', { name: 'Save and add bills' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).last().click(); // the bills window opens after saving
   await expect(page.getByRole('row', { name: new RegExp(`Lab beakers ${uid}`) })).toContainText('Waiting');
   await signOut(page);
 
@@ -135,6 +136,8 @@ test('the school page the admin writes is read by students, and the sign-in page
   await signIn(page, 'student', 'gps.adm20260001', 'Student@12345');
   await page.goto('/student/school-info');
   await expect(page.getByText(`Learning first ${uid}`)).toBeVisible();
+  await expect(page.getByText(`Fire safety NOC ${uid}`)).toHaveCount(0); // the school page is about the school; licences have their own tab
+  await page.getByRole('tab', { name: /^Licences and approvals/ }).click();
   await expect(page.getByText(`Fire safety NOC ${uid}`)).toBeVisible();
   await signOut(page);
 

@@ -23,7 +23,7 @@ export default function ResetPassword() {
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-4 py-10 text-foreground">
       <div className="w-full max-w-[420px]">
-        <Link to="/" className="mb-6 inline-block text-[15px] font-semibold">Campusio</Link>
+        <Link to="/" className="mb-6 inline-block text-[15px] font-semibold">AtKaksha</Link>
         <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">Choose a new password</h1>
         {!token ? <div className="mt-5"><Callout tone="danger">This page needs the link from your email. Ask for a new link on the sign-in page.</Callout></div> : state.done ? (
           <div className="mt-5 space-y-4">

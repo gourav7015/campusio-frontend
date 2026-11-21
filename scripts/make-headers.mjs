@@ -30,7 +30,10 @@ const security = [
   'Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.razorpay.com" "https://api.razorpay.com")',
   'Strict-Transport-Security: max-age=31536000; includeSubDomains',
   'Cross-Origin-Opener-Policy: same-origin-allow-popups', // the payment window and PDF previews open in other tabs
+  // Every address except /assets/ is the app's page (index.html, served for each route). It must never be kept: a stale page asks for files a new version no longer has.
+  'Cache-Control: no-cache',
 ];
-const out = `/*\n${security.map((l) => `  ${l}`).join('\n')}\n\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n\n/index.html\n  Cache-Control: no-cache\n`;
+// /assets/ files have a fingerprint in their name that changes with every build, so they can be kept for a year ("!" removes the rule above for them)
+const out = `/*\n${security.map((l) => `  ${l}`).join('\n')}\n\n/assets/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable\n`;
 writeFileSync(new URL('_headers', dist), out);
 console.log(`dist/_headers written (${hashes.length} inline script hash${hashes.length === 1 ? '' : 'es'}, API ${api || 'same origin'})`);

@@ -1,3 +1,4 @@
+import Instalments from '../../components/Instalments.jsx';
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
@@ -183,6 +184,7 @@ export function StudentFees() {
           {paying && <PayOnline fees={d} onClose={() => setPaying(false)} onPaid={() => f.reload()} />}
           {d.advanceOffer?.eligible && <div className="alert ok">Pay all {d.advanceOffer.months} remaining months at the finance desk in one go and the school gives you <b>{d.advanceOffer.offer}</b>: you pay {fmtMoney(d.advanceOffer.payable)} instead of {fmtMoney(d.advanceOffer.payable + d.advanceOffer.discount)} (saving {fmtMoney(d.advanceOffer.discount)}).</div>}
           <Card title="What you are charged for"><div className="row wrap">{d.categories.map((c) => <span key={c.name} className="chip">{c.name}{c.months ? ` (${c.months} months)` : ''}: <b>{fmtMoney(c.total)}</b></span>)}</div></Card>
+          <Instalments rows={d.installments} />
           <Card title="Dues & due dates" flush><DataTable rows={d.charges} empty="Nothing billed" columns={[{ label: 'What', render: (c) => <>{c.label} {c.kind === 'library_fine' && <Badge tone="amber">Library fine</Badge>}</> }, { label: 'Due date', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.net) }, { label: 'Paid', render: (c) => fmtMoney(c.paid) }, { label: 'Pending', render: (c) => <b>{fmtMoney(c.outstanding)}</b> }, { label: 'Status', render: (c) => (c.status === 'paid' ? <Badge tone="green">Paid</Badge> : c.overdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="amber">Pending</Badge>) }]} /></Card>
           <Card title="Payment history" flush><DataTable rows={d.payments} empty="No payments yet" columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Amount', render: (p) => <span style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</span> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'For', render: (p) => p.allocations.join(', ') }, { label: '', render: (p) => (p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : null) },
             { label: '', render: (p) => <Button size="sm" onClick={() => run(() => download(`${S}/fees/receipts/${p.id}.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button> }]} /></Card>

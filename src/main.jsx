@@ -10,8 +10,11 @@ import { AuthProvider } from './auth/AuthContext.jsx';
 import { queryClient } from './api/query';
 import App from './App.jsx';
 import { ErrorBoundary, reportClientError } from './design/ErrorBoundary';
+import { reloadForUpdate } from './design/ErrorScreen';
 import './index.css';
 
+// a page open during an update asks for a file that is gone: Vite says so with this event; one automatic reload fixes it
+window.addEventListener('vite:preloadError', (e) => { if (reloadForUpdate()) e.preventDefault(); });
 // anything that escapes a screen's own error handling is reported too (once per kind)
 window.addEventListener('error', (e) => reportClientError(e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => reportClientError(e.reason));
