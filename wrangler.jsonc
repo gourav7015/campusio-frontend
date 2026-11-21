@@ -1,9 +1,14 @@
 {
-  // Cloudflare: serves the built site (dist/) and falls back to index.html so page refreshes work
+  // Cloudflare: serves the built site (dist/) and falls back to index.html so page refreshes work.
+  // dist/_headers (written by `npm run build`) carries the security headers: Content-Security-Policy, frame protection, HSTS.
   "name": "campusio-frontend",
   "compatibility_date": "2025-09-01",
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
+  },
+  // A second copy for trying changes before the live site:  npx wrangler deploy --env staging  (build it with VITE_API_URL pointing at the staging API)
+  "env": {
+    "staging": { "name": "campusio-frontend-staging" }
   }
 }

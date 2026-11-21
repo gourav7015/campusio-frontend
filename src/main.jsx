@@ -9,8 +9,12 @@ import '@fontsource/noto-sans-devanagari/devanagari-500.css';
 import { AuthProvider } from './auth/AuthContext.jsx';
 import { queryClient } from './api/query';
 import App from './App.jsx';
-import { ErrorBoundary } from './design/ErrorBoundary';
+import { ErrorBoundary, reportClientError } from './design/ErrorBoundary';
 import './index.css';
+
+// anything that escapes a screen's own error handling is reported too (once per kind)
+window.addEventListener('error', (e) => reportClientError(e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => reportClientError(e.reason));
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

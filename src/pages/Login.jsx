@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Bus, GraduationCap, IndianRupee, LayoutDashboard, BookMarked, Presentation, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { api } from '../api/client.js';
 import { usePageTitle } from '../design/lib/page';
 import LoginForm from './login/LoginForm.jsx';
 import { LandingScreen, PortalScreen } from './login/LoginScreens.jsx';
@@ -30,16 +31,23 @@ export function Landing() {
 
 export default function PortalLogin({ portal }) {
   const cfg = PORTALS[portal];
-  const { user, login } = useAuth();
+  const { user, login, loginWithCode } = useAuth();
   const nav = useNavigate();
   const [err, setErr] = useState('');
   const [down, setDown] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState(null); // set after the password was right and a code from the authenticator app is needed
+  const [options, setOptions] = useState({ emailReset: false });
+  useEffect(() => { api('/api/auth/options').then(setOptions).catch(() => {}); }, []);
   usePageTitle(`${cfg.title} sign in`);
   if (user && !user.mustChangePassword && user.role === cfg.role) return <Navigate to={cfg.home} replace />;
-  const submit = async ({ loginId, password, keep }) => {
+  const submit = async ({ loginId, password, keep, code }) => {
     setBusy(true); setErr(''); setDown(null);
-    try { const u = await login(loginId, password, portal, keep); nav(u.mustChangePassword ? '/account?force=1' : homeFor(u.role), { replace: true }); }
+    try {
+      const u = challenge ? await loginWithCode(challenge, code, keep) : await login(loginId, password, portal, keep);
+      if (u.twoFactor) { setChallenge(u.twoFactor); return; }
+      nav(u.mustChangePassword ? '/account?force=1' : homeFor(u.role), { replace: true });
+    }
     catch (ex) { if (isConnectionProblem(ex)) setDown(ex); else setErr(ex.message); } finally { setBusy(false); }
   };
   if (down) return <ErrorScreen error={down} onRetry={() => setDown(null)} homeHref="/" homeLabel="All sign-in options" />;
@@ -47,5 +55,5 @@ export default function PortalLogin({ portal }) {
     : portal === 'admin' ? 'Your password is reset by the Campusio platform team. Ask them to reset it for you.'
     : ['finance', 'library', 'transport'].includes(portal) ? 'Ask your School Admin to reset it for you.'
     : 'Ask the school office to reset it. They will set it back to your starting password (the first four letters of your name in capitals, then your date of birth, if your school uses that), or give you a new one.';
-  return <PortalScreen portal={portal} form={<LoginForm portal={portal} title={cfg.title} theme={THEMES[portal]} busy={busy} error={err} onSubmit={submit} forgot={forgot} />} />;
+  return <PortalScreen portal={portal} form={<LoginForm portal={portal} title={cfg.title} theme={THEMES[portal]} busy={busy} error={err} onSubmit={submit} forgot={forgot} challenge={challenge} onBack={() => { setChallenge(null); setErr(''); }} emailReset={options.emailReset} />} />;
 }

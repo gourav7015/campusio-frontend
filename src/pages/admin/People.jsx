@@ -10,6 +10,8 @@ import {
 import { TeacherSummary, ClassesPanel as TeacherClasses, AttendancePanel as TeacherAttendance, SalaryPanel as TeacherSalary, LibraryPanel as TeacherLibrary } from '../../components/TeacherOverview.jsx';
 import { SummaryStrip, AttendancePanel, ExamsPanel, HomeworkPanel, FeesPanel, LibraryPanel, BusCard } from '../../components/StudentOverview.jsx';
 import FormModal from '../../components/FormModal.jsx';
+import StudentPrivacy from '../../components/StudentPrivacy.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import FilterMenu from '../../components/FilterMenu.jsx';
 import { gradeRank } from '../../utils/grades.js';
 import { Avatar, PhotoUpload } from '../../components/FileImage.jsx';
@@ -138,6 +140,7 @@ export function Students() {
 
 export function StudentDetail() {
   const dlg = useDialogs();
+  const { user } = useAuth();
   const houses = useHouseOptions();
   const { id } = useParams();
   const nav = useNavigate();
@@ -162,7 +165,7 @@ export function StudentDetail() {
             {st.status !== 'active' && st.status !== 'archived' && <Button onClick={async () => { await run(() => post(`/api/school/students/${id}/reactivate`), 'Reactivated'); s.reload(); }}>Reactivate</Button>}
             <Button onClick={async () => { const r = await run(() => post(`/api/school/students/${id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button></>} />
           <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
-          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents']]} value={tab} onChange={setTab} />
+          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
             tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel o={o} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
           {tab === 'profile' && (
@@ -174,6 +177,7 @@ export function StudentDetail() {
                 <dl className="kv"><dt>Login id</dt><dd>{st.account?.loginId}</dd><dt>Last sign-in</dt><dd>{st.account?.lastLoginAt ? new Date(st.account.lastLoginAt).toLocaleString() : 'Never'}</dd></dl>
               </Card>
             </div>)}
+          {tab === 'privacy' && <StudentPrivacy studentId={id} name={st.name} onErased={s.reload} />}
           {tab === 'history' && (<div className="stack">
             <Card title="Academic enrolments" flush><DataTable rows={st.enrolments} columns={[{ label: 'Year', key: 'year' }, { label: 'Class', key: 'className' }, { label: 'Section', key: 'section' }, { label: 'Roll', key: 'rollNo' }, { label: 'From', render: (e) => fmtDate(e.startDate, true) }, { label: 'To', render: (e) => fmtDate(e.endDate, true) }, { label: 'Status', render: (e) => <Badge tone={statusTone(e.status)}>{label(e.status)}</Badge> }]} /></Card>
             <Card title="Section transfers" flush><DataTable rows={st.transfers} empty="No transfers" columns={[{ label: 'Effective', render: (t) => fmtDate(t.effectiveDate, true) }, { label: 'From', key: 'fromSection' }, { label: 'To', key: 'toSection' }, { label: 'Reason', key: 'reason' }]} /></Card></div>)}

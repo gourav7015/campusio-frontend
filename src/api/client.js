@@ -21,6 +21,8 @@ export const session = {
   set keep(v) { keepSignedIn = !!v; },
   get acting() { try { return JSON.parse(safe.get(ACTING_KEY) || 'null'); } catch { return null; } },
   set acting(v) { safe.set(ACTING_KEY, v ? JSON.stringify(v) : null); },
+  /** Swap the token for a renewed one in the same place it was kept (browser session or "keep me signed in"). */
+  replaceToken(v) { if (kept.get(TOKEN_KEY) != null) kept.set(TOKEN_KEY, v); else safe.set(TOKEN_KEY, v); },
   onUnauthorized: () => {},
 };
 
@@ -62,13 +64,45 @@ async function send(url, init) {
   try { return await fetch(url, init); } catch { throw new ApiError(UNREACHABLE, 0, 'UNREACHABLE'); }
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const newKey = () => (globalThis.crypto?.randomUUID?.() || `k${Date.now()}${Math.random().toString(36).slice(2)}`);
+
+/** Seconds left on the sign-in token, or null when it cannot be read. */
+function secondsLeft(token) {
+  try { const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); return p.exp - Date.now() / 1000; } catch { return null; }
+}
+let renewing = null; let lastRenew = 0;
+/** While someone is working, a token with under three hours left is swapped for a fresh one (the server caps how long a session can last in total). */
+async function renewIfNeeded(path) {
+  const t = session.token;
+  if (!t || path.startsWith('/api/auth/') || renewing || Date.now() - lastRenew < 10 * 60 * 1000) return;
+  const left = secondsLeft(t);
+  if (left == null || left > 3 * 3600 || left <= 0) return;
+  lastRenew = Date.now();
+  renewing = send(`${BASE}/api/auth/refresh`, { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: '{}' })
+    .then(async (r) => { if (r.ok) { const j = await r.json(); if (j.token && session.token === t) session.replaceToken(j.token); } })
+    .catch(() => {}).finally(() => { renewing = null; });
+  await renewing;
+}
+
+/**
+ * Every call is retried twice on a dropped connection (not on a server answer). A POST carries an Idempotency-Key that stays the same across
+ * those tries, so a request that did reach the server the first time is never done twice.
+ */
 export async function api(path, { method = 'GET', body, query, form } = {}) {
   const isForm = form instanceof FormData;
-  const res = await send(`${BASE}${path}${qs(query)}`, {
-    method,
-    headers: headers(isForm || body === undefined ? {} : { 'Content-Type': 'application/json' }),
-    body: isForm ? form : body === undefined ? undefined : JSON.stringify(body),
-  });
+  await renewIfNeeded(path);
+  const extra = isForm || body === undefined ? {} : { 'Content-Type': 'application/json' };
+  if (method === 'POST' && !isForm) extra['Idempotency-Key'] = newKey();
+  const init = { method, headers: headers(extra), body: isForm ? form : body === undefined ? undefined : JSON.stringify(body) };
+  const retryable = !isForm; // a file upload cannot be replayed safely
+  let res;
+  for (let attempt = 0; ; attempt++) {
+    try { res = await send(`${BASE}${path}${qs(query)}`, init); break; } catch (e) {
+      if (!retryable || attempt >= 2) throw e;
+      await sleep(attempt === 0 ? 400 : 1200);
+    }
+  }
   if (!res.ok) throw await parseError(res);
   if (res.status === 204) return null;
   return res.json();

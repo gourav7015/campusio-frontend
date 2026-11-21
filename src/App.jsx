@@ -15,6 +15,7 @@ const Refunds = lazy(() => import('./pages/legal/Legal').then((m) => ({ default:
 import PortalLogin, { Landing, homeFor } from './pages/Login.jsx';
 const Approvals = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.Approvals })));
 const SubAdmins = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SubAdmins })));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 const DocumentSettings = lazy(() => import('./pages/admin/DocumentSettings.jsx'));
 const SchoolInfoAdmin = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SchoolInfoAdmin })));
 const Guide = lazy(() => import('./pages/shared/Guide.jsx'));
@@ -48,6 +49,7 @@ const Communication = lazy(() => import('./pages/shared/Shared.jsx').then((m) =>
 const PlatformDashboard = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.PlatformDashboard })));
 const Schools = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.Schools })));
 const SchoolDetail = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.SchoolDetail })));
+const PlatformErrors = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.PlatformErrors })));
 const PlatformAudit = lazy(() => import('./pages/platform/Platform.jsx').then((m) => ({ default: m.PlatformAudit })));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
@@ -138,12 +140,12 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
         {Gallery && <Route path="/design" element={<Suspense fallback={null}><Gallery /></Suspense>} />}
-        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/login" element={<Navigate to="/" replace />} /><Route path="/reset-password" element={<ResetPassword />} />
         {['student', 'teacher', 'finance', 'library', 'transport', 'staff', 'admin', 'platform'].map((p) => <Route key={p} path={`/${p}/login`} element={<PortalLogin portal={p} />} />)}
         <Route element={user ? <AccountShell /> : <Navigate to="/" replace />}><Route path="/account" element={<Account />} /></Route>
 
         <Route path="/platform" element={<Guard roles={['super_admin']}><AppShell area="platform" /></Guard>}>
-          <Route index element={<PlatformDashboard />} /><Route path="helpdesk" element={<HelpDesk handler platform base="/api/platform/helpdesk" title="Help desk" subtitle="Tickets from schools. Replies reach the school admin by email and in their portal." />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} />
+          <Route index element={<PlatformDashboard />} /><Route path="helpdesk" element={<HelpDesk handler platform base="/api/platform/helpdesk" title="Help desk" subtitle="Tickets from schools. Replies reach the school admin by email and in their portal." />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} /><Route path="errors" element={<PlatformErrors />} />
         </Route>
 
         <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><AppShell area="admin" /></Guard>}>

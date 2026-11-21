@@ -2,7 +2,13 @@
 
 The frontend is a static site (`npm run build` → `dist/`). The browser-side protections below are **response headers sent by whatever serves it** (nginx, Netlify, Cloudflare, S3+CloudFront). They are not applied by `npm run dev`, and **they have not been tested against a real deployment yet**: the values below were checked only against the built `index.html` (hash) and the code.
 
-## Required headers
+## Automatic on Cloudflare (since 1.0.0)
+
+`npm run build` now writes `dist/_headers` (see `scripts/make-headers.mjs`). Cloudflare's static-asset hosting sends those headers for every page, so the site gets its Content-Security-Policy, frame protection (`X-Frame-Options: DENY` and `frame-ancestors 'none'`), HSTS, `nosniff`, a referrer policy and a permissions policy without any dashboard setting. The policy allows the site itself, the inline theme script (by hash, recomputed on every build), the API address (taken from `VITE_API_URL` at build time; if it is empty the API is assumed to be on the same address), and Razorpay's checkout for online payments.
+
+**Check it before and after a deploy:** `npm run build`, then `PORT=5190 API_PROXY=http://localhost:4010 npm run serve:dist` serves the built site with those headers (and forwards `/api` to a demo API), and the browser tests run against it. After a deploy, open the site in a browser with the console open: a blocked resource appears as "Refused to ..." there. Make sure the build on Cloudflare has `VITE_API_URL` set to the real API address, otherwise the browser will refuse to talk to it.
+
+## Required headers (for any other host)
 
 ```
 Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-HHtuq5rGa7/HOoxq/bxvLW3D2tqc0vLdoxZZZHM4sFo='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' <API_ORIGIN>; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'

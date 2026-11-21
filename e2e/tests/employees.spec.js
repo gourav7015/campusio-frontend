@@ -68,7 +68,7 @@ test('the Staff portal is the office desk: attendance, leave, employees and quer
   try {
     await signIn(sp, 'staff', 'gps.s0001', 'Staff@12345'); // Neha Shah, the office clerk
     const nav = sp.getByRole('navigation', { name: 'Main' });
-    for (const n of ['Attendance', 'Leave', 'Employees', 'Teachers\' queries']) await expect(nav.getByRole('link', { name: n, exact: true })).toBeVisible();
+    for (const n of ['Attendance', 'Leave', 'Employees', 'Teachers\' queries']) await expect(nav.getByRole('link', { name: new RegExp(`^${n}( \\d+ \\w+)?$`) })).toBeVisible(); // a count badge may be part of the name
     for (const n of ['My attendance', 'Salary and payslips']) await expect(nav.getByRole('link', { name: n })).toHaveCount(0); // not a personal portal
     await expect(sp.getByText("Today's attendance")).toBeVisible();
     await expect(sp.getByText('Non-teaching leave waiting')).toBeVisible();

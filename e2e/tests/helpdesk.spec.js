@@ -138,7 +138,7 @@ test.describe('help desk', () => {
     await s.page.getByRole('button', { name: /Notifications/ }).click();
     await s.page.getByText(/Reply on your ticket/).first().click();
     await expect(s.page).toHaveURL(/helpdesk\?open=/);
-    await expect(s.page.getByText('Thanks, we will fix it.')).toBeVisible();
+    await expect(s.page.locator('#main-content').getByText('Thanks, we will fix it.')).toBeVisible();
     await done(s, p);
   });
 

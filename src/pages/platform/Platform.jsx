@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
-import { post, put, patch } from '../../api/client.js';
+import { post, put, patch, del } from '../../api/client.js';
 import { FilterBar, ListCard } from '../../design/ui';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import {
@@ -100,10 +100,12 @@ export function SchoolDetail() {
               { label: 'Status', render: (a) => <Badge tone={statusTone(a.status)}>{a.status}</Badge> },
               { label: '', render: (a) => <div className="row">
                 <Button size="sm" onClick={async () => { const r = await run(() => post(`/api/platform/users/${a._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
+                {a.twoFactor && <ConfirmButton size="sm" message={`Switch off two-factor sign-in for ${a.name}? Use this when they lost their phone and recovery codes. They are signed out everywhere.`} onConfirm={async () => { await run(() => post(`/api/platform/users/${a._id}/reset-2fa`), 'Two-factor sign-in reset'); s.reload(); }}>Reset two-factor</ConfirmButton>}
                 <Button size="sm" onClick={async () => { await run(() => patch(`/api/platform/users/${a._id}`, { status: a.status === 'active' ? 'disabled' : 'active' }), 'Updated'); s.reload(); }}>{a.status === 'active' ? 'Disable' : 'Enable'}</Button></div> },
             ]} />
           </Card>
         </div>
+        <FeatureSwitches schoolId={id} />
         {addAdmin && <Modal title="Add school administrator" onClose={() => setAddAdmin(false)} footer={<><Button onClick={() => setAddAdmin(false)}>Cancel</Button><Button variant="primary" loading={busy} disabled={!adm.values.name || !adm.values.email} onClick={async () => {
           const r = await run(() => post(`/api/platform/schools/${id}/admins`, adm.values), 'Admin created'); if (r) { setAddAdmin(false); adm.reset(); s.reload(); setCreds(r); } }}>Create</Button></>}>
           <div className="stack"><Field label="Name"><Input {...adm.bind('name')} /></Field><Field label="Email (login id)"><Input type="email" {...adm.bind('email')} /></Field></div></Modal>}
@@ -125,6 +127,49 @@ export function PlatformAudit() {
           { label: 'Action', key: 'action' }, { label: 'Summary', key: 'summary' },
         ]} />}</Async>
       </Card>
+    </div>
+  );
+}
+
+/** Features the Platform Admin can turn on or off for one school without a new release. "Default" follows what everyone gets. */
+function FeatureSwitches({ schoolId }) {
+  const q = useApi(`/api/platform/schools/${schoolId}/flags`);
+  const [run] = useAction();
+  return (
+    <Card title="Feature switches" action={<span className="muted small">For this school only</span>}>
+      <Async state={q}>{(rows) => (
+        <div className="stack">
+          {rows.map((f) => (
+            <div key={f.name} className="row" style={{ justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+              <div><b>{f.label}</b> {f.overridden && <Badge tone="amber">Changed</Badge>}<div className="small muted">{f.description}. Everyone else: {f.default ? 'on' : 'off'}.</div></div>
+              <div className="row" style={{ gap: 8 }}>
+                <Select aria-label={f.label} value={f.overridden ? String(f.value) : 'default'} onChange={async (e) => { const v = e.target.value; await run(() => put(`/api/platform/schools/${schoolId}/flags`, { [f.name]: v === 'default' ? null : v === 'true' }), 'Saved'); q.reload(); }}
+                  options={[{ value: 'default', label: `Default (${f.default ? 'on' : 'off'})` }, { value: 'true', label: 'On' }, { value: 'false', label: 'Off' }]} />
+              </div>
+            </div>))}
+        </div>)}</Async>
+    </Card>
+  );
+}
+
+/** Crashes and server errors of the last 30 days, so a problem is seen before a school phones about it. */
+export function PlatformErrors() {
+  const [source, setSource] = useState('');
+  const q = useApi('/api/platform/errors', { source: source || undefined, limit: 100 });
+  const [run, busy] = useAction();
+  return (
+    <div className="stack">
+      <PageHeader title="Errors" subtitle="Server errors and screens that crashed in someone's browser. Kept for 30 days."
+        actions={<><Select aria-label="Where" value={source} onChange={(e) => setSource(e.target.value)} options={[{ value: '', label: 'All' }, { value: 'server', label: 'Server' }, { value: 'client', label: 'Browser' }]} />
+          <ConfirmButton variant="danger" loading={busy} message="Clear the whole error list?" onConfirm={async () => { await run(() => del('/api/platform/errors'), 'Cleared'); q.reload(); }}>Clear all</ConfirmButton></>} />
+      <Async state={q}>{(d) => (
+        <>
+          <div className="grid g2"><Stat value={d.last24h.server} label="Server errors, last 24 hours" tone={d.last24h.server ? 'red' : 'green'} /><Stat value={d.last24h.client} label="Browser crashes, last 24 hours" tone={d.last24h.client ? 'amber' : 'green'} /></div>
+          <Card title="Latest" flush><DataTable rows={d.rows} rowKey="_id" empty="No errors recorded" columns={[
+            { label: 'When', render: (e) => fmtDateTime(e.at) }, { label: 'Where', render: (e) => <Badge tone={e.source === 'server' ? 'red' : 'amber'}>{e.source === 'server' ? 'Server' : 'Browser'}</Badge> },
+            { label: 'What', render: (e) => <><b>{e.message}</b><div className="small muted">{[e.method, e.path].filter(Boolean).join(' ')}{e.requestId ? ` · request ${e.requestId}` : ''}</div></> },
+          ]} /></Card>
+        </>)}</Async>
     </div>
   );
 }

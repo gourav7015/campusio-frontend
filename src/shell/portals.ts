@@ -22,7 +22,7 @@ const dash = (home: string): NavItem => ({ to: home, label: 'Dashboard', icon: L
 export const PORTALS: Record<PortalKey, Portal> = {
   platform: {
     key: 'platform', title: 'Platform', home: '/platform', variant: 'control', api: null, search: false,
-    groups: [{ items: [{ ...dash('/platform'), label: 'Overview' }, { to: '/platform/schools', label: 'Schools', icon: Building2 }, { to: '/platform/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/platform/helpdesk/summary' }, { to: '/platform/audit', label: 'Audit log', icon: ScrollText }] }],
+    groups: [{ items: [{ ...dash('/platform'), label: 'Overview' }, { to: '/platform/schools', label: 'Schools', icon: Building2 }, { to: '/platform/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/platform/helpdesk/summary' }, { to: '/platform/audit', label: 'Audit log', icon: ScrollText }, { to: '/platform/errors', label: 'Errors', icon: AlertTriangle }] }],
   },
   admin: {
     key: 'admin', title: 'School admin', home: '/admin', variant: 'workspace', api: '/api/school', search: true,

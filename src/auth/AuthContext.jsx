@@ -22,15 +22,22 @@ export function AuthProvider({ children }) {
     get('/api/auth/me').then((r) => setState({ user: r.user, school: r.school, loading: false })).catch(signOutLocal);
   }, [signOutLocal]);
 
+  const finish = (r, keep) => {
+    session.keep = keep; session.token = r.token; session.acting = null; setActingState(null);
+    queryClient.clear();
+    setState({ user: r.user, school: r.school, loading: false });
+    return r.user;
+  };
+
   const value = useMemo(() => ({
     ...state, acting,
+    /** Returns the signed-in user, or `{ twoFactor: challenge }` when the person must now give a code from their authenticator app. */
     async login(loginId, password, portal, keep = false) {
       const r = await api('/api/auth/login', { method: 'POST', body: { loginId, password, portal } });
-      session.keep = keep; session.token = r.token; session.acting = null; setActingState(null);
-      queryClient.clear();
-      setState({ user: r.user, school: r.school, loading: false });
-      return r.user;
+      if (r.twoFactorRequired) return { twoFactor: r.challenge };
+      return finish(r, keep);
     },
+    async loginWithCode(challenge, code, keep = false) { return finish(await api('/api/auth/login/2fa', { method: 'POST', body: { challenge, code } }), keep); },
     async logout() { try { await post('/api/auth/logout'); } catch { /* already expired */ } signOutLocal(); },
     markPasswordChanged() { setState((s) => ({ ...s, user: { ...s.user, mustChangePassword: false } })); },
     setActing(s) { session.acting = s; queryClient.clear(); setActingState(s); }, // another school: nothing cached may carry over
