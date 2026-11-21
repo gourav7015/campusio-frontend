@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import * as m from 'framer-motion/m';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 
@@ -24,12 +25,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex flex-col items-center gap-2 p-4 pb-[calc(env(safe-area-inset-bottom)+72px)] sm:items-end sm:pb-4" aria-live="polite">
         <AnimatePresence initial={false}>
           {items.map((t) => (
-            <motion.div key={t.id} layout initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, transition: { duration: 0.12 } }} transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+            <m.div key={t.id} layout initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6, transition: { duration: 0.12 } }} transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
               className={cn('pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-card p-3 pr-2 shadow-md', t.kind === 'error' ? 'border-danger/30' : 'border-border')} role={t.kind === 'error' ? 'alert' : 'status'}>
               {t.kind === 'error' ? <AlertCircle className="mt-0.5 size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />}
               <p className="min-w-0 flex-1 text-sm">{t.message}</p>
               <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss" className="grid size-6 place-items-center rounded text-muted-foreground hover:bg-muted"><X className="size-3.5" aria-hidden /></button>
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>

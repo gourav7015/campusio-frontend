@@ -1,7 +1,7 @@
 import { Suspense, useMemo, useState } from 'react';
 import { ErrorBoundary } from '../design/ErrorBoundary';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import * as m from 'framer-motion/m';
 import * as D from '@radix-ui/react-dialog';
 import { Ellipsis, Menu, PanelLeftClose, PanelLeftOpen, ShieldAlert } from 'lucide-react';
 import { BackToTop, Badge, Breadcrumbs, Button, PageSkeleton, ThemeToggle, TooltipProvider, type Crumb } from '../design/ui';
@@ -67,13 +67,13 @@ export function AppShell({ area }: { area: PortalKey }) {
   const toggle = () => setCollapsed((c) => { try { localStorage.setItem(STORE, c ? '0' : '1'); } catch { /* ignore */ } return !c; });
 
   const sidebar = (
-    <motion.aside initial={false} animate={{ width: collapsed ? 72 : 264 }} transition={{ duration: 0.2, ease }}
+    <m.aside initial={false} animate={{ width: collapsed ? 72 : 264 }} transition={{ duration: 0.2, ease }}
       className={cn('hidden shrink-0 flex-col lg:flex',
         personal ? 'sticky top-3 m-3 mr-0 h-[calc(100dvh-1.5rem)] rounded-2xl border border-border/70 bg-card shadow-sm'
           : cn('sticky top-0 h-dvh border-r', dark ? 'border-white/10 bg-navy text-white' : 'border-border/60 bg-background'))}>
       <Brand portal={portal} schoolName={school?.name} collapsed={collapsed} dark={dark} />
       <div className={cn('min-h-0 flex-1 overflow-y-auto pb-4', collapsed ? 'px-2' : 'px-3')}><NavList groups={portal.groups} collapsed={collapsed} dark={dark} soft={personal} /></div>
-    </motion.aside>
+    </m.aside>
   );
 
   return (
@@ -114,7 +114,7 @@ export function AppShell({ area }: { area: PortalKey }) {
                 <Button size="sm" onClick={() => { setActing(null); nav('/platform/schools'); }}>Exit school</Button>
               </div>
             )}
-            <motion.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary></motion.div>
+            <m.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary></m.div>
           </main>
           <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} AtKaksha</span><span className="flex gap-4"><Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
           <BackToTop />

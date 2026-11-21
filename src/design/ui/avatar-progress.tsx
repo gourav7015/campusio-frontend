@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { animate, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
+import { animate } from 'framer-motion/dom';
 import { cn } from '../lib/cn';
 
 export function Avatar({ name, src, size = 32, className }: { name: string; src?: string; size?: number; className?: string }) {
