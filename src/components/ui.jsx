@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Loader2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Loader2, Lock } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 import { isOffline } from '../api/client.js';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
@@ -27,7 +27,7 @@ export const PageHeader = ({ title, subtitle, actions }) => (
 );
 export const Spinner = () => <div className="space-y-3 p-5" role="status" aria-label="Loading"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div>;
 export const Empty = ({ title, children }) => <EmptyState icon={Inbox} title={title} description={children} />;
-export const ErrorBox = ({ error, retry }) => error ? (isConnectionProblem(error) ? <ErrorScreen inline error={error} onRetry={retry} /> : <div className="alert" role="alert">{error.message || String(error)} {retry && <button className="btn sm" onClick={retry}>Retry</button>}</div>) : null;
+export const ErrorBox = ({ error, retry }) => error ? (isConnectionProblem(error) ? <ErrorScreen inline error={error} onRetry={retry} /> : error.status === 403 ? <EmptyState icon={Lock} title="You do not have access to this" description={error.message || 'Ask your school admin if you need it.'} /> : <div className="alert" role="alert">{error.message || String(error)} {retry && <button className="btn sm" onClick={retry}>Retry</button>}</div>) : null;
 
 /** Render loading / error / content for a useApi result. */
 export function Async({ state, children, empty }) {
@@ -128,9 +128,11 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
 }
 
 /** Shows a one-time credential (temporary password) after creating/resetting an account. */
-export function CredentialsModal({ creds, onClose, title = 'Account created' }) {
+/** Shows a new login id and password. It is keyed by the password so each one starts fresh (copied / warned are not carried over from the last one). */
+export function CredentialsModal(props) { return <CredentialsDialog key={props.creds?.temporaryPassword || 'none'} {...props} />; }
+function CredentialsDialog({ creds, onClose, title = 'Account created' }) {
   const toast = useToast();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false); const [warned, setWarned] = useState(false);
   if (!creds) return null;
   const text = `Login id: ${creds.loginId}\nTemporary password: ${creds.temporaryPassword}`;
   const copy = async () => {
@@ -138,7 +140,8 @@ export function CredentialsModal({ creds, onClose, title = 'Account created' }) 
     catch { toast('Could not copy. Select the text and copy it by hand.', 'error'); }
   };
   return (
-    <Modal title={title} onClose={onClose} footer={<><Button onClick={copy} aria-live="polite">{copied ? 'Copied' : 'Copy'}</Button><Button variant="primary" onClick={onClose}>Done</Button></>}>
+    <Modal title={title} onClose={onClose} footer={<><Button onClick={copy} aria-live="polite">{copied ? 'Copied' : 'Copy'}</Button><Button variant="primary" onClick={() => { if (!copied && !warned) { setWarned(true); return; } onClose(); }}>{warned && !copied ? 'Close anyway' : 'Done'}</Button></>}>
+      {warned && !copied && <div className="alert danger" role="alert">You have not copied the password. It cannot be shown again (you can make a new one with Reset password). Press Copy first, or Close anyway.</div>}
       <div className="alert info">Share these details securely. The password is shown only once. It is a starting password: the person chooses their own at first sign-in.</div>
       <dl className="kv" style={{ marginTop: 14 }}><dt>Login id</dt><dd><b>{creds.loginId}</b></dd><dt>Temporary password</dt><dd><b>{creds.temporaryPassword}</b></dd></dl>
     </Modal>

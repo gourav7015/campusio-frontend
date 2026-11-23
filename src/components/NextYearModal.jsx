@@ -15,7 +15,7 @@ const Check = ({ checked, onChange, disabled, children }) => <label className="r
  */
 export default function NextYearModal({ from, onClose, onCreated }) {
   const start = from ? addDays(from.endDate, 1) : '';
-  const [f, setF] = useState({ name: nextName(from?.name), startDate: start, endDate: start ? addDays(addYear(start), -1) : '', copySections: true, copyOfferings: true, copyTeachers: true });
+  const [f, setF] = useState({ name: nextName(from?.name), startDate: start, endDate: start ? addDays(addYear(start), -1) : '', copySections: true, copyOfferings: true, copyTeachers: false });
   const [run, busy] = useAction();
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const save = async () => {
@@ -35,7 +35,7 @@ export default function NextYearModal({ from, onClose, onCreated }) {
           <div className="bold">Carry over from {from?.name}</div>
           <Check checked={f.copySections} onChange={(v) => set('copySections', v)}><b>Sections</b> — same classes, section names, capacity and rooms</Check>
           <Check checked={f.copyOfferings} onChange={(v) => set('copyOfferings', v)}><b>Subjects</b> — each class's subjects with periods per week and mark fields</Check>
-          <Check checked={f.copyTeachers} onChange={(v) => set('copyTeachers', v)} disabled={!f.copySections || !f.copyOfferings}><b>Teachers</b> — the same subject teachers and class teachers (active teachers only)</Check>
+          <Check checked={f.copyTeachers} onChange={(v) => set('copyTeachers', v)} disabled={!f.copySections || !f.copyOfferings}><b>Teachers</b> — the same subject teachers and class teachers (active teachers only). Usually left off: you assign teachers for the new year yourself, and classes with none are flagged</Check>
         </div>
         <p className="muted small" style={{ margin: 0 }}>The new year starts as <b>upcoming</b>; your current year stays current until you promote the students. Students are not moved here — that is the next step, Year-end promotion. Timetables are not copied.</p>
       </div>

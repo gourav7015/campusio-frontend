@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
-import { del, upload, openFile } from '../api/client.js';
+import { del, upload, openFile, fileUrl } from '../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, Modal, useAction, fmtDate } from './ui.jsx';
 
 const STATE = { valid: ['green', 'Valid'], expiring: ['amber', 'Runs out soon'], expired: ['red', 'Expired'], missing: ['', 'Not recorded'] };
 const OK_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round((n || 0) / 1024))} KB`);
+const kindOf = (mime) => (mime === 'application/pdf' ? 'PDF' : mime === 'image/png' ? 'PNG picture' : mime === 'image/jpeg' ? 'JPG picture' : 'file');
 
 /** A bus's papers: registration (RC), insurance, pollution (PUC), fitness, route permit, road tax and anything else, each with its number, dates and a copy. */
 export default function VehicleDocuments({ base, busId, readOnly, onChange }) {
@@ -18,14 +20,15 @@ export default function VehicleDocuments({ base, busId, readOnly, onChange }) {
         <DataTable rows={d.documents} rowKey={(r) => r.id || r.type} empty="No documents" columns={[
           { label: 'Document', render: (r) => <b>{r.label}</b> },
           { label: 'Number', render: (r) => r.number || <span className="muted">—</span> },
-          { label: 'Valid until', render: (r) => (r.expiresOn ? <>{fmtDate(r.expiresOn, true)}{r.state === 'expiring' && <span className="small muted"> · {r.daysLeft} day{r.daysLeft === 1 ? '' : 's'} left</span>}</> : <span className="muted">{r.state === 'missing' ? '—' : 'No expiry'}</span>) },
+          { label: 'Valid until', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.expiresOn ? <>{fmtDate(r.expiresOn, true)}{r.state === 'expiring' && <span className="small muted"> · {r.daysLeft} day{r.daysLeft === 1 ? '' : 's'} left</span>}</> : <span className="muted">{r.state === 'missing' ? '—' : 'No expiry'}</span>}</span> },
           { label: 'Status', render: (r) => { const [tone, text] = STATE[r.state] || STATE.missing; return <Badge tone={tone}>{text}</Badge>; } },
-          { label: 'Copy', render: (r) => (r.fileId ? <Button size="sm" onClick={() => run(async () => { await openFile(r.fileId); return true; })} aria-label={`View the copy of ${r.label}`}>View</Button> : <span className="muted">—</span>) },
-          ...(readOnly ? [] : [{ label: '', render: (r) => (
-            <div className="row" style={{ gap: 6 }}>
-              <Button size="sm" onClick={() => setEdit(r)}>{r.id ? 'Renew / edit' : 'Add'}</Button>
-              {r.id && <ConfirmButton size="sm" variant="danger" message={`Remove ${r.label}? Its copy is deleted too.`} onConfirm={async () => { await run(() => del(`${base}/buses/${busId}/documents/${r.id}`), 'Removed'); done(); }}>Remove</ConfirmButton>}
-            </div>) }]),
+          { label: 'Copy', render: (r) => (r.fileId ? <span className="small muted" style={{ overflowWrap: 'anywhere' }}>{r.file?.name || 'On file'}</span> : <span className="muted" style={{ whiteSpace: 'nowrap' }}>No copy</span>) },
+          { label: '', render: (r) => (
+            <div className="row" style={{ gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+              {r.fileId && <Button size="sm" style={{ minWidth: 78 }} onClick={() => run(async () => { await openFile(r.fileId); return true; })} aria-label={`View the copy of ${r.label}`}>View</Button>}
+              {!readOnly && <Button size="sm" style={{ minWidth: 78 }} onClick={() => setEdit(r)}>{r.id ? 'Renew or edit' : 'Add'}</Button>}
+              {!readOnly && r.id && <ConfirmButton size="sm" variant="danger" style={{ minWidth: 78 }} message={`Remove ${r.label}? Its copy is deleted too.`} onConfirm={async () => { await run(() => del(`${base}/buses/${busId}/documents/${r.id}`), 'Removed'); done(); }}>Remove</ConfirmButton>}
+            </div>) },
         ]} />
       )}</Async>
       {edit && <DocumentForm base={base} busId={busId} row={edit} required={q.data?.types?.[edit.type]?.expiry === 'required'} onClose={() => setEdit(null)} onDone={done} />}
@@ -49,7 +52,7 @@ function DocumentForm({ base, busId, row, required, onClose, onDone }) {
     for (const [k, x] of Object.entries(v)) if (x !== '' && !(k === 'title' && !isOther)) form.append(k, x);
     if (file) form.append('file', file);
     const path = isOther && !row.id ? `${base}/buses/${busId}/documents` : `${base}/buses/${busId}/documents/${isOther ? 'other' : row.type}`;
-    const ok = await run(() => upload(path, form, isOther && !row.id ? 'POST' : 'PUT'), 'Saved');
+    const ok = await run(() => upload(path, form, isOther && !row.id ? 'POST' : 'PUT'), file ? `Saved. The copy "${file.name}" is now on file.` : 'Saved');
     if (ok) onDone();
   };
   return (
@@ -62,9 +65,41 @@ function DocumentForm({ base, busId, row, required, onClose, onDone }) {
           <Field label={`Valid until${required ? ' (required)' : ' (leave empty if it does not expire)'}`}><Input type="date" value={v.expiresOn} onChange={(e) => set('expiresOn', e.target.value)} /></Field>
         </div>
         <Field label="Notes"><Input value={v.notes} onChange={(e) => set('notes', e.target.value)} maxLength={300} /></Field>
+        {row.fileId && <CurrentCopy row={row} replacing={file} />}
+        {file && <NewCopy file={file} replacing={!!row.fileId} />}
         <Field label={row.fileId ? 'Replace the copy' : 'Copy of the document'} hint="PDF, PNG or JPG, up to 10 MB. A new copy replaces the old one."><Input type="file" accept="application/pdf,image/png,image/jpeg" onChange={(e) => { setFile(e.target.files[0] || null); setErr(''); }} /></Field>
         {err && <div className="alert danger" role="alert">{err}</div>}
       </div>
     </Modal>
+  );
+}
+
+/** What is already on file for this document: its name, kind and size, a way to open it, and a thumbnail when it is a picture. */
+function CurrentCopy({ row, replacing }) {
+  const [url, setUrl] = useState('');
+  const [run] = useAction();
+  const isImage = row.file?.mime?.startsWith('image/');
+  useEffect(() => { let on = true; if (isImage) fileUrl(row.fileId).then((u) => { if (on) setUrl(u); }).catch(() => {}); return () => { on = false; }; }, [row.fileId, isImage]);
+  return (
+    <div className="alert info" role="status" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      {isImage && url && <img src={url} alt={`Copy of ${row.label}`} style={{ maxHeight: 96, maxWidth: 140, borderRadius: 6, border: '1px solid var(--border, #ddd)' }} />}
+      <div className="grow">
+        <b>A copy is already on file{replacing ? ' (it will be replaced when you save)' : ''}.</b>
+        <div className="small">{row.file ? `${row.file.name} · ${kindOf(row.file.mime)} · ${sizeOf(row.file.size)}` : 'Open it to see it.'}</div>
+      </div>
+      <Button size="sm" onClick={() => run(async () => { await openFile(row.fileId); return true; })}>View</Button>
+    </div>
+  );
+}
+
+/** The file just chosen, before it is saved. */
+function NewCopy({ file, replacing }) {
+  const url = useMemo(() => (file.type.startsWith('image/') ? URL.createObjectURL(file) : ''), [file]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  return (
+    <div className="alert ok" role="status" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      {url && <img src={url} alt="" style={{ maxHeight: 96, maxWidth: 140, borderRadius: 6, border: '1px solid var(--border, #ddd)' }} />}
+      <div className="grow"><b>New copy chosen: {file.name}</b><div className="small">{kindOf(file.type)} · {sizeOf(file.size)}. {replacing ? 'It replaces the copy on file when you press Save.' : 'It is attached when you press Save.'}</div></div>
+    </div>
   );
 }

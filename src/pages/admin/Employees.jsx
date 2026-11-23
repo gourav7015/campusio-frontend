@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import FilterMenu from '../../components/FilterMenu.jsx';
-import { Async, Badge, Card, DataTable, Empty, Field, Input, PageHeader, Select, Tabs, useDebounced, fmtDate } from '../../components/ui.jsx';
+import { Async, Badge, Card, DataTable, Empty, Field, Input, PageHeader, Select, Tabs, useDebounced, fmtDate, fmtDateTime } from '../../components/ui.jsx';
 
 const TABS = [
-  ['all', 'Everyone'], ['teaching', 'Teaching staff'], ['non_teaching', 'Non-teaching staff'], ['office', 'Officers and desks'], ['transport', 'Transport crew'],
+  ['all', 'Everyone'], ['teaching', 'Teaching staff'], ['non_teaching', 'Non-teaching staff'], ['office', 'Desk holders'], ['transport', 'Transport crew'],
 ];
 /** Where each kind of employee is managed (added, edited, given a login). */
 const MANAGE = {
@@ -35,7 +35,7 @@ export default function Employees() {
   const open = (e) => { if (e.kind === 'teacher') nav(`/admin/teachers/${e.id}`); else nav(MANAGE[e.category].to); };
   return (
     <div className="stack">
-      <PageHeader title="Employees" subtitle="Everyone who works at the school: teachers, non-teaching staff, the finance officer, librarian and transport officer, and the drivers and conductors." />
+      <PageHeader title="Employees" subtitle="Everyone who works at the school: teachers, non-teaching staff, and the drivers and conductors. Whoever holds a Finance, Library, Transport or Office desk shows with that desk in the Group column, beside their own job title." />
       <Tabs tabs={TABS.map(([k, l]) => [k, counts ? `${l} (${counts[k === 'all' ? 'all' : k]})` : l])} value={tab} onChange={(t) => { setSp({ tab: t }); setF({ ...EMPTY, status: f.status }); }} />
       <Card>
         <div className="row" style={{ flexWrap: 'wrap', gap: 12, alignItems: 'end' }}>
@@ -65,13 +65,13 @@ export default function Employees() {
             <p className="small muted" style={{ padding: '10px 18px 0' }}>{x.total.toLocaleString('en-IN')} {x.total === 1 ? 'person' : 'people'}{x.total > x.items.length ? `, showing the first ${x.items.length}` : ''}.</p>
             <DataTable rows={x.items} rowKey="id" onRowClick={open} columns={[
               { label: 'Name', sort: (e) => e.name, render: (e) => <><b>{e.name}</b><div className="small muted">{e.code}</div></> },
-              { label: 'Designation', sort: (e) => e.designation, render: (e) => <>{e.designation}{e.desk && <div className="small muted">{e.desk} desk</div>}</> },
-              { label: 'Group', sort: (e) => e.category, render: (e) => <Badge tone={KIND_TONE[e.category]}>{KIND_LABEL[e.category]}</Badge> },
+              { label: 'Designation', sort: (e) => e.designation, render: (e) => e.designation || <span className="muted">—</span> },
+              { label: 'Group', sort: (e) => e.category, render: (e) => (e.desk ? <Badge tone="amber">{e.desk} desk holder</Badge> : <Badge tone={KIND_TONE[e.category]}>{KIND_LABEL[e.category]}</Badge>) },
               ...(tab === 'teaching' ? [{ label: 'Teaches', sort: (e) => (e.subjects || []).join(), render: (e) => (e.subjects?.length ? <>{e.subjects.join(', ')}<div className="small muted">{e.classes.join(', ')}{e.classTeacherOf ? ` · class teacher of ${e.classTeacherOf}` : ''}</div></> : <span className="muted">—</span>) }] : []),
               { label: 'Phone', sort: (e) => e.phone || '', render: (e) => e.phone || '—' },
               ...(tab === 'transport' || tab === 'all' ? [{ label: 'On bus', sort: (e) => e.bus || '', render: (e) => e.bus || <span className="muted">—</span> }] : []),
-              ...(tab === 'transport' ? [{ label: 'Licence', sort: (e) => e.licenseExpiry || '', render: (e) => (e.licenseExpiry ? fmtDate(e.licenseExpiry, true) : <span className="muted">—</span>) }] : [{ label: 'Sign-in', render: (e) => (e.hasLogin ? <><Badge tone="green">Has login</Badge>{e.canMarkAttendance && <div><Badge tone="blue">Attendance desk</Badge></div>}</> : <span className="muted">None</span>) }]),
-              { label: 'Joined', sort: (e) => e.joiningDate || '', render: (e) => fmtDate(e.joiningDate, true) },
+              ...(tab === 'transport' ? [{ label: 'Licence', sort: (e) => e.licenseExpiry || '', render: (e) => (e.licenseExpiry ? fmtDate(e.licenseExpiry, true) : <span className="muted">—</span>) }] : [tab === 'office' ? { label: 'Last active', sort: (e) => e.lastActiveAt || '', render: (e) => (e.lastActiveAt ? <span style={{ whiteSpace: 'nowrap' }}>{fmtDateTime(e.lastActiveAt)}</span> : <span className="muted">Not yet</span>) } : { label: 'Sign-in', render: (e) => (e.hasLogin ? <><Badge tone="green">Has login</Badge>{e.canMarkAttendance && <div><Badge tone="blue">Attendance desk</Badge></div>}</> : <span className="muted">None</span>) }]),
+              ...(tab === 'office' ? [] : [{ label: 'Joined', sort: (e) => e.joiningDate || '', render: (e) => fmtDate(e.joiningDate, true) }]),
               { label: 'Status', sort: (e) => e.status, render: (e) => <Badge tone={e.status === 'active' ? 'green' : ''}>{e.status === 'active' ? 'Working' : 'Left'}</Badge> },
             ]} />
           </>

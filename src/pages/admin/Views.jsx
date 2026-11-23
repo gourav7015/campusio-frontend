@@ -1,9 +1,9 @@
+import ResetPasswordButton from '../../components/ResetPassword.jsx';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post, patch } from '../../api/client.js';
-import FormModal from '../../components/FormModal.jsx';
-import { Async, Badge, Button, Card, CredentialsModal, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, fmtDateTime, statusTone, label } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, CredentialsModal, DataTable, Empty, Field, Modal, PageHeader, Select, Tabs, useAction, fmtDateTime, statusTone, label } from '../../components/ui.jsx';
 import { Expenses, Budgets, Vendors } from '../finance/FinanceMore.jsx';
 import { FinanceDashboard, FeeStructures, FeePolicy, StudentsDues, Payments, FinanceReports, FinanceDefaulters } from '../finance/Finance.jsx';
 import { LibraryDashboard, Books, Loans } from '../library/Library.jsx';
@@ -52,43 +52,39 @@ export function AdminTransport() {
 
 const DESKS = [{ value: 'finance', label: 'Finance (fees & receipts)' }, { value: 'library', label: 'Library (books & loans)' }, { value: 'transport', label: 'Transport (buses, drivers & riders)' }, { value: 'staff', label: 'Office desk (Staff portal: attendance, leave, employee list, teachers\' queries)' }];
 
-/** One dialog for every kind of login. An officer needs an email; a staff member for the office desk needs a job title). */
+/** A new desk login: choose the desk, and (if you like) the employee who works it. Its login id is made for it and shown before anything is saved. */
 function AddLoginModal({ onClose, onCreated, initialRole = '' }) {
-  const [f, setF] = useState({ role: initialRole, name: '', email: '', designationId: '', phone: '', dob: '', holder: '' });
-  const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
-  const staff = f.role === 'staff';
-  const titles = useApi(staff ? '/api/school/designations' : null);
-  const desk = !!f.role && !staff; // an officer role: held by a person
-  const people = useApi(desk ? '/api/school/support-staff' : null, { status: 'active', limit: 200 });
-  const free = (people.data?.items || []).filter((p) => !p.hasLogin);
+  const [role, setRole] = useState(initialRole); const [holder, setHolder] = useState('');
+  const office = role === 'staff';
+  const people = useApi(role ? '/api/school/support-staff' : null, { status: 'active', limit: 200 });
+  const free = (people.data?.items || []).filter((p) => !p.hasLogin && p.group !== 'transport');
+  const preview = useApi(role ? '/api/school/staff/login-preview' : null, { role, staffMemberId: holder });
   const [run, busy] = useAction();
-  const ok = f.role && (staff ? f.name.trim().length >= 2 && f.designationId : (f.holder || f.name.trim().length >= 2)) && /\S+@\S+\.\S+/.test(f.email) && (f.holder || (f.phone.replace(/\D/g, '').length >= 10 && f.dob));
-  const save = async () => {
-    const contact = { email: f.email || undefined, phone: f.phone || undefined, dob: f.dob || undefined };
-    const body = staff ? { role: 'staff', name: f.name.trim(), designationId: f.designationId, ...contact } : { role: f.role, ...contact, ...(f.holder ? { staffMemberId: f.holder } : { name: f.name.trim() }) };
-    const r = await run(() => post('/api/school/staff', body));
-    if (r) { onCreated(r); onClose(); }
-  };
+  const ok = role && (!office || holder);
+  const save = async () => { const r = await run(() => post('/api/school/staff', { role, ...(holder ? { staffMemberId: holder } : {}) })); if (r) { onCreated(r); onClose(); } };
+  const loginId = preview.data?.loginId;
   return (
-    <Modal title="Add a login" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!ok} onClick={save}>Save</Button></>}>
-      <div className="form-grid">
-        <Field label="Portal" full><Select value={f.role} onChange={(e) => set('role', e.target.value)} placeholder="Select…" options={DESKS} /></Field>
-        {desk && <Field label="Who holds this role?" full hint="A role is held by a person. Choose someone already on the staff list, or add a new person."><Select value={f.holder} onChange={(e) => set('holder', e.target.value)} options={[{ value: '', label: 'A new person' }, ...free.map((p) => ({ value: p._id, label: `${p.name} (${p.staffId} · ${p.designation})` }))]} /></Field>}
-        {!(desk && f.holder) && <Field label={desk ? "New person's full name" : 'Full name'}><Input value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>}
-        {staff ? <>
-          <Field label="Job title" hint="Only the school's registered jobs. Add more under People → Designations."><Select value={f.designationId} onChange={(e) => set('designationId', e.target.value)} placeholder="Choose" options={(titles.data || []).filter((d) => d.status === 'active').map((d) => ({ value: d._id, label: d.name }))} /></Field>
-        </> : null}
-        {!!f.role && <>
-          <Field label="Email" hint="Sign-in codes and password resets are sent here"><Input type="email" value={f.email} onChange={(e) => set('email', e.target.value)} /></Field>
-          <Field label="Mobile number" hint={desk && f.holder ? 'Only if it is not on file already' : undefined}><Input type="tel" value={f.phone} onChange={(e) => set('phone', e.target.value)} /></Field>
-          <Field label="Date of birth" hint={desk && f.holder ? 'Only if it is not on file already' : 'Asked when a forgotten password is reset'}><Input type="date" value={f.dob} onChange={(e) => set('dob', e.target.value)} /></Field>
-        </>}
+    <Modal title="Add a desk login" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!ok} onClick={save}>Create login</Button></>}>
+      <div className="stack">
+        <Field label="Desk" full><Select value={role} onChange={(e) => { setRole(e.target.value); setHolder(''); }} placeholder="Choose a desk" options={DESKS} /></Field>
+        {role && (
+          <Field label={office ? 'Employee who works the office desk' : 'Employee who runs this desk (optional)'} full hint={office ? 'Someone already on the staff list. They keep their own job title.' : 'You can leave this empty and assign someone later. Drivers and conductors cannot hold a desk.'}>
+            <Select value={holder} onChange={(e) => setHolder(e.target.value)} placeholder={office ? 'Choose an employee' : 'Nobody yet'} options={free.map((p) => ({ value: p._id, label: `${p.name} · ${[p.staffId, p.designation].filter(Boolean).join(' · ')}` }))} />
+          </Field>
+        )}
+        {role && (
+          <div className="box" style={{ padding: 12 }}>
+            <div className="small muted">Login id for this desk</div>
+            <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 18, fontWeight: 700, margin: '2px 0' }} aria-live="polite" data-testid="login-id-preview">{loginId || (office ? 'Choose the employee to see it' : '…')}</div>
+            <div className="small muted">Made for you from the school code and the desk. A starting password is made too and shown once, after you press Create login: copy it then. The desk signs in on its own portal page.</div>
+          </div>
+        )}
       </div>
-      {staff && <p className="muted small" style={{ marginTop: 10 }}>The login id and a starting password are shown once you save. The starting password follows your school's format (first letters of the name plus date of birth) when a date of birth is on file, otherwise it is generated. The person then appears under Employees › Non-teaching staff.</p>}
     </Modal>
   );
 }
 
+const DESK_NAME = { finance: 'Finance desk', library: 'Library desk', transport: 'Transport desk', staff: 'Office desk' };
 const SUBPORTALS = [
   { role: 'finance', name: 'Finance', title: 'Finance Officer', what: 'fees, receipts, expenses' }, { role: 'library', name: 'Library', title: 'Librarian', what: 'books and loans' },
   { role: 'transport', name: 'Transport', title: 'Transport Officer', what: 'buses, drivers and riders' }, { role: 'staff', name: 'Office desk', title: 'Office staff', what: 'attendance, leave, queries' },
@@ -104,7 +100,7 @@ function PortalTiles({ rows, onOpen }) {
           <div key={p.role} className="card" style={{ padding: 14 }}>
             <div className="row between" style={{ alignItems: 'center' }}><b>{p.name}</b><Badge tone={who.length ? 'green' : 'amber'}>{who.length ? 'Open' : 'Not opened'}</Badge></div>
             <div className="muted small">{p.what}</div>
-            <div style={{ marginTop: 10 }}>{who.length ? <><div className="muted small">{p.role === 'staff' ? `In charge (${who.length})` : 'In charge'}</div><b>{who[0].name}</b>{who.length > 1 && <span className="muted small"> +{who.length - 1} more</span>}<div className="small muted">{who[0].title || p.title}</div></>
+            <div style={{ marginTop: 10 }}>{who.length ? <><div className="muted small">{p.role === 'staff' ? `In charge (${who.length})` : 'In charge'}</div><b>{who[0].personName || who[0].name}</b>{who.length > 1 && <span className="muted small"> +{who.length - 1} more</span>}<div className="small muted">{who[0].title || p.title}</div></>
               : <Button size="sm" onClick={() => onOpen(p.role)}>+ Open the {p.name.toLowerCase()} portal</Button>}</div>
           </div>);
       })}</div>
@@ -115,18 +111,47 @@ function PortalTiles({ rows, onOpen }) {
 /** Finance, Library and Transport officers, and Staff portal logins, are created here by the School Admin; those users create nobody. */
 export function Staff() {
   const list = useApi('/api/school/staff');
-  const [modal, setModal] = useState(false); const [creds, setCreds] = useState(null); const [edit, setEdit] = useState(null); const [role, setRole] = useState('');
+  const [modal, setModal] = useState(false); const [creds, setCreds] = useState(null); const [assign, setAssign] = useState(null); const [role, setRole] = useState('');
   const [run] = useAction();
   return (
     <div className="stack">
       <PageHeader title="Desk logins" subtitle="The sign-ins of the school's sub-portals: Finance, Library and Transport, each held by one officer, and the office desk (Staff portal) for staff who work for the admin. Each officer sees only their own desk." actions={<Button variant="primary" onClick={() => { setRole(''); setModal(true); }}>+ Add sign-in</Button>} />
       <Async state={list}>{(rows) => <PortalTiles rows={rows} onOpen={(r) => { setRole(r); setModal(true); }} />}</Async>
-      <Card flush><Async state={list} empty={<Empty title="No staff accounts yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Person', sort: (u) => u.name, render: (u) => <><b>{u.name}</b><div className="small muted">{[u.code, u.phone].filter(Boolean).join(' · ') || 'No phone on file'}</div></> }, { label: 'Role held', sort: (u) => u.role, render: (u) => <><Badge tone={u.role === 'finance' ? 'green' : u.role === 'transport' ? 'amber' : 'blue'}>{u.title || label(u.role)}</Badge></> }, { label: 'Login id', key: 'loginId' }, { label: 'Last sign-in', render: (u) => fmtDateTime(u.lastLoginAt) }, { label: 'Status', render: (u) => <Badge tone={statusTone(u.status === 'active' ? 'active' : 'rejected')}>{u.status}</Badge> },
-        { label: '', render: (u) => <div className="row"><Button size="sm" onClick={() => setEdit(u)}>Edit person</Button><Button size="sm" onClick={async () => { const r = await run(() => post(`/api/school/staff/${u._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button><Button size="sm" onClick={async () => { await run(() => patch(`/api/school/staff/${u._id}`, { status: u.status === 'active' ? 'disabled' : 'active' }), 'Updated'); list.reload(); }}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button></div> }]} />}</Async></Card>
-      <p className="muted small">A role is held by a person. Use the person's own name here (click Edit person to change a name such as “Accounts Officer” to the real one), or give the role to someone who is already on the staff list.</p>
+      <Card flush><Async state={list} empty={<Empty title="No desk logins yet" />}>{(rows) => <DataTable rows={rows} columns={[
+        { label: 'Desk', sort: (u) => u.role, render: (u) => <><Badge tone={u.role === 'finance' ? 'green' : u.role === 'transport' ? 'amber' : 'blue'}>{DESK_NAME[u.role] || label(u.role)}</Badge><div className="small muted">Login id: {u.loginId}</div></> },
+        { label: 'Held by', sort: (u) => u.personName || u.name, render: (u) => (!u.assigned
+          ? <><span className="muted">Nobody assigned yet</span><div className="small muted">Give this desk to someone on the staff list</div></>
+          : <><b>{u.personName || u.name}</b><div className="small muted">{[u.title, u.code, u.phone].filter(Boolean).join(' · ') || 'No details on file'}</div></>) },
+        { label: 'Last sign-in', render: (u) => <span style={{ whiteSpace: 'nowrap' }}>{fmtDateTime(u.lastLoginAt)}</span> },
+        { label: 'Status', render: (u) => <Badge tone={statusTone(u.status === 'active' ? 'active' : 'rejected')}>{u.status}</Badge> },
+        { label: '', render: (u) => <div className="row" style={{ gap: 6, flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
+          <Button size="sm" onClick={() => setAssign(u)} style={{ whiteSpace: 'nowrap' }}>{u.assigned ? 'Change employee' : 'Assign employee'}</Button>
+          <ResetPasswordButton url={`/api/school/staff/${u._id}/reset-password`} name={u.personName || u.name} onDone={setCreds} />
+          <Button size="sm" onClick={async () => { await run(() => patch(`/api/school/staff/${u._id}`, { status: u.status === 'active' ? 'disabled' : 'active' }), 'Updated'); list.reload(); }}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button></div> },
+      ]} />}</Async></Card>
+      <p className="muted small">A desk login is the desk's sign-in (login id and password). The person it belongs to is an employee: press Assign employee to give a desk to someone already on the staff list, and Change employee when it passes to someone else. They sign in with the desk's login. If a password was not copied when the login was made, press Reset password for a new one.</p>
       {modal && <AddLoginModal initialRole={role} onClose={() => setModal(false)} onCreated={(r) => { list.reload(); setCreds(r); }} />}
-      {edit && <FormModal title={`Edit person · ${edit.title || label(edit.role)}`} initial={{ name: edit.name, phone: edit.phone || '' }} fields={[{ name: 'name', label: 'Person\'s name', required: true }, { name: 'phone', label: 'Phone' }]} onClose={() => setEdit(null)} onSubmit={async (v) => { await patch(`/api/school/staff/${edit._id}`, { name: v.name, phone: v.phone || '' }); list.reload(); return true; }} />}
+      {assign && <AssignEmployee desk={assign} onClose={() => setAssign(null)} onDone={() => { setAssign(null); list.reload(); }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Staff account" />
     </div>
+  );
+}
+
+/** Gives an officer desk (Finance, Library or Transport) to an employee who is already on the staff list. The sign-in stays the desk's. */
+function AssignEmployee({ desk, onClose, onDone }) {
+  const people = useApi('/api/school/support-staff', { status: 'active', limit: 200 });
+  const free = (people.data?.items || []).filter((p) => !p.hasLogin && p.group !== 'transport');
+  const [pick, setPick] = useState('');
+  const [run, busy] = useAction();
+  const save = async () => { const r = await run(() => post(`/api/school/staff/${desk._id}/assign`, { staffMemberId: pick }), `${free.find((p) => p._id === pick)?.name || 'The employee'} now holds the ${DESK_NAME[desk.role]}`); if (r) onDone(); };
+  return (
+    <Modal title={`${desk.assigned ? 'Change' : 'Assign'} employee · ${DESK_NAME[desk.role]}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!pick} onClick={save}>{desk.assigned ? 'Change employee' : 'Assign employee'}</Button></>}>
+      <div className="stack">
+        <p className="muted" style={{ margin: 0 }}>{desk.assigned ? <>The {DESK_NAME[desk.role]} is held by <b>{desk.personName || desk.name}</b>. Choose who holds it now.</> : 'Choose the employee who runs this desk.'} The login id <b>{desk.loginId}</b> and its password stay the same. {desk.role === 'staff' ? 'The employee keeps their own job title and the Staff portal opens for them.' : 'The employee\'s job title becomes the desk\'s title.'}</p>
+        <Async state={people}>{() => (free.length
+          ? <Field label="Employee" hint="Active staff who do not have a login or another desk. Drivers and conductors cannot hold an officer desk."><Select value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Choose an employee" options={free.map((p) => ({ value: p._id, label: `${p.name} · ${[p.staffId, p.designation].filter(Boolean).join(' · ')}` }))} /></Field>
+          : <div className="alert">There is nobody free on the staff list. Add the person first under Employees, then come back.</div>)}</Async>
+      </div>
+    </Modal>
   );
 }

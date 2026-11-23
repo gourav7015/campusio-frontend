@@ -39,7 +39,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Communication', items: [{ to: '/admin/announcements', label: 'Announcements', icon: Megaphone }, { to: '/admin/events', label: 'Calendar and events', icon: CalendarDays }, { to: '/admin/messages', label: 'Messages', icon: Mail }, { to: '/admin/queries', label: 'Teachers\' queries', icon: Inbox, badge: '/api/school/queries/summary' }, { to: '/admin/school-info', label: 'School information', icon: Info }] },
       { label: 'Administration', items: [
-        { to: '/admin/attendance', label: 'Attendance', icon: UserCheck }, { to: '/admin/years', label: 'Academic years', icon: CalendarRange }, { to: '/admin/promotion', label: 'Year-end promotion', icon: TrendingUp },
+        { to: '/admin/attendance', label: 'Attendance', icon: UserCheck }, { to: '/admin/years', label: 'Academic years', icon: CalendarRange }, { to: '/admin/class-structure', label: 'Subjects and teachers', icon: BookOpen }, { to: '/admin/promotion', label: 'Year-end promotion', icon: TrendingUp },
         { to: '/admin/import', label: 'Data import', icon: Upload }, { to: '/admin/reports', label: 'Reports and exports', icon: BarChart3 }, { to: '/admin/staff', label: 'Desk logins', icon: KeyRound },
         { to: '/admin/sub-admins', label: 'Sub-admins', icon: ShieldCheck }, { to: '/admin/settings', label: 'School settings', icon: Settings }, { to: '/admin/documents', label: 'Receipts and payslips', icon: FilePenLine }, { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
         { to: '/admin/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/school/helpdesk/summary' }, { to: '/admin/guide', label: 'Quick guide', icon: HelpCircle },
@@ -54,7 +54,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       { label: 'Teaching', items: [
         { to: '/teacher/timetable', label: 'My timetable', icon: CalendarDays }, { to: '/teacher/classes', label: 'My classes', icon: School }, { to: '/teacher/subjects', label: 'My subjects', icon: BookOpen },
         { to: '/teacher/attendance', label: 'Attendance', icon: UserCheck }, { to: '/teacher/period-attendance', label: 'Period attendance', icon: Clock }, { to: '/teacher/homework', label: 'Homework', icon: NotebookPen }, 
-        { to: '/teacher/exams', label: 'Examinations and marks', icon: ClipboardList }, { to: '/teacher/performance', label: 'Student performance', icon: TrendingUp }, { to: '/teacher/house', label: 'My house', icon: Flag },
+        { to: '/teacher/exams', label: 'Examinations and marks', icon: ClipboardList }, { to: '/teacher/performance', label: 'Student performance', icon: TrendingUp }, { to: '/teacher/house', label: 'My house', icon: Flag }, { to: '/teacher/promotion', label: 'Move my class on', icon: TrendingUp },
       ] },
       { label: 'School', items: [{ to: '/teacher/library', label: 'Library', icon: BookMarked }, { to: '/teacher/communication', label: 'Communication', icon: MessagesSquare }, { to: '/teacher/chats', label: 'Parent messages', icon: MessageCircle }, { to: '/teacher/remarks', label: 'Remarks', icon: MessageSquareWarning }, { to: '/teacher/swaps', label: 'Period swaps', icon: Repeat }, { to: '/teacher/school-info', label: 'School information', icon: Info }] },
       { label: 'Me', items: [
@@ -122,16 +122,28 @@ export const flatNav = (p: Portal) => p.groups.flatMap((g) => g.items);
 
 /** Which sub-admin permission opens each School admin page. Pages not listed here belong to the full School Admin. */
 export const ADMIN_PAGE_PERMISSION: Record<string, string | string[] | null> = {
-  '/admin': null, '/admin/approvals': 'approvals', '/admin/years': 'academics', '/admin/past-sessions': 'academics', '/admin/classes': 'academics', '/admin/timetable': 'academics', '/admin/promotion': 'academics',
+  '/admin': null, '/admin/approvals': 'approvals', '/admin/years': 'academics', '/admin/class-structure': 'academics', '/admin/past-sessions': 'academics', '/admin/classes': 'academics', '/admin/timetable': 'academics', '/admin/promotion': 'academics',
   '/admin/students': 'students', '/admin/houses': 'students', '/admin/designations': ['teachers', 'staff_attendance'], '/admin/queries': ['communication', 'staff_attendance'], '/admin/employees': ['teachers', 'staff_attendance'], '/admin/import': 'students', '/admin/teachers': 'teachers', '/admin/leave': ['teachers', 'staff_attendance'],
   '/admin/support-staff': 'staff_attendance', '/admin/staff-attendance': 'staff_attendance', '/admin/attendance': ['attendance', 'staff_attendance'], '/admin/staff-leave': 'staff_attendance',
   '/admin/exams': 'exams', '/admin/announcements': 'communication', '/admin/events': 'communication', '/admin/messages': 'communication', '/admin/school-info': 'communication',
   '/admin/payroll': 'payroll', '/admin/fees': 'finance_view', '/admin/library': 'library_view', '/admin/transport': 'transport_view', '/admin/reports': 'reports', '/admin/guide': null, '/admin/helpdesk': null,
 };
 
+/** For a sub-admin: the name of the page they opened when their account does not include it (so the page can say so plainly), else null. Details pages follow their list (a student's page needs the Students permission). */
+export function blockedAdminPage(pathname: string, user?: { adminLevel?: string; permissions?: string[] } | null): string | null {
+  if (user?.adminLevel !== 'sub' || !pathname.startsWith('/admin/')) return null;
+  const perms = new Set(user.permissions || []);
+  const key = Object.keys(ADMIN_PAGE_PERMISSION).filter((k) => k !== '/admin' && (pathname === k || pathname.startsWith(`${k}/`))).sort((a, b) => b.length - a.length)[0];
+  const ownerOnly = ['/admin/settings', '/admin/staff', '/admin/audit', '/admin/sub-admins'].find((k) => pathname === k || pathname.startsWith(`${k}/`));
+  const need = key ? ADMIN_PAGE_PERMISSION[key] : undefined;
+  const allowed = key ? need === null || (Array.isArray(need) ? need!.some((n) => perms.has(n)) : perms.has(need as string)) : !ownerOnly;
+  if (allowed) return null;
+  return flatNav(PORTALS.admin).find((i) => i.to === (key || ownerOnly))?.label || 'this page';
+}
+
 /** The portal as one signed-in person sees it: a sub-admin gets only the pages their permissions open. */
-export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null): Portal {
-  if (p.key === 'teacher' && !user?.periodWise) return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/teacher/period-attendance') })) };
+export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; classTeacher?: boolean } | null): Portal {
+  if (p.key === 'teacher') { const drop = new Set([...(user?.periodWise ? [] : ['/teacher/period-attendance']), ...(user?.classTeacher ? [] : ['/teacher/promotion'])]); return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })) }; }
   // a staff member sees "Mark attendance" only when the School Admin has given them the attendance desk
   if (p.key === 'staff') return user?.canMarkAttendance ? p : { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/staff/attendance-desk') })) };
   if (p.key !== 'admin' || user?.adminLevel !== 'sub') return p;

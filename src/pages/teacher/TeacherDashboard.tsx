@@ -4,13 +4,14 @@ import { CalendarClock, ClipboardCheck, FilePenLine, NotebookPen, Undo2 } from '
 import { useGet } from '../../api/query';
 import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMotion } from '../../design/charts';
 import { AttentionList, Facts, LinkCard } from '../../design/patterns';
-import { Badge, Button, EmptyState, ErrorState, PageHeader, PageSkeleton, StatCard } from '../../design/ui';
+import { Badge, Button, Callout, EmptyState, ErrorState, PageHeader, PageSkeleton, StatCard } from '../../design/ui';
 import { DaySchedule, type Period } from '../../components/Schedule';
 import { fmtDate, fmtDateTime } from '../../components/ui.jsx';
 
 interface Dash {
   greeting: { name: string; date: string; working: boolean; firstUpcoming?: { startTime: string; subject?: string } };
   permissions: { takeAttendance: boolean };
+  classGaps?: { sectionId: string; section: string; subjectsWithoutTeacher: string[]; noSubjects: boolean }[];
   today: Period[];
   cards: { assignedStudents: number; assignedClasses: number; pendingAttendance: number; activeAssignments: number };
   attendance: { totalStudents: number; present: number; late: number; absent: number; leave: number; trend: { date: string; percentage: number }[] };
@@ -39,6 +40,16 @@ export default function TeacherDashboard() {
           <Button asChild><Link to="/teacher/homework?new=1"><NotebookPen />New homework</Link></Button>
           <Button asChild><Link to="/teacher/exams"><FilePenLine />Marks</Link></Button>
         </>} />
+
+      {x.classGaps && x.classGaps.length > 0 && (
+        <Callout tone="warning">
+          <p className="font-semibold">Your class is missing teachers</p>
+          <ul className="mt-1 list-disc pl-5">
+            {x.classGaps.map((g) => <li key={g.sectionId}><b>{g.section}</b>: {g.noSubjects ? 'no subjects have been set up yet' : `nobody is assigned to teach ${g.subjectsWithoutTeacher.join(', ')}`}</li>)}
+          </ul>
+          <p className="mt-1">The school office assigns teachers. Let them know so the timetable and marks can be set up.</p>
+        </Callout>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <LinkCard className="xl:col-span-2" title="Today's timetable" to="/teacher/timetable" linkLabel="Full week"><DaySchedule rows={x.today} showSection openClass /></LinkCard>

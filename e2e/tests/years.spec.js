@@ -23,11 +23,12 @@ test('a past session is read in its own section and nowhere else; classes can ru
     await call(token, 'POST', `/api/school/years/${created._id}/set-current`, {});
 
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-    // the live pages show the current session only: no year picker, no "looking at an old year" banner, nobody in Class 8 yet
+    // the live pages show the current session only: no year picker, no "looking at an old year" banner, Class 8 is still in its own year
     await page.goto('/admin/students');
     await expect(page.getByRole('row').nth(1)).toBeVisible({ timeout: 10000 });
     await expect(page.getByLabel('Academic year shown')).toHaveCount(0);
-    await expect(page.getByRole('row').filter({ hasText: 'Class 8' })).toHaveCount(0);
+    // students are shown where they are now: classes change year on their own dates, so Class 8 (still running in 2026-2027) is listed, tagged with its year
+    await expect(page.getByRole('row').filter({ hasText: 'Class 8' }).first()).toContainText('in 2026-2027');
     await page.goto('/admin/classes');
     await expect(page.getByText('No sections for this year')).toBeVisible({ timeout: 10000 });
     await expect(page.getByLabel('Academic year')).toHaveCount(0);

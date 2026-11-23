@@ -1,20 +1,22 @@
+import { site } from '../config';
 import { Suspense, useMemo, useState } from 'react';
 import { ErrorBoundary } from '../design/ErrorBoundary';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import * as m from 'framer-motion/m';
 import * as D from '@radix-ui/react-dialog';
-import { Ellipsis, Menu, PanelLeftClose, PanelLeftOpen, ShieldAlert } from 'lucide-react';
-import { BackToTop, Badge, Breadcrumbs, Button, PageSkeleton, ThemeToggle, TooltipProvider, type Crumb } from '../design/ui';
+import { Ellipsis, Lock, Menu, PanelLeftClose, PanelLeftOpen, ShieldAlert } from 'lucide-react';
+import { BackToTop, Badge, Breadcrumbs, Button, EmptyState, PageSkeleton, ThemeToggle, TooltipProvider, type Crumb } from '../design/ui';
 import { usePageTitle, useRobots } from '../design/lib/page';
 import { cn } from '../design/lib/cn';
 import { ease } from '../design/lib/motion';
 import { useSession } from '../types/auth';
 import { Logo } from '../pages/PublicPage';
-import { flatNav, HIDDEN_PAGES, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
+import { blockedAdminPage, flatNav, HIDDEN_PAGES, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
 import { NavList } from './NavList';
 import { Notifications } from './Notifications';
 import { CommandSearch } from './CommandSearch';
 import { UserMenu } from './UserMenu';
+import YearSwitcher from './YearSwitcher';
 
 /** Short phone tab label: "My timetable" becomes "Timetable", "Homework and assignments" becomes "Homework". */
 const tabLabel = (l: string) => { const s = l.replace(/^My /, '').replace(/ and .*/, ''); return s.charAt(0).toUpperCase() + s.slice(1); };
@@ -52,8 +54,9 @@ function useCrumbs(portal: Portal): Crumb[] {
 
 export function AppShell({ area }: { area: PortalKey }) {
   const { user, school, acting, setActing } = useSession();
-  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null);
+  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; classTeacher?: boolean } | null);
   const { pathname } = useLocation();
+  const blocked = area === 'admin' ? blockedAdminPage(pathname, user as unknown as { adminLevel?: string; permissions?: string[] } | null) : null;
   const nav = useNavigate();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawer, setDrawer] = useState(false);
@@ -100,7 +103,7 @@ export function AppShell({ area }: { area: PortalKey }) {
             <Breadcrumbs items={crumbs} className="hidden min-w-0 sm:block" />
             <div className="flex-1" />
             {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch base={portal.api} role={area} />}
-            {school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>}
+            {(area === 'admin' || area === 'teacher') ? <YearSwitcher area={area} fallback={school?.academicYear} /> : (school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>)}
             <ThemeToggle />
             {portal.api && <Notifications base={portal.api} role={area} />}
             <UserMenu hasProfile={area === 'teacher' || area === 'student' || area === 'staff'} area={area} />
@@ -114,9 +117,13 @@ export function AppShell({ area }: { area: PortalKey }) {
                 <Button size="sm" onClick={() => { setActing(null); nav('/platform/schools'); }}>Exit school</Button>
               </div>
             )}
-            <m.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}><ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary></m.div>
+            <m.div key={pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.24, ease }}>{blocked ? (
+              <EmptyState icon={Lock} className="py-24" title="This part of the portal is not open to your account"
+                description={<>Your sub-admin account does not include <b>{blocked}</b>. If you need it, ask your School Admin to add it to your access.</>}
+                action={<Button asChild><Link to={portal.home}>Back to the dashboard</Link></Button>} />
+            ) : (<ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary>)}</m.div>
           </main>
-          <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} AtKaksha</span><span className="flex gap-4"><Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
+          <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} AtKaksha</span><span className="flex gap-4">{(user.role === 'school_admin' || user.role === 'super_admin') && <a className="hover:text-foreground hover:underline" href={`mailto:${site.mailboxes.support}?subject=${encodeURIComponent('AtKaksha support')}&body=${encodeURIComponent(`\n\n---\nSchool: ${school?.name || '-'}\nLogin ID: ${user.loginId || '-'}\nRole: ${user.role}`)}`}>Support</a>}<Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
           <BackToTop />
         </div>
 

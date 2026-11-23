@@ -19,17 +19,17 @@ export default function Account() {
   const save = async (e) => {
     e.preventDefault();
     if (mismatch) return;
-    const ok = await run(() => post('/api/auth/change-password', { currentPassword: f.currentPassword, newPassword: f.newPassword }), 'Password changed');
+    const ok = await run(() => post('/api/auth/change-password', { ...(forced ? {} : { currentPassword: f.currentPassword }), newPassword: f.newPassword }), 'Password changed');
     if (ok) { markPasswordChanged(); setF({ currentPassword: '', newPassword: '', confirm: '' }); sessions.reload(); if (sp.get('force')) nav(homeFor(user.role), { replace: true }); }
   };
   return (
     <div className="stack" style={{ maxWidth: 720, margin: '0 auto' }}>
-      <PageHeader title="Password & sessions" subtitle={forced ? 'You must set a new password before continuing.' : 'Keep your account secure'} />
+      <PageHeader title="Password & sessions" subtitle={forced ? 'You signed in with a temporary password. Choose your own to continue.' : 'Keep your account secure'} />
       <Card title="Change password">
         <form className="stack" method="post" onSubmit={save}>
           {/* tells the browser which account this password belongs to, so it can offer to update the saved one */}
           <input type="text" name="username" autoComplete="username" value={user.loginId || ''} readOnly tabIndex={-1} aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
-          <Field label="Current password"><PasswordInput name="current-password" autoComplete="current-password" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} required /></Field>
+          {!forced && <Field label="Current password"><PasswordInput name="current-password" autoComplete="current-password" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} required /></Field>}
           <Field label="New password" hint="At least 10 characters with a letter and a number; not a common password"><PasswordInput name="new-password" autoComplete="new-password" value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} required minLength={8} /></Field>
           <Field label="Confirm new password"><PasswordInput name="confirm-password" autoComplete="new-password" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} required /></Field>
           {mismatch && <div className="alert">Passwords do not match</div>}

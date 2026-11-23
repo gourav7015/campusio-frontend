@@ -11,7 +11,7 @@ async function signOut(page) {
 const NEWPW = 'Brand-new-pass1';
 async function chooseNewPassword(page, current) {
   await expect(page).toHaveURL(/account\?force=1/);
-  await page.getByLabel('Current password').fill(current);
+  await expect(page.getByLabel('Current password')).toHaveCount(0); // they just signed in with the temporary one, so it is not asked again
   await page.getByLabel('New password', { exact: true }).fill(NEWPW);
   await page.getByLabel('Confirm new password').fill(NEWPW);
   await page.getByRole('button', { name: 'Update password' }).click();
@@ -74,15 +74,14 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   await page.goto('/admin/sub-admins');
   await page.getByRole('button', { name: '+ Add a sub-admin' }).click();
   await page.getByLabel('Name').fill(`Desk Clerk ${uid}`);
-  await page.getByLabel('Email', { exact: true }).fill(`desk${uid}@gps.test`);
-  await page.getByLabel('Mobile number').fill('9876500013');
-  await page.getByLabel('Date of birth').fill('1990-10-10');
+  await expect(page.getByLabel('Login ID')).toHaveAttribute('placeholder', /\.admin\d+$/); // the system suggests one; it can be typed over
   await page.getByRole('button', { name: /Attendance desk/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   const creds = page.getByRole('dialog', { name: /Login for/ });
   await expect(creds).toContainText('Temporary password');
   const [loginId, tempPw] = await creds.locator('dd b').allTextContents();
   await creds.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
   await signOut(page);
 
   await signIn(page, 'admin', loginId, tempPw);
@@ -96,6 +95,10 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   await expect(page.getByRole('tab', { name: 'Daily register' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Teaching staff', exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Students', exact: true })).toHaveCount(0); // this sub-admin was given staff attendance only
+  await page.goto('/admin/students'); // a page their account does not include says so plainly, instead of a red error
+  await expect(page.getByText('This part of the portal is not open to your account')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  await page.goto('/admin/settings'); await expect(page.getByText('This part of the portal is not open to your account')).toBeVisible();
   await signOut(page);
 
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');

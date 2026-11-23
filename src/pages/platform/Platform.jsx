@@ -1,3 +1,5 @@
+import ResetPasswordButton from '../../components/ResetPassword.jsx';
+import AuditLog from '../../components/AuditLog.jsx';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
@@ -99,7 +101,7 @@ export function SchoolDetail() {
               { label: 'Name', key: 'name' }, { label: 'Login id', key: 'loginId' }, { label: 'Last sign-in', render: (a) => fmtDateTime(a.lastLoginAt) },
               { label: 'Status', render: (a) => <Badge tone={statusTone(a.status)}>{a.status}</Badge> },
               { label: '', render: (a) => <div className="row">
-                <Button size="sm" onClick={async () => { const r = await run(() => post(`/api/platform/users/${a._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
+                <ResetPasswordButton url={`/api/platform/users/${a._id}/reset-password`} name={a.name} onDone={setCreds} />
                 {a.twoFactor && <ConfirmButton size="sm" message={`Switch off sign-in codes for ${a.name}? Use this when they can no longer receive them. They are signed out everywhere.`} onConfirm={async () => { await run(() => post(`/api/platform/users/${a._id}/reset-2fa`), 'Two-factor sign-in reset'); s.reload(); }}>Reset two-factor</ConfirmButton>}
                 <Button size="sm" onClick={async () => { await run(() => patch(`/api/platform/users/${a._id}`, { status: a.status === 'active' ? 'disabled' : 'active' }), 'Updated'); s.reload(); }}>{a.status === 'active' ? 'Disable' : 'Enable'}</Button></div> },
             ]} />
@@ -115,18 +117,10 @@ export function SchoolDetail() {
 }
 
 export function PlatformAudit() {
-  const [action, setAction] = useState('');
-  const rows = useApi('/api/platform/audit', { action, limit: 200 });
   return (
     <div className="stack">
-      <PageHeader title="Platform audit log" subtitle="Sensitive actions across all schools, including Super Admin actions inside schools" />
-      <Card flush>
-        <div className="card-b"><Input placeholder="Filter by action prefix, e.g. school. or student." value={action} onChange={(e) => setAction(e.target.value)} /></div>
-        <Async state={rows} empty={<div className="empty">No entries</div>}>{(r) => <DataTable rows={r} columns={[
-          { label: 'When', render: (x) => fmtDateTime(x.createdAt) }, { label: 'Actor', render: (x) => <>{x.actorName} <span className="muted small">({x.actorRole})</span> {x.actingAsSuperAdmin && <Badge tone="amber">acting</Badge>}</> },
-          { label: 'Action', key: 'action' }, { label: 'Summary', key: 'summary' },
-        ]} />}</Async>
-      </Card>
+      <PageHeader title="Platform audit log" subtitle="Sensitive actions across all schools, including Super Admin actions inside schools. It opens on today." />
+      <AuditLog base="/api/platform" />
     </div>
   );
 }

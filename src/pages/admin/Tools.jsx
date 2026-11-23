@@ -1,52 +1,122 @@
 import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
-import { post, put, download } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Select, Stat, Tabs, useAction, fmtDateTime, label, Spinner } from '../../components/ui.jsx';
+import { post, put } from '../../api/client.js';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtDateTime, label, Spinner } from '../../components/ui.jsx';
 import { BarsChart } from '../../components/Charts.jsx';
 import NextYearModal from '../../components/NextYearModal.jsx';
+import AuditLog from '../../components/AuditLog.jsx';
+import ExportCentre from '../../components/ExportCentre.jsx';
 import { parseCsv, toCsvText, saveText } from '../../lib.js';
 
 // ───────────── Year-end promotion ─────────────
+/**
+ * Classes finish their academic year on their own dates, so the office promotes class by class: choose the classes, review their students, confirm.
+ * A class already moved (by its class teacher or earlier) is left alone, and the old year stays open until every class has left it.
+ */
+const STATUS_TONE = { upcoming: '', active: 'green', promotion_in_progress: 'amber', completed: 'blue', archived: '' };
 export function Promotion() {
   const L = useLookups();
   const [from, setFrom] = useState(''); const [to, setTo] = useState('');
+  const progress = useApi(from ? '/api/school/promotions/progress' : null, { yearId: from });
+  const setup = useApi(from && to ? '/api/school/offerings/structure' : null, { yearId: to }); // is the next year set up: sections, subjects, class teachers, subject teachers
+  const [anyway, setAnyway] = useState(false);
+  const [picked, setPicked] = useState([]);
   const [plan, setPlan] = useState(null); const [items, setItems] = useState([]);
-  const [opts, setOpts] = useState({ closeFromYear: true, makeCurrent: true });
+  const [opts, setOpts] = useState({ closeFromYear: false, makeCurrent: false });
   const [run, busy] = useAction();
   const [done, setDone] = useState(null);
   const [next, setNext] = useState(false);
   // students can only move forward: the target must be a later year that is not closed
   const fromYear = L.years.find((y) => y._id === from);
   const toOptions = fromYear ? L.years.filter((y) => y.startDate > fromYear.startDate && y.status !== 'closed').map((y) => ({ value: y._id, label: y.name })) : [];
-  const preview = async () => { const r = await run(() => post('/api/school/promotions/preview', { fromYearId: from, toYearId: to })); if (r) { setPlan(r); setItems(r.items); setDone(null); } };
+  const classes = progress.data?.classes || [];
+  const totalWaiting = classes.reduce((a, c) => a + c.waiting, 0);
+  const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const preview = async () => { const r = await run(() => post('/api/school/promotions/preview', { fromYearId: from, toYearId: to, classIds: picked })); if (r) { setPlan(r); setItems(r.items); setDone(null); setAnyway(false); setOpts((o) => ({ ...o, closeFromYear: false })); } };
   const upd = (id, patch) => setItems((xs) => xs.map((i) => (i.enrolmentId === id ? { ...i, ...patch } : i)));
   const problems = items.filter((i) => (i.action === 'promote' || i.action === 'retain') && !i.toSectionId).length;
+  const remaining = totalWaiting - items.length; // students left in the old year after this promotion
+  // the classes students are going into (moving up, or repeating) and what the next year still lacks for them
+  const goingTo = new Set(items.flatMap((i) => (i.action === 'promote' ? [String(i.toClassId)] : i.action === 'retain' ? [String(i.classId)] : [])));
+  const lacking = (plan?.readiness || []).filter((r) => goingTo.has(String(r.classId)) && !r.ready);
   const commit = async () => {
-    const r = await run(() => post('/api/school/promotions/commit', { fromYearId: from, toYearId: to, confirm: true, ...opts, items: items.map((i) => ({ enrolmentId: i.enrolmentId, action: i.action, toSectionId: ['promote', 'retain'].includes(i.action) ? i.toSectionId : undefined })) }), 'Promotion completed');
-    if (r) { setDone(r); setPlan(null); L.reload(); }
+    const r = await run(() => post('/api/school/promotions/commit', { fromYearId: from, toYearId: to, classIds: picked, confirm: true, ...opts, acknowledgeGaps: anyway, items: items.map((i) => ({ enrolmentId: i.enrolmentId, action: i.action, toSectionId: ['promote', 'retain'].includes(i.action) ? i.toSectionId : undefined })) }));
+    if (r) { setDone(r); setPlan(null); setPicked([]); setAnyway(false); L.reload(); progress.reload(); setup.reload(); }
   };
   const sectionsFor = (i) => plan.availableSections.filter((s) => (i.action === 'retain' ? s.className === i.fromClass : i.action === 'promote' ? s.className === i.toClass || !i.toClass : false));
+  const asks = (c) => c.sections.filter((s) => s.request).map((s) => `${s.name}: ${s.request.status === 'approved' ? 'approved, teacher is moving it' : 'teacher is asking'}`).join('; ');
   return (
     <div className="stack">
-      <PageHeader title="Year-end promotion" subtitle="Preview every student's outcome, adjust individually, then commit. Nothing changes until you confirm." />
+      <PageHeader title="Year-end promotion" subtitle="Classes move to the next year on their own dates. Choose the classes, review each student, then confirm. Classes you leave out, and classes already moved, are not touched." />
       {next && fromYear && <NextYearModal from={fromYear} onClose={() => setNext(false)} onCreated={(y) => { L.reload(); setTo(y._id); }} />}
-      <Card><div className="row wrap">
-        <Field label="From academic year"><Select value={from} onChange={(e) => { setFrom(e.target.value); setTo(''); }} options={L.yearOptions} placeholder="Select" /></Field>
-        <div style={{ alignSelf: 'end' }}><Button onClick={() => setNext(true)} disabled={!fromYear}>+ Create next year</Button></div>
-        <Field label="To academic year" hint={from && !toOptions.length ? 'No later year exists yet. Create the next academic year first (Academic years).' : undefined}><Select value={to} onChange={(e) => setTo(e.target.value)} options={toOptions} placeholder="Select" disabled={!from} /></Field>
-        <div style={{ alignSelf: 'end' }}><Button variant="primary" loading={busy} disabled={!from || !to || from === to} onClick={preview}>Preview promotion</Button></div></div>
-        <p className="small muted" style={{ marginTop: 10 }}>Don't have the next year yet? Use <b>Create next year</b>: it makes the year and carries over the sections, subjects and teachers. Students are placed into next-level classes in sections with free capacity; roll numbers are regenerated alphabetically.</p></Card>
-      {done && <div className="alert ok">Promotion {done.fromYear} → {done.toYear} complete: {done.promoted} promoted, {done.retained} retained, {done.completed} completed school, {done.withdrawn + done.transferredOut} left.</div>}
+      <Card title="1. Which years">
+        <div className="row wrap">
+          <Field label="From academic year"><Select value={from} onChange={(e) => { setFrom(e.target.value); setTo(''); setPicked([]); setPlan(null); }} options={L.yearOptions} placeholder="Select" /></Field>
+          <div style={{ alignSelf: 'end' }}><Button onClick={() => setNext(true)} disabled={!fromYear}>+ Create next year</Button></div>
+          <Field label="To academic year" hint={from && !toOptions.length ? 'No later year exists yet. Create the next academic year first.' : undefined}><Select value={to} onChange={(e) => { setTo(e.target.value); setPlan(null); }} options={toOptions} placeholder="Select" /></Field>
+        </div>
+        <p className="small muted" style={{ marginTop: 10 }}>Don't have the next year yet? <b>Create next year</b> makes it and carries over the sections, subjects and teachers.</p>
+      </Card>
+      {from && to && (
+        <Card title={`Is ${L.years.find((y) => y._id === to)?.name || 'the next year'} set up for the classes?`} action={<Link className="btn sm" to={`/admin/class-structure?year=${to}`}>Subjects and teachers</Link>}>
+          <Async state={setup}>{(d) => (
+            <div className="stack-sm">
+              <p className="muted" style={{ margin: 0 }}>Students move into sections that have their class teacher and each subject's teacher. The next year brings over the sections and subjects; teachers are assigned by hand.</p>
+              {d.classes.length === 0 ? <div className="alert">The next year has no sections yet. Create it from the previous year, or add its sections first.</div> : (
+                <div className="row wrap" style={{ gap: 8 }}>
+                  {d.classes.map((c) => {
+                    const gaps = c.gaps.noClassTeacher.length + c.gaps.noTeacher.reduce((a, x) => a + x.sections.length, 0) + (c.gaps.noSubjects ? 1 : 0);
+                    return <Badge key={c.classId} tone={gaps ? 'red' : 'green'} title={gaps ? [c.gaps.noClassTeacher.length && `no class teacher: ${c.gaps.noClassTeacher.join(', ')}`, ...c.gaps.noTeacher.map((x) => `${x.subject}: no teacher in ${x.sections.join(', ')}`), c.gaps.noSubjects && 'no subjects'].filter(Boolean).join(' · ') : 'Ready'}>{c.className}: {gaps ? `${gaps} to assign` : 'ready'}</Badge>;
+                  })}
+                </div>
+              )}
+              {d.summary.sectionsWithoutClassTeacher + d.summary.subjectsWithoutTeacher + d.summary.classesWithoutSubjects > 0 && <p className="small muted" style={{ margin: 0 }}>You can still promote now; you will be asked to confirm that the missing teachers will be assigned afterwards.</p>}
+            </div>
+          )}</Async>
+        </Card>
+      )}
+      {done && <div className="alert ok">Promotion {done.fromYear} → {done.toYear} complete: {done.promoted} promoted, {done.retained} repeating, {done.completed} finished school, {done.withdrawn + done.transferredOut} left.</div>}
+      {from && (
+        <Card title="2. Which classes" flush action={<div className="row"><Button size="sm" onClick={() => setPicked(classes.filter((c) => c.waiting > 0 && c.sessionEnded).map((c) => c.classId))}>Classes whose session has ended</Button><Button size="sm" onClick={() => setPicked(classes.filter((c) => c.waiting > 0).map((c) => c.classId))}>All with students waiting</Button><Button size="sm" onClick={() => setPicked([])}>None</Button></div>}>
+          <Async state={progress}>{() => (
+            <DataTable searchable={false} pageSize={50} rowKey="classId" rows={classes} empty="This year has no classes with sections yet" columns={[
+              { label: '', render: (c) => <input type="checkbox" aria-label={`Choose ${c.className}`} disabled={!c.waiting} checked={picked.includes(c.classId)} onChange={() => toggle(c.classId)} /> },
+              { label: 'Class', render: (c) => <b>{c.className}</b> },
+              { label: 'Status', render: (c) => <><Badge tone={STATUS_TONE[c.status]}>{c.statusLabel}</Badge>{c.sessionEnded && c.waiting > 0 && <div className="small muted">session ended</div>}</> },
+              { label: 'Session', render: (c) => <span style={{ whiteSpace: 'nowrap' }}>{fmtDate(c.startDate, true)} – {fmtDate(c.endDate, true)}{c.ownDates && <div className="small muted">its own dates</div>}</span> },
+              { label: 'Waiting', render: (c) => c.waiting }, { label: 'Moved', render: (c) => c.moved },
+              { label: 'Class teacher asked', render: (c) => asks(c) || <span className="muted">—</span> },
+            ]} />
+          )}</Async>
+        </Card>
+      )}
+      {from && to && (
+        <div className="row"><Button variant="primary" loading={busy} disabled={!picked.length} onClick={preview}>{picked.length ? `3. Preview ${picked.length} ${picked.length === 1 ? 'class' : 'classes'}` : '3. Preview (choose classes first)'}</Button></div>
+      )}
       {plan && (<>
-        <div className="grid g4"><Stat value={plan.summary.total} label="Students" /><Stat value={items.filter((i) => i.action === 'promote').length} label="To promote" tone="green" /><Stat value={items.filter((i) => i.action === 'retain').length} label="To retain" tone="amber" /><Stat value={problems} label="Need a section" tone={problems ? 'red' : undefined} /></div>
-        <Card flush><DataTable rows={items} rowKey="enrolmentId" columns={[{ label: 'Student', render: (i) => <b>{i.name}</b> }, { label: 'Adm. no', key: 'admissionNo' }, { label: 'From', render: (i) => `${i.fromClass} ${i.fromSection}` },
-          { label: 'Action', render: (i) => <Select value={i.action} onChange={(e) => { const action = e.target.value; const match = plan.items.find((p) => p.enrolmentId === i.enrolmentId); upd(i.enrolmentId, { action, toSectionId: action === 'promote' ? match.toSectionId : action === 'retain' ? undefined : undefined }); }} options={plan.actions.map((a) => ({ value: a, label: label(a) }))} aria-label={`Action for ${i.name}`} /> },
-          { label: 'Destination', render: (i) => ['promote', 'retain'].includes(i.action) ? <Select value={i.toSectionId || ''} onChange={(e) => upd(i.enrolmentId, { toSectionId: e.target.value })} placeholder="Choose section" options={sectionsFor(i).map((s) => ({ value: s.id, label: `${s.className} ${s.name} (${s.planned}/${s.capacity})` }))} aria-label={`Destination for ${i.name}`} /> : <span className="muted">{i.action === 'complete' ? 'Completed school' : 'Leaves school'}</span> },
-          { label: '', render: (i) => i.warnings?.map((w) => <Badge key={w} tone="red">{w}</Badge>) }]} /></Card>
-        <Card><div className="row wrap"><label className="row"><input type="checkbox" checked={opts.makeCurrent} onChange={(e) => setOpts({ ...opts, makeCurrent: e.target.checked })} /> Make {plan.toYear.name} the current year</label>
-          <label className="row"><input type="checkbox" checked={opts.closeFromYear} onChange={(e) => setOpts({ ...opts, closeFromYear: e.target.checked })} /> Close {plan.fromYear.name} (read-only history)</label><div className="grow" />
-          <ConfirmButton variant="primary" disabled={problems > 0 || busy} message={`Commit promotion for ${items.length} students? This cannot be undone.`} onConfirm={commit}>Commit promotion</ConfirmButton></div></Card></>)}
+        <div className="grid g4"><Stat value={plan.summary.total} label="Students" /><Stat value={items.filter((i) => i.action === 'promote').length} label="To promote" tone="green" /><Stat value={items.filter((i) => i.action === 'retain').length} label="To repeat" /><Stat value={items.filter((i) => i.action === 'complete').length} label="Finishing school" /></div>
+        <Card flush><DataTable rows={items} rowKey="enrolmentId" columns={[{ label: 'Student', render: (i) => <><b>{i.name}</b><div className="small muted">{i.admissionNo}</div></> }, { label: 'From', render: (i) => `${i.fromClass} ${i.fromSection}` },
+          { label: 'What happens', render: (i) => <Select aria-label={`What happens to ${i.name}`} value={i.action} onChange={(e) => { const action = e.target.value; const match = plan.items.find((p) => p.enrolmentId === i.enrolmentId); upd(i.enrolmentId, { action, toSectionId: action === 'promote' ? match?.toSectionId : undefined }); }} options={plan.actions.map((a) => ({ value: a, label: label(a) }))} /> },
+          { label: 'Goes to', render: (i) => (['promote', 'retain'].includes(i.action) ? <Select aria-label={`Section for ${i.name}`} value={i.toSectionId || ''} onChange={(e) => upd(i.enrolmentId, { toSectionId: e.target.value })} placeholder="Choose section" options={sectionsFor(i).map((x) => ({ value: x.id, label: `${x.className} ${x.name} · ${x.planned}/${x.capacity} · ${x.classTeacher ? `class teacher ${x.classTeacher}` : 'no class teacher yet'}` }))} /> : <span className="muted">—</span>) },
+          { label: '', render: (i) => <>{i.warnings?.map((w) => <Badge key={w} tone="red">{w}</Badge>)}{i.notices?.map((w) => <Badge key={w} tone="amber">{w}</Badge>)}</> }]} /></Card>
+        <Card title="Left as they are">
+          <p className="small muted" style={{ margin: 0 }}>{plan.classes.filter((c) => !c.inScope).length ? plan.classes.filter((c) => !c.inScope).map((c) => `${c.className}: ${c.waiting ? `${c.waiting} students stay in ${plan.fromYear.name}` : c.moved ? 'already moved on' : 'nobody to move'}`).join(' · ') : 'Every class with students waiting is in this promotion.'}</p>
+        </Card>
+        {lacking.length > 0 && (
+          <Card title="The next year is not fully set up for these classes">
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {lacking.map((r) => <li key={r.classId}><b>{r.className}</b>: {[r.noSubjects && 'no subjects yet', r.noClassTeacher.length > 0 && `no class teacher in ${r.noClassTeacher.join(', ')}`, ...r.noTeacher.map((x) => `no ${x.subject} teacher in ${x.sections.join(', ')}`)].filter(Boolean).join('; ')}</li>)}
+            </ul>
+            <label className="row" style={{ marginTop: 10 }}><input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} /> Promote anyway: I will assign these teachers on <Link to={`/admin/class-structure?year=${to}`}>Subjects and teachers</Link></label>
+          </Card>
+        )}
+        <Card><div className="stack-sm">
+          <label className="row"><input type="checkbox" checked={opts.makeCurrent} onChange={(e) => setOpts({ ...opts, makeCurrent: e.target.checked })} /> Show {plan.toYear.name} as the school's current year (what new admissions and the dashboard start on)</label>
+          <label className="row"><input type="checkbox" checked={opts.closeFromYear} disabled={remaining > 0} onChange={(e) => setOpts({ ...opts, closeFromYear: e.target.checked })} /> Close {plan.fromYear.name} (read-only history){remaining > 0 && <span className="small muted">&nbsp;· {remaining} students are still in classes that have not moved on</span>}</label>
+          <div className="row"><div className="grow" /><ConfirmButton variant="primary" disabled={problems > 0 || busy || (lacking.length > 0 && !anyway)} message={`Promote ${items.length} students of ${picked.length} ${picked.length === 1 ? 'class' : 'classes'}? Other classes are not touched.`} onConfirm={commit}>Promote {items.length} students</ConfirmButton></div>
+        </div></Card></>)}
     </div>
   );
 }
@@ -98,21 +168,17 @@ export function Import() {
 // ───────────── Reports ─────────────
 export function Reports() {
   const rep = useApi('/api/school/reports/summary');
-  const L = useLookups();
-  const [sectionId, setSectionId] = useState('');
-  const [run] = useAction();
   const merged = useMemo(() => (rep.data ? rep.data.strength.map((s, i) => ({ name: `${s.className?.replace('Class ', '')}-${s.section}`, students: s.students, attendance: rep.data.attendance[i]?.percentage })) : []), [rep.data]);
   return (
     <div className="stack">
-      <PageHeader title="Reports & exports" subtitle="Exports contain exactly what you are allowed to see on screen" actions={<>
-        <Button onClick={() => run(() => download('/api/school/export/students.csv', 'students.csv'))}>Export students</Button><Button onClick={() => run(() => download('/api/school/export/teachers.csv', 'teachers.csv'))}>Export teachers</Button></>} />
+      <PageHeader title="Reports & exports" subtitle="Take any list out of the school as a spreadsheet, narrowed to the class, people and dates you need. Exports contain exactly what you are allowed to see on screen." />
+      <ExportCentre />
       <Async state={rep}>{(r) => (<>
         <div className="grid g2">
           <Card title="Class strength"><BarsChart data={merged} x="name" bars={[{ key: 'students', name: 'Students' }]} /></Card>
           <Card title="Attendance by section (year to date)"><BarsChart data={merged.filter((m) => m.attendance != null)} x="name" bars={[{ key: 'attendance', name: 'Attendance %', color: 'rgb(var(--c-success))' }]} domain={[0, 100]} unit="%" /></Card>
         </div>
         <Card title="Result averages" flush><DataTable rows={r.results} rowKey="exam" empty="No published results yet" columns={[{ label: 'Class', key: 'className' }, { label: 'Exam', key: 'exam' }, { label: 'Students', key: 'students' }, { label: 'Average %', key: 'average' }]} /></Card></>)}</Async>
-      <Card title="Attendance export"><div className="row wrap"><Select value={sectionId} onChange={(e) => setSectionId(e.target.value)} options={L.sectionOptions} placeholder="Choose section" aria-label="Section" /><Button disabled={!sectionId} onClick={() => run(() => download('/api/school/export/attendance.csv', 'attendance.csv', { sectionId }))}>Download CSV</Button></div></Card>
     </div>
   );
 }
@@ -169,13 +235,10 @@ export function Settings() {
 
 // ───────────── Audit ─────────────
 export function Audit() {
-  const [action, setAction] = useState('');
-  const rows = useApi('/api/school/audit', { action, limit: 200 });
   return (
     <div className="stack">
-      <PageHeader title="Audit log" subtitle="Who did what, and when. Includes actions taken by the platform administrator on your behalf." />
-      <Card flush><div className="card-b"><Input placeholder="Filter by action, e.g. attendance. or marks." value={action} onChange={(e) => setAction(e.target.value)} aria-label="Filter" /></div>
-        <Async state={rows} empty={<Empty title="No entries" />}>{(r) => <DataTable rows={r} columns={[{ label: 'When', render: (x) => fmtDateTime(x.createdAt) }, { label: 'Who', render: (x) => <>{x.actorName} <span className="muted small">({x.actorRole})</span> {x.actingAsSuperAdmin && <Badge tone="amber">platform</Badge>}</> }, { label: 'Action', key: 'action' }, { label: 'Details', key: 'summary' }]} />}</Async></Card>
+      <PageHeader title="Audit log" subtitle="Who did what, and when. Includes actions taken by the platform administrator on your behalf. It opens on today: change the days, or narrow it by person, role, kind of action or words." />
+      <AuditLog base="/api/school" />
     </div>
   );
 }

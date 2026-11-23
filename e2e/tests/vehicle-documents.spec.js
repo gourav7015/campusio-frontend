@@ -27,6 +27,17 @@ test('the transport officer records a bus’s registration and pollution papers 
   const rc = card.getByRole('row', { name: /Registration certificate/ });
   await expect(rc).toContainText('GJ03AB4321'); await expect(rc).toContainText('Valid');
   await expect(rc.getByRole('button', { name: /View the copy of Registration/ })).toBeVisible();
+  await expect(rc).toContainText('rc.pdf'); // the list names the copy on file
+  // opening it again says what is on file, and what a new choice would do
+  await rc.getByRole('button', { name: 'Renew or edit' }).click();
+  const again = page.getByRole('dialog', { name: /Registration certificate/ });
+  await expect(again.getByText('A copy is already on file.')).toBeVisible();
+  await expect(again.getByText(/rc\.pdf · PDF · /)).toBeVisible();
+  await expect(again.getByRole('button', { name: 'View', exact: true })).toBeVisible();
+  await again.getByLabel(/Replace the copy/).setInputFiles({ name: 'rc2.pdf', mimeType: 'application/pdf', buffer: PDF });
+  await expect(again.getByText('New copy chosen: rc2.pdf')).toBeVisible();
+  await expect(again.getByText('A copy is already on file (it will be replaced when you save).')).toBeVisible();
+  await again.getByRole('button', { name: 'Cancel' }).click();
 
   // pollution: needs a date; it runs out soon, so it is flagged
   await card.getByRole('row', { name: /Pollution certificate/ }).getByRole('button', { name: /Renew|Add/ }).click();

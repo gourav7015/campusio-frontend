@@ -59,7 +59,7 @@ test('Employees filters belong to the tab, and choosing one never shrinks the ot
   await expect(page.getByLabel('Bus', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Licence', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: /^Officers and desks/ }).click();
+  await page.getByRole('tab', { name: /^Desk holders/ }).click();
   await openFilters(page);
   await expect(page.getByLabel('Desk', { exact: true })).toBeVisible();
 });
@@ -120,14 +120,13 @@ test('the desk logins page can add a Staff portal login', async ({ page }) => {
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/staff');
   await page.getByRole('button', { name: '+ Add sign-in' }).click();
-  const dlg = page.getByRole('dialog', { name: 'Add a login' });
-  await dlg.getByLabel('Portal').selectOption('staff');
-  await dlg.getByLabel('Full name').fill('Pappu Peon');
-  await dlg.getByLabel('Job title').selectOption({ index: 1 });
-  await dlg.getByLabel('Email', { exact: true }).fill(`peon${Date.now().toString().slice(-6)}@gps.test`);
-  await dlg.getByLabel('Mobile number').fill('9876500011');
-  await dlg.getByLabel('Date of birth').fill('1988-08-08');
-  await dlg.getByRole('button', { name: 'Save' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Add a desk login' });
+  await dlg.getByLabel('Desk', { exact: true }).selectOption('staff');
+  await expect(dlg.getByTestId('login-id-preview')).toContainText('Choose the employee');
+  await dlg.getByLabel('Employee who works the office desk').selectOption({ index: 1 });
+  await expect(dlg.getByTestId('login-id-preview')).toContainText(/gps\.s\d{4}/); // the login id is shown before anything is saved
+  await expect(dlg.getByLabel('Email', { exact: true })).toHaveCount(0); // no personal details are asked for a desk login
+  await dlg.getByRole('button', { name: 'Create login' }).click();
   const creds = page.getByRole('dialog', { name: 'Staff account' });
   await expect(creds).toContainText('Temporary password');
   await expect(creds).toContainText(/gps\.s\d{4}/);

@@ -1,5 +1,5 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { BookMarked, CalendarX2, ClipboardCheck, Mail, PlaneTakeoff } from 'lucide-react';
+import { BookMarked, BookOpen, CalendarX2, ClipboardCheck, Mail, PlaneTakeoff, UserX } from 'lucide-react';
 import { useGet } from '../../api/query';
 import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMotion } from '../../design/charts';
 import { AttentionList, Facts, LinkCard, Money, ShareList } from '../../design/patterns';
@@ -10,6 +10,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 interface Recent { id: string; at: string; actor: string; actingAsSuperAdmin?: boolean; summary: string }
 interface Dashboard {
   today: string; year?: { name: string };
+  coverage?: { sectionsWithoutClassTeacher: number; subjectsWithoutTeacher: number; classesWithoutSubjects: number } | null;
   cards: { students: number; teachers: number; sections: number; pendingLeave: number; unreadMessages: number; unresolvedPeriods: number };
   attendance: { students: number; present: number; absent: number; late: number; half_day?: number; leave: number; excused: number; pending: number; submitted: number; sections: number };
   attendanceTrend: { date: string; percentage: number }[];
@@ -46,6 +47,9 @@ export default function AdminDashboard() {
           { label: 'Attendance registers not submitted today', count: a.pending, to: '/admin/attendance', icon: ClipboardCheck },
           { label: 'Leave applications to review', count: x.cards.pendingLeave, to: '/admin/leave', icon: PlaneTakeoff },
           { label: 'Mark sheets waiting for review', count: x.exams.awaitingReview, to: '/admin/exams', icon: ClipboardCheck },
+          { label: 'Sections with no class teacher', count: x.coverage?.sectionsWithoutClassTeacher ?? 0, to: '/admin/class-structure', icon: UserX, tone: 'danger' },
+          { label: 'Subjects with no teacher in a section', count: x.coverage?.subjectsWithoutTeacher ?? 0, to: '/admin/class-structure', icon: UserX, tone: 'danger' },
+          { label: 'Classes with no subjects set up', count: x.coverage?.classesWithoutSubjects ?? 0, to: '/admin/class-structure', icon: BookOpen },
           { label: 'Timetable periods with no teacher', count: x.cards.unresolvedPeriods, to: '/admin/timetable', icon: CalendarX2, tone: 'danger' },
           { label: 'Unread messages', count: x.cards.unreadMessages, to: '/admin/messages', icon: Mail, tone: 'neutral' },
           { label: 'Overdue library books', count: x.library.overdue, to: '/admin/library?tab=loans', icon: BookMarked, tone: 'neutral' },

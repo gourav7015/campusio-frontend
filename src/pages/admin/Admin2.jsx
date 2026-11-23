@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import ResetPasswordButton from '../../components/ResetPassword.jsx';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { post, put, patch, del, upload, openFile } from '../../api/client.js';
+import { get, post, put, patch, del, upload, openFile } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Tabs, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import CredentialsCard from '../../components/CredentialsCard.jsx';
@@ -24,9 +25,14 @@ export function Approvals() {
   const buttons = (path, what) => <div className="row"><Button size="sm" variant="primary" onClick={() => decide(path, true, what)}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(path, false, what)}>Reject</Button></div>;
   return (
     <div className="stack">
-      <PageHeader title="Approvals" subtitle="Things waiting for your decision: expenses and vendors from Finance, period swaps and attendance on days the school is closed" />
+      <PageHeader title="Approvals" subtitle="Things waiting for your decision: classes ready to move to the next year, expenses and vendors from Finance, period swaps and attendance on days the school is closed" />
       <Async state={q}>{(d) => (<>
-        {!d.counts.expenses && !d.counts.vendors && !d.counts.swaps && !d.counts.exceptions && <Card><Empty title="Nothing is waiting for you">New requests appear here and in your notifications.</Empty></Card>}
+        {!d.counts.expenses && !d.counts.vendors && !d.counts.swaps && !d.counts.exceptions && !d.counts.promotions && <Card><Empty title="Nothing is waiting for you">New requests appear here and in your notifications.</Empty></Card>}
+        {d.counts.promotions > 0 && <Card title={`Classes ready to move to the next year (${d.counts.promotions})`} flush><DataTable rows={d.promotions} columns={[
+          { label: 'Class', render: (p) => <><b>{p.label}</b><div className="small muted">{p.fromYear} → {p.toYear}</div></> }, { label: 'Students', render: (p) => p.waiting },
+          { label: 'Asked by', render: (p) => <>{p.requestedByName}<div className="small muted">{fmtDate(p.createdAt, true)}</div></> }, { label: 'Next year', render: (p) => (p.destination?.finishes ? <Badge tone="blue">Finishes school</Badge> : p.destination?.noSections ? <><b>{p.destination.className}</b> <Badge tone="red">no sections yet</Badge></> : <><b>{p.destination?.className}</b> {p.destination?.ready ? <Badge tone="green">set up</Badge> : <Badge tone="amber">needs teachers</Badge>}{!p.destination?.ready && <div className="small muted">{[p.destination?.noSubjects && 'no subjects', p.destination?.noClassTeacher?.length && `no class teacher: ${p.destination.noClassTeacher.join(', ')}`, ...(p.destination?.noTeacher || []).map((x) => `${x.subject}: no teacher in ${x.sections.join(', ')}`)].filter(Boolean).join(' · ')} <Link to={`/admin/class-structure?year=${p.toYearId}`}>Fix</Link></div>}</>) },
+          { label: 'Note', render: (p) => p.note || <span className="muted">—</span> },
+          { label: '', render: (p) => buttons(`${A}/approvals/promotions/${p.id}`, 'request') }]} /><p className="small muted" style={{ padding: '0 16px 12px', margin: 0 }}>Approving lets the class teacher review their students and move the class. Nothing changes until they confirm. You can also move a class yourself from <Link to="/admin/promotion">Year-end promotion</Link>.</p></Card>}
         {d.counts.expenses > 0 && <Card title={`Expenses (${d.counts.expenses})`} flush><DataTable rows={d.expenses} columns={[
           { label: 'Date', render: (e) => fmtDate(e.date) }, { label: 'Expense', render: (e) => <><b>{e.title}</b> {e.nature === 'capital' && <Badge tone="blue">Capital</Badge>}<div className="small muted">{e.department}{e.work ? ` · ${e.work}` : ''}{e.vendor ? ` · ${e.vendor}` : ''}{e.billNo ? ` · bill ${e.billNo}` : ''}</div></> },
           { label: 'Bills', render: (e) => (e.attachments?.length ? <div className="stack" style={{ gap: 2 }}>{e.attachments.map((a) => <Button key={a.fileId} size="sm" onClick={() => run(async () => { await openFile(a.fileId); return true; })} aria-label={`View ${a.name}`}>{a.name.length > 22 ? `${a.name.slice(0, 20)}…` : a.name}</Button>)}</div> : <Badge tone="amber">No bill attached</Badge>) },
@@ -54,13 +60,13 @@ export function SubAdmins() {
   const [modal, setModal] = useState(null); const [creds, setCreds] = useState(null); const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Sub-admins" subtitle="Give someone a limited admin login: for example only teacher and staff attendance. You choose exactly what each one can open. Their login and email are created here, by you." actions={<Button variant="primary" onClick={() => setModal({})}>+ Add a sub-admin</Button>} />
+      <PageHeader title="Sub-admins" subtitle="Give someone a limited admin login: for example only teacher and staff attendance. You choose exactly what each one can open. Their login is created here, by you." actions={<Button variant="primary" onClick={() => setModal({})}>+ Add a sub-admin</Button>} />
       <Card flush><Async state={list} empty={<Empty title="No sub-admins yet">Add one to share the daily work without sharing everything.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[
-        { label: 'Name', render: (u) => <><b>{u.name}</b><div className="small muted">{u.email} · {u.loginId}</div></> },
+        { label: 'Name', render: (u) => <><b>{u.name}</b><div className="small muted">{u.loginId}{u.email && u.email !== u.loginId ? ` · ${u.email}` : ''}</div></> },
         { label: 'Can open', render: (u) => <div className="row wrap" style={{ gap: 4 }}>{u.permissions.map((p) => <Badge key={p}>{opts.data?.permissions.find((x) => x.key === p)?.label.split(',')[0] || p}</Badge>)}</div> },
         { label: 'Status', render: (u) => <Badge tone={u.status === 'active' ? 'green' : 'red'}>{label(u.status)}</Badge> }, { label: 'Last sign-in', render: (u) => (u.lastLoginAt ? fmtDate(u.lastLoginAt, true) : 'Never') },
         { label: '', render: (u) => <div className="row"><Button size="sm" onClick={() => setModal(u)}>Edit</Button>
-          <ConfirmButton size="sm" message={`Reset the password of ${u.name}? They must choose a new one at next sign-in.`} onConfirm={async () => { const r = await run(() => post(`${A}/sub-admins/${u.id}/reset-password`)); if (r) setCreds({ ...r, name: u.name }); }}>Reset password</ConfirmButton>
+          <ResetPasswordButton url={`${A}/sub-admins/${u.id}/reset-password`} name={u.name} onDone={setCreds} />
           <Button size="sm" onClick={async () => { await run(() => patch(`${A}/sub-admins/${u.id}`, { status: u.status === 'active' ? 'disabled' : 'active' }), 'Updated'); list.reload(); }}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button></div> }]} />}</Async></Card>
       {modal && opts.data && <SubAdminForm opts={opts.data} user={modal.id ? modal : null} onClose={() => setModal(null)} onDone={(c) => { list.reload(); if (c) setCreds(c); }} />}
       {creds && <CredentialsCard creds={creds} title={`Login for ${creds.name}`} onClose={() => setCreds(null)} />}
@@ -69,17 +75,18 @@ export function SubAdmins() {
 }
 
 function SubAdminForm({ opts, user, onClose, onDone }) {
-  const [name, setName] = useState(user?.name || ''); const [email, setEmail] = useState(user?.email || ''); const [phone, setPhone] = useState(''); const [dob, setDob] = useState(''); const [perms, setPerms] = useState(new Set(user?.permissions || []));
+  const [name, setName] = useState(user?.name || ''); const [loginId, setLoginId] = useState(''); const [suggested, setSuggested] = useState(''); const [perms, setPerms] = useState(new Set(user?.permissions || []));
   const [run, busy] = useAction();
+  useEffect(() => { if (!user) get(`${A}/sub-admins/login-preview`).then((r) => setSuggested(r.loginId)).catch(() => {}); }, [user]); // the login id the system would give, shown before anything is saved
   const toggle = (k) => setPerms((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const save = async () => {
     const body = { name, permissions: [...perms] };
-    const r = await run(() => (user ? patch(`${A}/sub-admins/${user.id}`, body) : post(`${A}/sub-admins`, { ...body, email, phone, dob })), user ? 'Saved' : 'Sub-admin created');
+    const r = await run(() => (user ? patch(`${A}/sub-admins/${user.id}`, body) : post(`${A}/sub-admins`, { ...body, loginId: loginId.trim() || undefined })), user ? 'Saved' : 'Sub-admin created');
     if (r) { onDone(user ? null : { ...r, name }); onClose(); }
   };
   return (
-    <FormShell title={user ? `Edit ${user.name}` : 'Add a sub-admin'} onClose={onClose} onSave={save} busy={busy} disabled={!name.trim() || (!user && (!email.trim() || phone.replace(/\D/g, '').length < 10 || !dob)) || !perms.size}>
-      <div className="form-grid"><Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>{!user && <Field label="Email" hint="Sign-in codes and password resets are sent here"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>}{!user && <Field label="Mobile number"><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>}{!user && <Field label="Date of birth" hint="Asked when a forgotten password is reset"><Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></Field>}</div>
+    <FormShell title={user ? `Edit ${user.name}` : 'Add a sub-admin'} onClose={onClose} onSave={save} busy={busy} disabled={!name.trim() || !perms.size}>
+      <div className="form-grid"><Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>{!user && <Field label="Login ID" hint="Made for you; type your own if you prefer. It is what they sign in with, with the password shown after saving."><Input value={loginId} placeholder={suggested} autoComplete="off" onChange={(e) => setLoginId(e.target.value)} /></Field>}</div>
       <div className="stack-sm" style={{ marginTop: 12 }}>
         <b>Quick sets</b>
         <div className="row wrap">{Object.entries(opts.presets).map(([k, p]) => <Button key={k} size="sm" onClick={() => setPerms(new Set(p.permissions))}>{p.label}</Button>)}</div>

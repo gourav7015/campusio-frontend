@@ -1,3 +1,4 @@
+import ResetPasswordButton from './ResetPassword.jsx';
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
 import { del, patch, post } from '../api/client.js';
@@ -36,7 +37,7 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
             { label: 'Joined', render: (s) => fmtDate(s.joiningDate, true) }, ...(logins ? [{ label: 'Sign-in', render: (s) => (s.hasLogin ? <><Badge tone="green">Office desk sign-in</Badge></> : s.canMarkAttendance ? <Badge tone="amber">Desk, no sign-in yet</Badge> : <span className="muted">None</span>) }] : []), { label: 'Status', render: (s) => <Badge tone={s.status === 'active' ? 'green' : ''}>{label(s.status)}</Badge> },
             ...(canEdit ? [{ label: '', render: (s) => <div className="row"><Button size="sm" onClick={() => setEdit(s)}>Edit</Button>
               {logins && s.status === 'active' && (s.hasLogin
-                ? <><Button size="sm" onClick={async () => { const r = await run(() => post(`${staffBase}/${s._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button><ConfirmButton size="sm" message={`Remove ${s.name}'s sign-in? They stay on the staff list; they just no longer work for the office desk.`} onConfirm={async () => { await run(() => post(`${staffBase}/${s._id}/remove-login`), 'Sign-in removed'); reload(); }}>Remove sign-in</ConfirmButton></>
+                ? <><ResetPasswordButton url={`${staffBase}/${s._id}/reset-password`} name={s.name} onDone={setCreds} /><ConfirmButton size="sm" message={`Remove ${s.name}'s sign-in? They stay on the staff list; they just no longer work for the office desk.`} onConfirm={async () => { await run(() => post(`${staffBase}/${s._id}/remove-login`), 'Sign-in removed'); reload(); }}>Remove sign-in</ConfirmButton></>
                 : <Button size="sm" onClick={async () => {
                 if (!s.canMarkAttendance && !(await dlg.confirm(`${s.name} will work for the office desk: take attendance, record staff leave, see the employee list and answer teachers' queries. Only staff with these duties have a sign-in.`, { title: 'Give the office desk?', confirmLabel: 'Give the desk and create a sign-in' }))) return;
                 if (!s.canMarkAttendance) await run(() => patch(`${staffBase}/${s._id}`, { canMarkAttendance: true }));

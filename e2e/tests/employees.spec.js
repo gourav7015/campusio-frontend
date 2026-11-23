@@ -34,9 +34,10 @@ test('Employees lists everyone: teaching, non-teaching, officers and transport c
   await page.goto('/admin/employees');
   await expect(page.getByRole('heading', { name: 'Employees' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /^Everyone \(\d+\)/ })).toBeVisible();
-  await page.getByRole('tab', { name: /^Officers and desks/ }).click();
-  await expect(page.getByRole('row', { name: /Farah Accounts/ })).toContainText('Finance Officer');
-  await expect(page.getByRole('row', { name: /Transport Officer/ })).toBeVisible();
+  await page.getByRole('tab', { name: /^Desk holders/ }).click();
+  await expect(page.getByRole('columnheader', { name: 'Last active' })).toBeVisible(); // desk holders show when they were last active, not just that they have a login
+  await expect(page.getByRole('row', { name: /Farah Accounts/ })).toContainText('Finance desk holder'); // the desk they hold, in the Group column
+  await expect(page.getByRole('row', { name: /Tarun Transport/ })).toContainText('Transport desk holder');
   await page.getByRole('tab', { name: /^Transport crew/ }).click();
   await expect(page.getByRole('row', { name: /Harish Driver/ })).toContainText('Driver');
   await page.getByRole('tab', { name: /^Non-teaching staff/ }).click();

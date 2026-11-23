@@ -92,7 +92,18 @@ async function renewIfNeeded(path) {
  * Every call is retried twice on a dropped connection (not on a server answer). A POST carries an Idempotency-Key that stays the same across
  * those tries, so a request that did reach the server the first time is never done twice.
  */
-export async function api(path, { method = 'GET', body, query, form } = {}) {
+const VIEW_YEAR = 'atk.viewYear';
+/** The academic year an administrator or teacher chose to look at (classes can be in different years at once). null: the default. */
+export const getViewYear = () => { try { return sessionStorage.getItem(VIEW_YEAR) || null; } catch { return null; } };
+export const setViewYear = (id) => { try { if (id) sessionStorage.setItem(VIEW_YEAR, id); else sessionStorage.removeItem(VIEW_YEAR); } catch { /* private window: the choice simply is not kept */ } };
+/** Reads of the school's or a teacher's pages carry the chosen year, unless the call already names one. */
+const withViewYear = (path, query, method) => {
+  const y = method === 'GET' ? getViewYear() : null;
+  return y && (path.startsWith('/api/school/') || path.startsWith('/api/teacher/')) && !path.startsWith('/api/school/years') && !path.startsWith('/api/teacher/years') && !(query && 'yearId' in query) && !path.includes('yearId=') ? { ...(query || {}), yearId: y } : query;
+};
+
+export async function api(path, { method = 'GET', body, query: q, form } = {}) {
+  const query = withViewYear(path, q, method);
   const isForm = form instanceof FormData;
   await renewIfNeeded(path);
   const extra = isForm || body === undefined ? {} : { 'Content-Type': 'application/json' };
@@ -107,6 +118,8 @@ export async function api(path, { method = 'GET', body, query, form } = {}) {
     }
   }
   if (!res.ok) throw await parseError(res);
+  // anything the person changes makes the numbers on dashboards stale: they are asked for again, so nobody has to refresh by hand
+  if (method !== 'GET' && !path.startsWith('/api/auth/') && typeof window !== 'undefined') window.dispatchEvent(new Event('atk:changed')); // signing in or out is not a change to the school's data
   if (res.status === 204) return null;
   return res.json();
 }
@@ -141,6 +154,11 @@ export async function openPdf(path, filename = 'document.pdf') {
 }
 
 /** Files are never public: ask for a short-lived signed link, then open it. */
+/** A short-lived address for a file the person may see, to show it inside a page (for example a thumbnail). */
+export async function fileUrl(fileId, linkPath) {
+  const { url } = await post(linkPath || `/api/shared/files/${fileId}/link`);
+  return `${BASE}${url}`;
+}
 export async function openFile(fileId, linkPath) {
   const { url } = await post(linkPath || `/api/shared/files/${fileId}/link`); // linkPath: a page that checks access its own way (a help desk ticket)
   window.open(`${BASE}${url}`, '_blank', 'noopener');

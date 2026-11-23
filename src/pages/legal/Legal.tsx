@@ -60,7 +60,7 @@ export function Privacy() {
       <P>People whose data is held can ask to know what is held, to have it corrected or completed, to have it erased where the law allows, to have a grievance resolved, and to nominate someone to act for them. Parents and guardians exercise these rights for their children. Please make requests to your school first: the school’s administrator can correct records and can ask {site.name} for help with an export or an erasure.</P>
 
       <H>9. Questions and complaints</H>
-      <P>{site.grievanceOfficer ? <>Grievance officer: {site.grievanceOfficer}. </> : null}<Reach /> If a concern is not resolved you may approach the Data Protection Board of India once it is operational for complaints.</P>
+      <P>{site.grievanceOfficer ? <>Grievance officer: {site.grievanceOfficer}. </> : null}For a request about personal data, or a complaint, write to <Contact kind="privacy" />. If a concern is not resolved you may approach the Data Protection Board of India once it is operational for complaints.</P>
 
       <H>10. Changes</H>
       <P>When this policy changes, the new version will be published here. See also <Link className={link} to="/cookies">cookies and browser storage</Link>.</P>
@@ -124,7 +124,7 @@ export function Refunds() {
     <LegalPage title="Refund and cancellation policy">
       <P>{site.name} does not take online payments. School fees are recorded by the school’s finance desk (cash, cheque, UPI or bank transfer received by the school), and any refund of school fees is governed by that school’s own policy, not by this page.</P>
       <H>Subscription to {site.name}</H>
-      <P>Cancellation, refunds and renewal of a school’s subscription are set out in the agreement between the school and <Name />. <Reach /></P>
+      <P>Cancellation, refunds and renewal of a school’s subscription are set out in the agreement between the school and <Name />. For billing questions write to <Contact kind="billing" />.</P>
     </LegalPage>
   );
 }

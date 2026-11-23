@@ -17,10 +17,10 @@ export const Wordmark = () => (
 );
 
 /** A contact detail as a real link (mailto: / tel:). Renders nothing until the company has set it. */
-export function Contact({ kind }: { kind: 'email' | 'phone' }) {
-  const v = kind === 'email' ? site.email : site.phone;
+export function Contact({ kind }: { kind: 'email' | 'phone' | 'support' | 'privacy' | 'billing' | 'security' }) {
+  const v = kind === 'phone' ? site.phone : kind === 'email' ? site.email : site.mailboxes[kind];
   if (!v) return null;
-  return <a className="font-medium text-primary-ink hover:underline" href={kind === 'email' ? `mailto:${v}` : `tel:${v.replace(/[^+\d]/g, '')}`}>{v}</a>;
+  return <a className="font-medium text-primary-ink hover:underline" href={kind === 'phone' ? `tel:${v.replace(/[^+\d]/g, '')}` : `mailto:${v}`}>{v}</a>;
 }
 
 export function PublicFooter() {

@@ -72,32 +72,21 @@ test('a half day with its session is saved and shown the same way for students a
 test('an officer role is held by a person: give it to someone on the staff list, or name the person', async ({ page }) => {
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/staff');
-  await expect(page.getByRole('columnheader', { name: /Person/ })).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: /Role held/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /Held by/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /^Desk/ })).toBeVisible();
   await page.getByRole('button', { name: '+ Add sign-in' }).click();
-  const dlg = page.getByRole('dialog', { name: 'Add a login' });
-  await dlg.getByLabel('Portal').selectOption('library');
-  const who = dlg.getByLabel('Who holds this role?');
+  const dlg = page.getByRole('dialog', { name: 'Add a desk login' });
+  await dlg.getByLabel('Desk', { exact: true }).selectOption('library');
+  const who = dlg.getByLabel(/Employee who runs this desk/);
   await expect(who).toBeVisible();
   await expect.poll(async () => who.locator('option').count()).toBeGreaterThan(1); // people already on the staff list
   await who.selectOption({ index: 1 });
-  await expect(dlg.getByLabel('Full name')).toHaveCount(0); // the person already has a name
-  await dlg.getByLabel('Email', { exact: true }).fill(`holder${Date.now().toString().slice(-6)}@gps.test`);
-  await dlg.getByLabel('Mobile number').fill('9876500011');
-  await dlg.getByLabel('Date of birth').fill('1988-08-08');
-  await dlg.getByRole('button', { name: 'Save' }).click();
+  await dlg.getByRole('button', { name: 'Create login' }).click();
   await expect(page.getByRole('dialog', { name: 'Staff account' })).toContainText('Temporary password');
   await page.getByRole('dialog', { name: 'Staff account' }).getByRole('button', { name: 'Done' }).click();
-  // a role-named account can be given the person's real name
-  await page.getByRole('row', { name: /Farah Accounts/ }).getByRole('button', { name: 'Edit person' }).click();
-  await page.getByRole('dialog').getByLabel('Person\'s name').fill('Farah Khan');
-  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('row', { name: /Farah Khan/ })).toContainText('Finance Officer');
-  // put the demo name back so the other tests find it
-  await page.getByRole('row', { name: /Farah Khan/ }).getByRole('button', { name: 'Edit person' }).click();
-  await page.getByRole('dialog').getByLabel('Person\'s name').fill('Farah Accounts');
-  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByRole('row', { name: /Farah Accounts/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
+  // the desk's person is changed with Change employee (the Desk logins page has no free-text rename)
+  await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(0);
 });
 
 test('the timetable can be downloaded for every section, one class or one section, as PDF or CSV', async ({ page }) => {

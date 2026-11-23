@@ -43,6 +43,7 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!x) return <PageSkeleton />;
   const buses = links.buses;
+  const withFilter = (kind: string) => (buses ? `${buses}${buses.includes('?') ? '&' : '?'}attention=${kind}` : '#'); // the Buses page opens narrowed to these
 
   return (
     <div className="space-y-6">
@@ -50,8 +51,8 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2"><AttentionList items={[
-          { label: 'Running buses short of a driver or conductor', count: x.needsCrew.length, to: buses ?? '#', icon: UserX, tone: 'danger' },
-          { label: 'Certificates or licences expired or due within 30 days', count: x.alerts.length, to: buses ?? '#', icon: FileWarning },
+          { label: 'Running buses short of a driver or conductor', count: x.needsCrew.length, to: withFilter('crew'), icon: UserX, tone: 'danger' },
+          { label: 'Certificates or licences expired or due within 30 days', count: x.alerts.length, to: withFilter('papers'), icon: FileWarning },
         ]} /></div>
         <LinkCard title="Buses short of crew" to={buses} linkLabel="Buses">
           {x.needsCrew.length ? <ul className="space-y-2.5 text-sm">{x.needsCrew.map((b) => <li key={b.busNo} className="flex items-center justify-between gap-3"><span className="font-medium">{b.busNo}</span><span className="flex gap-1.5">{b.missing.map((m) => <Badge key={m} tone="warning">{m}</Badge>)}</span></li>)}</ul>
@@ -63,7 +64,7 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
         <StatCard label="Buses running" value={x.buses.running} hint={`${x.buses.total} in total${x.buses.maintenance ? ` · ${x.buses.maintenance} in maintenance` : ''}`} to={buses} />
         <StatCard label="Students ride" value={x.riders.toLocaleString('en-IN')} hint={x.occupancy != null ? `${x.occupancy}% of seats taken · ${x.seatsFree} free` : undefined} to={buses} />
         <StatCard label="Transport staff" value={x.staff.total} hint={x.staff.byDesignation.filter((s) => s.count).map((s) => `${s.count} ${s.name}`).join(' · ') || 'None added yet'} />
-        <StatCard label="Need attention" value={x.needsCrew.length + x.alerts.length} hint={`${x.needsCrew.length} short of crew · ${x.alerts.length} certificates`} />
+        <StatCard label="Needs attention" value={x.needsCrew.length + x.alerts.length} hint={`${x.needsCrew.length} short of crew · ${x.alerts.length} certificates`} />
       </div>
 
       {x.fullBuses.length > 0 && (

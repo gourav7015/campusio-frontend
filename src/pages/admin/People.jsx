@@ -1,3 +1,4 @@
+import ResetPasswordButton from '../../components/ResetPassword.jsx';
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
@@ -126,7 +127,7 @@ export function Students() {
         </FilterBar>
         <Async state={list}>{(d) => (<>
           <DataTable rows={d.items} empty="No students match" onRowClick={(s) => nav(`/admin/students/${s._id}`)} columns={[
-            { label: 'Adm. no', key: 'admissionNo' }, { label: 'Name', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => s.enrolment ? `${s.enrolment.className} ${s.enrolment.section}` : <Badge>Not enrolled</Badge> },
+            { label: 'Adm. no', key: 'admissionNo' }, { label: 'Name', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => s.enrolment ? <>{s.enrolment.className} {s.enrolment.section}{s.enrolment.yearName && list.data?.year?.name && s.enrolment.yearName !== list.data.year.name && <div className="small muted">in {s.enrolment.yearName}</div>}</> : <Badge>Not enrolled</Badge> },
             { label: 'Roll', render: (s) => s.enrolment?.rollNo ?? '—' }, { label: 'Guardian', render: (s) => s.guardians?.[0]?.name }, { label: 'Phone', render: (s) => s.guardians?.[0]?.phone }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{label(s.status)}</Badge> },
           ]} />
           <ListFooter total={d.total} noun="student" page={page} pageSize={25} onPage={setPage} /></>)}</Async>
@@ -163,7 +164,7 @@ export function StudentDetail() {
             <Button onClick={() => setModal('edit')}>Edit</Button>
             {st.status === 'active' && <><Button onClick={() => setModal('transfer')} disabled={!active}>Move section</Button><Button variant="danger" onClick={() => setModal('withdraw')}>Withdraw</Button></>}
             {st.status !== 'active' && st.status !== 'archived' && <Button onClick={async () => { await run(() => post(`/api/school/students/${id}/reactivate`), 'Reactivated'); s.reload(); }}>Reactivate</Button>}
-            <Button onClick={async () => { const r = await run(() => post(`/api/school/students/${id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button></>} />
+            <ResetPasswordButton size="md" url={`/api/school/students/${id}/reset-password`} name={st.name} onDone={setCreds} /></>} />
           <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
           <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
@@ -179,7 +180,8 @@ export function StudentDetail() {
             </div>)}
           {tab === 'privacy' && <StudentPrivacy studentId={id} name={st.name} onErased={s.reload} />}
           {tab === 'history' && (<div className="stack">
-            <Card title="Academic enrolments" flush><DataTable rows={st.enrolments} columns={[{ label: 'Year', key: 'year' }, { label: 'Class', key: 'className' }, { label: 'Section', key: 'section' }, { label: 'Roll', key: 'rollNo' }, { label: 'From', render: (e) => fmtDate(e.startDate, true) }, { label: 'To', render: (e) => fmtDate(e.endDate, true) }, { label: 'Status', render: (e) => <Badge tone={statusTone(e.status)}>{label(e.status)}</Badge> }]} /></Card>
+            <Card title="Academic enrolments" flush><DataTable rows={st.enrolments} columns={[{ label: 'Year', key: 'year' }, { label: 'Class', key: 'className' }, { label: 'Section', key: 'section' }, { label: 'Roll', key: 'rollNo' }, { label: 'From', render: (e) => fmtDate(e.startDate, true) }, { label: 'To', render: (e) => fmtDate(e.endDate, true) }, { label: 'Status', render: (e) => <Badge tone={statusTone(e.status)}>{label(e.status)}</Badge> },
+              { label: '', render: (e) => (['promoted', 'retained', 'completed'].includes(e.status) ? <ConfirmButton size="sm" message={`Put ${st.name} back in ${e.className} ${e.section} of ${e.year}? Allowed only while nothing has been recorded for them in the new year.`} onConfirm={async () => { if (await run(() => post('/api/school/promotions/undo', { enrolmentId: e._id }), 'Put back in their class')) { s.reload(); ov.reload(); } }}>Put back</ConfirmButton> : null) }]} /></Card>
             <Card title="Section transfers" flush><DataTable rows={st.transfers} empty="No transfers" columns={[{ label: 'Effective', render: (t) => fmtDate(t.effectiveDate, true) }, { label: 'From', key: 'fromSection' }, { label: 'To', key: 'toSection' }, { label: 'Reason', key: 'reason' }]} /></Card></div>)}
           {tab === 'documents' && (
             <Card title="Documents (private to the school and this student)" action={<div className="row">
@@ -261,7 +263,7 @@ export function TeacherDetail() {
         <div className="row"><Avatar fileId={x.photoFileId} name={x.name} size={72} /><PhotoUpload path={`/api/school/teachers/${id}/photo`} upload={upload} label={x.photoFileId ? 'Change photo' : 'Add a photo'} onDone={t.reload} /></div>
         <PageHeader title={x.name} subtitle={`${x.designation || 'Teacher'} · Employee ${x.employeeId}`} actions={<>
           <Button onClick={() => setModal(true)}>Edit</Button>
-          <Button onClick={async () => { const r = await run(() => post(`/api/school/teachers/${id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
+          <ResetPasswordButton size="md" url={`/api/school/teachers/${id}/reset-password`} name={x.name} onDone={setCreds} />
           {x.status === 'active' ? <ConfirmButton variant="danger" message="Deactivate this teacher? Their login is disabled and all open assignments end today. Past records stay with them." onConfirm={async () => {
             let r;
             try { r = await post(`/api/school/teachers/${id}/deactivate`, {}); } catch (e) {

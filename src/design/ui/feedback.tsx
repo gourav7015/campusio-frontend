@@ -1,5 +1,5 @@
 import { useSyncExternalStore, type HTMLAttributes, type ReactNode } from 'react';
-import { AlertTriangle, Inbox, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Inbox, Lock, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Button } from './button';
 import { ErrorScreen, isConnectionProblem } from '../ErrorScreen';
@@ -30,6 +30,7 @@ export function EmptyState({ icon: Icon = Inbox, title, description, action, cla
 
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
   if (isConnectionProblem(error)) return <ErrorScreen inline error={error} onRetry={onRetry} />;
+  if ((error as { status?: number } | null)?.status === 403) return <EmptyState className={className} icon={Lock} title="You do not have access to this" description={(error as Error).message || 'Ask your school admin if you need it.'} />;
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong';
   const message = raw;
   return (

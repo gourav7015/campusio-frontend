@@ -9,6 +9,9 @@ export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: (n, e) => { const status = (e as unknown as { status?: number }).status; return n < 1 && !(status && status < 500); } } },
 });
 
+// a change made anywhere refreshes what dashboards and lists have cached (client.js announces it)
+if (typeof window !== 'undefined') window.addEventListener('atk:changed', () => { void queryClient.invalidateQueries(); });
+
 export type Params = Record<string, string | number | boolean | undefined | null>;
 
 /** Typed GET. `path` null skips the request. */

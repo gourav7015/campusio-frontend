@@ -293,17 +293,15 @@ test('admin: subjects come from teachers (no master list); staff accounts for fi
   // staff
   await page.goto('/admin/staff');
   await page.getByRole('button', { name: '+ Add sign-in' }).click();
-  await page.getByLabel('Full name').fill('Fatima Clerk');
-  await page.getByLabel('Portal').selectOption('finance');
-  await page.getByLabel('Email', { exact: true }).fill(`clerk${uid}@gps.test`);
-  await page.getByLabel('Mobile number').fill('9876500012');
-  await page.getByLabel('Date of birth').fill('1989-09-09');
-  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await page.getByLabel('Desk', { exact: true }).selectOption('finance');
+  await expect(page.getByTestId('login-id-preview')).toContainText(/^[a-z]+\.finance\d*$/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create login' }).click();
   const creds = page.getByRole('dialog', { name: 'Staff account' });
   await expect(creds).toContainText('Temporary password');
   const [loginId, tempPw] = await creds.locator('dd b').allTextContents();
   await creds.getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByRole('cell', { name: 'Fatima Clerk' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
+  await expect(page.getByText(`Login id: ${loginId}`)).toBeVisible(); // the new desk login is in the list, with the login id that was previewed
   await signOut(page);
   // the new clerk must use the FINANCE door and change the temporary password
   await signIn(page, 'student', loginId, tempPw, { expectFail: true });
@@ -773,7 +771,7 @@ test('transport officer: own designations, drivers and conductors, buses and rid
   const busRow = page.getByRole('row', { name: new RegExp(`BUS-${uid}`) });
   await expect(busRow).toContainText('Ramesh Driver');
   await expect(busRow).toContainText('Suresh Conductor');
-  await busRow.getByRole('button', { name: 'Documents' }).click();
+  await busRow.getByRole('button', { name: 'Riders and stops' }).click();
   await page.getByRole('button', { name: '+ Add students' }).click();
   const add = page.getByRole('dialog').last();
   await add.getByLabel('Class', { exact: true }).selectOption({ label: 'Class 8' });
@@ -843,6 +841,7 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await expect(creds).toContainText('Temporary password');
   const [loginId, tempPw] = await creds.locator('dd b').allTextContents();
   await creds.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
   await page.getByLabel('Search students').fill(name);
   await expect(page.getByRole('cell', { name })).toBeVisible();
   // withdrawal is blocked while fees are unpaid — and can be overridden knowingly
@@ -858,9 +857,9 @@ test('admin admits a student: auto-billed, must change password, honest empty st
 
   await signIn(page, 'student', loginId, tempPw);
   await expect(page).toHaveURL(/account\?force=1/);
-  await expect(page.getByText('You must set a new password')).toBeVisible();
+  await expect(page.getByText('Choose your own to continue')).toBeVisible();
   await page.goto('/student'); await expect(page).toHaveURL(/account\?force=1/);
-  await page.getByLabel('Current password').fill(tempPw);
+  await expect(page.getByLabel('Current password')).toHaveCount(0);
   await page.getByLabel('New password', { exact: true }).fill('weak');
   await page.getByLabel('Confirm new password').fill('weak');
   await page.getByRole('button', { name: 'Update password' }).click();
@@ -901,6 +900,7 @@ test('super admin creates a school, acts inside it for data setup, and exits', a
   await expect(creds).toContainText(`admin@rv${uid}.test`);
   const [, tempPw] = await creds.locator('dd b').allTextContents();
   await creds.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
   await page.getByRole('link', { name: school }).first().click();
   await page.getByRole('button', { name: /Open school/ }).click();
   await expect(page.getByText(/You are acting on/)).toBeVisible();

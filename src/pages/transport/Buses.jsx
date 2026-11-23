@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { del, patch, post } from '../../api/client.js';
 import VehicleDocuments from '../../components/VehicleDocuments.jsx';
@@ -14,27 +15,46 @@ const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !=
  */
 export default function Buses({ base, readOnly = false }) {
   const list = useApi(`${base}/buses`);
-  const [edit, setEdit] = useState(null); const [view, setView] = useState(null);
+  const [sp] = useSearchParams();
+  // the dashboard links here already narrowed (?attention=crew or papers); these are the choices on screen
+  const [fl, setFl] = useState({ q: '', status: '', attention: ['crew', 'papers', 'nodocs'].includes(sp.get('attention')) ? sp.get('attention') : '' });
+  const setF = (patch) => setFl((x) => ({ ...x, ...patch }));
+  const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [docsOf, setDocsOf] = useState(null); // view: the whole bus (riders, stops, papers); docsOf: only its papers
   return (
     <div className="stack">
-      <PageHeader title="Buses" subtitle={readOnly ? 'Managed by the Transport officer. You can see everything here, but buses and riders are changed from the Transport desk.' : 'Vehicles, their driver and conductor, routes and stops, and the students who ride each bus. Students see their own bus on their portal.'}
+      <PageHeader title="Buses and riders" subtitle={readOnly ? 'Managed by the Transport officer. You can see everything here, but buses and riders are changed from the Transport desk.' : 'Vehicles, their driver and conductor, routes and stops, and the students who ride each bus. Students see their own bus on their portal.'}
         actions={!readOnly && <Button variant="primary" onClick={() => setEdit({ ...blank })}>+ Add bus</Button>} />
       <Async state={list} empty={<Empty title="No buses yet" />}>{(rows) => {
         const riders = rows.reduce((n, b) => n + b.students, 0); const seats = rows.filter((b) => b.status === 'active').reduce((n, b) => n + b.capacity, 0);
         const alerts = rows.flatMap((b) => b.alerts.map((a) => ({ bus: b.busNo, ...a })));
+        const nq = fl.q.trim().toLowerCase();
+        const shortOfCrew = (b) => b.status === 'active' && (!b.driver || !b.conductor);
+        const shown = rows.filter((b) => (!fl.status || b.status === fl.status)
+          && (!fl.attention || (fl.attention === 'crew' ? shortOfCrew(b) : fl.attention === 'papers' ? b.alerts.length > 0 : !b.documents?.total))
+          && (!nq || [b.busNo, b.registrationNo, b.routeName, b.driver?.name, b.conductor?.name].some((v) => String(v || '').toLowerCase().includes(nq))));
+        const filtered = Object.values(fl).some(Boolean);
         return (<>
           <div className="grid g3"><Stat value={rows.length} label="Buses" sub={`${rows.filter((b) => b.status === 'active').length} running`} /><Stat value={riders} label="Students ride" sub={`${seats - riders} seats free`} tone="blue" /><Stat value={alerts.length} label="Certificates to renew" sub="expired or within 30 days" tone={alerts.length ? 'red' : 'green'} /></div>
-          <Card flush><DataTable rows={rows} onRowClick={(b) => setView(b._id)} columns={[
+          <Card><div className="row wrap" style={{ alignItems: 'end' }}>
+            <Field label="Search"><Input aria-label="Search buses" placeholder="Bus, route, driver or conductor" value={fl.q} onChange={(e) => setF({ q: e.target.value })} /></Field>
+            <Field label="Status"><Select aria-label="Status" value={fl.status} onChange={(e) => setF({ status: e.target.value })} placeholder="Any status" options={[{ value: 'active', label: 'Running' }, { value: 'maintenance', label: 'In maintenance' }, { value: 'retired', label: 'Retired' }]} /></Field>
+            <Field label="Needs attention"><Select aria-label="Needs attention" value={fl.attention} onChange={(e) => setF({ attention: e.target.value })} placeholder="Everything" options={[{ value: 'crew', label: 'Short of a driver or conductor' }, { value: 'papers', label: 'Certificates or licences expired or due soon' }, { value: 'nodocs', label: 'No documents added' }]} /></Field>
+            {filtered && <Button onClick={() => setFl({ q: '', status: '', attention: '' })}>Clear</Button>}
+            <span className="muted small" role="status" style={{ alignSelf: 'center' }}>{shown.length} of {rows.length} buses</span>
+          </div></Card>
+          <Card flush><DataTable rows={shown} empty="No buses match these choices" onRowClick={(b) => setView(b._id)} columns={[
             { label: 'Bus', render: (b) => <><b>{b.busNo}</b> <Badge tone={tone(b.status)}>{label(b.status)}</Badge><div className="small muted">{b.registrationNo} {b.vehicleModel ? `· ${b.vehicleModel}` : ''}</div></> },
             { label: 'Route', render: (b) => <>{b.routeName || '—'}<div className="small muted">{b.stops.length} stops{b.startTime ? ` · starts ${b.startTime}` : ''}</div></> },
             { label: 'Driver', render: (b) => (b.driver ? <>{b.driver.name}<div className="small muted">{b.driver.phone}</div></> : <Badge tone="amber">No driver</Badge>) },
             { label: 'Conductor', render: (b) => (b.conductor ? <>{b.conductor.name}<div className="small muted">{b.conductor.phone}</div></> : <Badge tone="amber">No conductor</Badge>) },
             { label: 'Seats', render: (b) => <Badge tone={b.students >= b.capacity ? 'red' : b.students > b.capacity * 0.85 ? 'amber' : 'green'}>{b.students} / {b.capacity}</Badge> },
             { label: 'Documents', render: (b) => (b.documents?.total ? <Badge tone={b.documents.withCopy < b.documents.total ? 'amber' : 'green'}>{b.documents.total} on file</Badge> : <Badge tone="amber">None added</Badge>) },
-            { label: '', render: (b) => <div className="row"><Button size="sm" onClick={(e) => { e.stopPropagation(); setView(b._id); }}>{readOnly ? 'Open' : 'Documents'}</Button>{!readOnly && <Button size="sm" onClick={(e) => { e.stopPropagation(); setEdit(b); }}>Edit</Button>}</div> },
+            { label: 'To renew', render: (b) => (b.alerts.length ? <div className="stack" style={{ gap: 2 }}>{b.alerts.map((a, i) => <Badge key={i} tone={a.expired ? 'red' : 'amber'} title={fmtDate(a.date, true)}>{a.field}: {a.expired ? 'expired' : 'due'} {fmtDate(a.date, true)}</Badge>)}</div> : <span className="muted">—</span>) },
+            { label: '', render: (b) => <div className="row"><Button size="sm" onClick={(e) => { e.stopPropagation(); setView(b._id); }}>{readOnly ? 'Open' : 'Riders and stops'}</Button><Button size="sm" onClick={(e) => { e.stopPropagation(); setDocsOf(b); }}>Documents</Button>{!readOnly && <Button size="sm" onClick={(e) => { e.stopPropagation(); setEdit(b); }}>Edit</Button>}</div> },
           ]} /></Card></>);
       }}</Async>
       {edit && <BusModal base={base} bus={edit} onClose={() => setEdit(null)} onSaved={list.reload} />}
+      {docsOf && <BusDocuments base={base} bus={docsOf} readOnly={readOnly} onClose={() => { setDocsOf(null); list.reload(); }} />}
       {view && <BusDetail base={base} id={view} readOnly={readOnly} onClose={() => { setView(null); list.reload(); }} />}
     </div>
   );
@@ -87,6 +107,15 @@ function BusModal({ base, bus, onClose, onSaved }) {
   );
 }
 
+/** Only the bus's papers (registration, insurance, pollution...), without the riders and stops. */
+function BusDocuments({ base, bus, readOnly, onClose }) {
+  return (
+    <Modal wide title={`Documents · Bus ${bus.busNo}`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
+      <VehicleDocuments base={base} busId={bus._id} readOnly={readOnly} />
+    </Modal>
+  );
+}
+
 function BusDetail({ base, id, readOnly, onClose }) {
   const d = useApi(`${base}/buses/${id}`);
   const [add, setAdd] = useState(false); const [run] = useAction();
@@ -95,9 +124,9 @@ function BusDetail({ base, id, readOnly, onClose }) {
       <Async state={d}>{(b) => (
         <div className="stack">
           <div className="grid g2">
-            <Card title="Vehicle & route"><dl className="kv"><dt>Registration</dt><dd>{b.registrationNo || '—'}</dd><dt>Model</dt><dd>{b.vehicleModel || '—'}</dd><dt>Route</dt><dd>{b.routeName || '—'}</dd><dt>Timing</dt><dd>{b.startTime || '—'} → {b.endTime || '—'}</dd><dt>Seats</dt><dd>{b.students.length} of {b.capacity} taken</dd><dt>Monthly fare</dt><dd>{b.monthlyFare ? fmtMoney(b.monthlyFare) : '—'}</dd>
+            <Card title="Vehicle and route"><dl className="kv"><dt>Registration</dt><dd>{b.registrationNo || '—'}</dd><dt>Model</dt><dd>{b.vehicleModel || '—'}</dd><dt>Route</dt><dd>{b.routeName || '—'}</dd><dt>Timing</dt><dd>{b.startTime || '—'} → {b.endTime || '—'}</dd><dt>Seats</dt><dd>{b.students.length} of {b.capacity} taken</dd><dt>Monthly fare</dt><dd>{b.monthlyFare ? fmtMoney(b.monthlyFare) : '—'}</dd>
               </dl></Card>
-            <Card title="Driver & conductor"><dl className="kv"><dt>Driver</dt><dd><b>{b.driver?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.driver?.phone || '—'}</dd><dt>Licence</dt><dd>{b.driver?.licenseNo || '—'}{b.driver?.licenseExpiry ? ` (to ${fmtDate(b.driver.licenseExpiry, true)})` : ''}</dd><dt>Conductor</dt><dd><b>{b.conductor?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.conductor?.phone || '—'}</dd></dl></Card>
+            <Card title="Driver and conductor"><dl className="kv"><dt>Driver</dt><dd><b>{b.driver?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.driver?.phone || '—'}</dd><dt>Licence</dt><dd>{b.driver?.licenseNo || '—'}{b.driver?.licenseExpiry ? ` (to ${fmtDate(b.driver.licenseExpiry, true)})` : ''}</dd><dt>Conductor</dt><dd><b>{b.conductor?.name || '—'}</b></dd><dt>Phone</dt><dd>{b.conductor?.phone || '—'}</dd></dl></Card>
           </div>
           <VehicleDocuments base={base} busId={id} readOnly={readOnly} onChange={d.reload} />
           {b.stops.length > 0 && <Card title="Stops" flush><DataTable rows={b.stops} rowKey="name" columns={[{ label: 'Stop', render: (s) => <b>{s.name}</b> }, { label: 'Pick-up', key: 'pickupTime' }, { label: 'Drop', key: 'dropTime' }, { label: 'Fare / month', render: (s) => (s.fare != null ? fmtMoney(s.fare) : '—') }, { label: 'Students', render: (s) => b.students.filter((x) => x.stop === s.name).length }]} /></Card>}
