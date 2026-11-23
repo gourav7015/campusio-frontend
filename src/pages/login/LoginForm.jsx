@@ -8,13 +8,13 @@ import { api } from '../../api/client.js';
  * The sign-in form every portal shares, built from the same components as the rest of the app.
  * It is a real form with named, autocomplete-tagged inputs, so a browser can offer to remember the login.
  */
-export default function LoginForm({ portal, title, theme, busy, error, onSubmit, forgot, challenge, onBack, emailReset }) {
+export default function LoginForm({ portal, title, theme, busy, error, onSubmit, forgot, challenge, sentTo, onBack, emailReset }) {
   const id = useId();
   const [f, setF] = useState({ loginId: '', password: '' });
   const [keep, setKeep] = useState(false);
   const [help, setHelp] = useState(false);
   const [code, setCode] = useState('');
-  const [reset, setReset] = useState({ loginId: '', state: 'idle' });
+  const [again, setAgain] = useState({ state: 'idle', msg: '' });
   const Icon = theme.icon;
   const label = 'mb-2 block text-[14px] font-medium text-foreground';
   return (
@@ -24,9 +24,13 @@ export default function LoginForm({ portal, title, theme, busy, error, onSubmit,
       <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{theme.hint}</p>
       {challenge ? (
         <>
-          <label htmlFor={`${id}-code`} className={`${label} mt-8`}>Code from your authenticator app</label>
+          <label htmlFor={`${id}-code`} className={`${label} mt-8`}>Sign-in code</label>
           <Input id={`${id}-code`} name="one-time-code" type="text" inputMode="numeric" autoFocus autoComplete="one-time-code" autoCapitalize="none" spellCheck={false} required value={code} onChange={(e) => setCode(e.target.value)} className="h-11 tracking-[0.2em]" />
-          <p className="mt-2 text-[13.5px] leading-6 text-muted-foreground">Open the app on your phone and type the 6 digits. Lost your phone? Type one of your recovery codes instead.</p>
+          <p className="mt-2 text-[13.5px] leading-6 text-muted-foreground">We emailed a 6-digit code to {sentTo || 'your registered email'}. It works for 5 minutes.</p>
+          <p className="mt-1 text-[13.5px] leading-6">
+            <button type="button" disabled={again.state === 'sending'} onClick={async () => { setAgain({ state: 'sending', msg: '' }); try { await api('/api/auth/login/2fa/resend', { method: 'POST', body: { challenge } }); setAgain({ state: 'sent', msg: 'A new code is on its way.' }); } catch (ex) { setAgain({ state: 'error', msg: ex.message }); } }} className="rounded-sm font-medium text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60">Send the code again</button>
+            {again.msg && <span role="status" className={`ml-2 ${again.state === 'error' ? 'text-danger-ink' : 'text-muted-foreground'}`}>{again.msg}</span>}
+          </p>
         </>
       ) : (
         <>
@@ -45,16 +49,7 @@ export default function LoginForm({ portal, title, theme, busy, error, onSubmit,
       </div>
       {help && (
         <div className="mt-3 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-[13.5px] leading-6 text-muted-foreground">
-          {emailReset && (
-            <div className="mb-3">
-              <label htmlFor={`${id}-reset`} className="mb-1.5 block font-medium text-foreground">Email me a reset link</label>
-              <div className="flex gap-2">
-                <Input id={`${id}-reset`} type="text" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="Your login ID" value={reset.loginId} onChange={(e) => setReset({ loginId: e.target.value, state: 'idle' })} className="h-10" />
-                <Button type="button" size="sm" loading={reset.state === 'sending'} disabled={!reset.loginId.trim()} onClick={async () => { setReset((r) => ({ ...r, state: 'sending' })); try { await api('/api/auth/forgot', { method: 'POST', body: { loginId: reset.loginId.trim() } }); } catch { /* the answer is the same either way */ } setReset((r) => ({ ...r, state: 'sent' })); }}>Send link</Button>
-              </div>
-              {reset.state === 'sent' && <p className="mt-2 text-foreground" role="status">If that account has an email address, a link is on its way. It works for 30 minutes.</p>}
-            </div>
-          )}
+          {emailReset && <p className="mb-3"><Link to="/forgot-password" className="font-medium text-primary-ink hover:underline">Reset it with your date of birth and a code sent to your email</Link></p>}
           <p className="m-0">{forgot}{!emailReset && ' You will be asked to choose a new password the next time you sign in.'}</p>
         </div>
       )}

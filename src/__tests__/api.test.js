@@ -22,7 +22,18 @@ describe('api client', () => {
   });
   it('explains a proxy/gateway failure (API down) instead of a bare status code', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => { throw new Error('not json'); } });
-    await expect(api('/api/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ code: 'UNREACHABLE', message: expect.stringContaining('Cannot reach the server') });
+    await expect(api('/api/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ code: 'UNREACHABLE', message: expect.stringContaining('The server did not answer') });
+  });
+  it('a dropped connection is reported as "no internet connection", not as an app error, and is not retried when the device is offline', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const err = await api('/x').catch((e) => e);
+    expect(err).toMatchObject({ code: 'OFFLINE', message: expect.stringContaining('No internet connection') });
+    expect(err.message).not.toMatch(/Failed to fetch/);
+    vi.stubGlobal('navigator', { onLine: false });
+    globalThis.fetch = vi.fn();
+    await expect(api('/x')).rejects.toMatchObject({ code: 'OFFLINE' });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
   it('signs the user out locally on 401', async () => {
     session.token = 'tok';

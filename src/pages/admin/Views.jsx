@@ -54,7 +54,7 @@ const DESKS = [{ value: 'finance', label: 'Finance (fees & receipts)' }, { value
 
 /** One dialog for every kind of login. An officer needs an email; a staff member for the office desk needs a job title). */
 function AddLoginModal({ onClose, onCreated, initialRole = '' }) {
-  const [f, setF] = useState({ role: initialRole, name: '', email: '', designationId: '', phone: '', holder: '' });
+  const [f, setF] = useState({ role: initialRole, name: '', email: '', designationId: '', phone: '', dob: '', holder: '' });
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const staff = f.role === 'staff';
   const titles = useApi(staff ? '/api/school/designations' : null);
@@ -62,9 +62,10 @@ function AddLoginModal({ onClose, onCreated, initialRole = '' }) {
   const people = useApi(desk ? '/api/school/support-staff' : null, { status: 'active', limit: 200 });
   const free = (people.data?.items || []).filter((p) => !p.hasLogin);
   const [run, busy] = useAction();
-  const ok = f.role && (staff ? f.name.trim().length >= 2 && f.designationId : (f.holder || f.name.trim().length >= 2) && /\S+@\S+\.\S+/.test(f.email));
+  const ok = f.role && (staff ? f.name.trim().length >= 2 && f.designationId : (f.holder || f.name.trim().length >= 2)) && /\S+@\S+\.\S+/.test(f.email) && (f.holder || (f.phone.replace(/\D/g, '').length >= 10 && f.dob));
   const save = async () => {
-    const body = staff ? { role: 'staff', name: f.name.trim(), designationId: f.designationId, ...(f.phone ? { phone: f.phone } : {})} : { role: f.role, email: f.email, ...(f.holder ? { staffMemberId: f.holder } : { name: f.name.trim(), ...(f.phone ? { phone: f.phone } : {}) }) };
+    const contact = { email: f.email || undefined, phone: f.phone || undefined, dob: f.dob || undefined };
+    const body = staff ? { role: 'staff', name: f.name.trim(), designationId: f.designationId, ...contact } : { role: f.role, ...contact, ...(f.holder ? { staffMemberId: f.holder } : { name: f.name.trim() }) };
     const r = await run(() => post('/api/school/staff', body));
     if (r) { onCreated(r); onClose(); }
   };
@@ -74,12 +75,14 @@ function AddLoginModal({ onClose, onCreated, initialRole = '' }) {
         <Field label="Portal" full><Select value={f.role} onChange={(e) => set('role', e.target.value)} placeholder="Select…" options={DESKS} /></Field>
         {desk && <Field label="Who holds this role?" full hint="A role is held by a person. Choose someone already on the staff list, or add a new person."><Select value={f.holder} onChange={(e) => set('holder', e.target.value)} options={[{ value: '', label: 'A new person' }, ...free.map((p) => ({ value: p._id, label: `${p.name} (${p.staffId} · ${p.designation})` }))]} /></Field>}
         {!(desk && f.holder) && <Field label={desk ? "New person's full name" : 'Full name'}><Input value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>}
-        {desk && !f.holder && <Field label="Phone"><Input value={f.phone} onChange={(e) => set('phone', e.target.value)} /></Field>}
         {staff ? <>
           <Field label="Job title" hint="Only the school's registered jobs. Add more under People → Designations."><Select value={f.designationId} onChange={(e) => set('designationId', e.target.value)} placeholder="Choose" options={(titles.data || []).filter((d) => d.status === 'active').map((d) => ({ value: d._id, label: d.name }))} /></Field>
-          <Field label="Phone"><Input value={f.phone} onChange={(e) => set('phone', e.target.value)} /></Field>
-          
-        </> : <Field label="Email (login id)"><Input type="email" value={f.email} onChange={(e) => set('email', e.target.value)} /></Field>}
+        </> : null}
+        {!!f.role && <>
+          <Field label="Email" hint="Sign-in codes and password resets are sent here"><Input type="email" value={f.email} onChange={(e) => set('email', e.target.value)} /></Field>
+          <Field label="Mobile number" hint={desk && f.holder ? 'Only if it is not on file already' : undefined}><Input type="tel" value={f.phone} onChange={(e) => set('phone', e.target.value)} /></Field>
+          <Field label="Date of birth" hint={desk && f.holder ? 'Only if it is not on file already' : 'Asked when a forgotten password is reset'}><Input type="date" value={f.dob} onChange={(e) => set('dob', e.target.value)} /></Field>
+        </>}
       </div>
       {staff && <p className="muted small" style={{ marginTop: 10 }}>The login id and a starting password are shown once you save. The starting password follows your school's format (first letters of the name plus date of birth) when a date of birth is on file, otherwise it is generated. The person then appears under Employees › Non-teaching staff.</p>}
     </Modal>

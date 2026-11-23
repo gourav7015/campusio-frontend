@@ -1,6 +1,7 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Loader2 } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
+import { isOffline } from '../api/client.js';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
 
 // Toasts, dialogs and empty states now come from the design system; the screens built earlier keep their imports.
@@ -77,7 +78,7 @@ export function useAction() {
   const run = useCallback(async (fn, success) => {
     setBusy(true);
     try { const r = await fn(); if (success) toast(typeof success === 'function' ? success(r) : success); return r; }
-    catch (e) { toast(e.message || 'Something went wrong', 'error'); return undefined; }
+    catch (e) { toast(e.message || 'Something went wrong', isOffline(e) ? 'offline' : 'error'); return undefined; }
     finally { setBusy(false); }
   }, [toast]);
   return [run, busy];

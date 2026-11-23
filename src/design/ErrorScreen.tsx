@@ -6,7 +6,7 @@ export type ErrorKind = 'crash' | 'update' | 'offline' | 'server' | 'notfound';
 const COPY: Record<ErrorKind, { code: string; title: string; text: string }> = {
   crash: { code: 'Oops', title: 'Our school bus broke down', text: 'Something went wrong while showing this page. Your data is safe. Try again, and if it keeps happening, tell your school office and quote the reference below.' },
   update: { code: 'New', title: 'We have just updated AtKaksha', text: 'A newer version is ready. Reload the page to pick it up. You will not lose anything you have saved.' },
-  offline: { code: 'No signal', title: 'No signal on this route', text: 'We cannot reach the server right now. Check your internet connection and try again.' },
+  offline: { code: 'Offline', title: 'No internet connection', text: 'We could not reach AtKaksha. Check your internet connection (Wi-Fi or mobile data) and try again. Nothing you saved is lost.' },
   server: { code: 'Busy', title: 'Our server is having a bad moment', text: 'The school server could not finish that request. Nothing you saved is lost. Wait a few seconds and try again, and if it keeps happening, tell your school office and quote the reference below.' },
   notfound: { code: '404', title: 'Wrong stop', text: 'This page is not on our route. The address may be mistyped, or the page may have moved.' },
 };
@@ -15,7 +15,7 @@ const COPY: Record<ErrorKind, { code: string; title: string; text: string }> = {
 export function kindOf(error: unknown): ErrorKind {
   const m = error instanceof Error ? `${error.name} ${error.message}` : String(error || '');
   if (/dynamically imported module|Loading chunk|Importing a module script failed|error loading dynamically/i.test(m)) return 'update'; // the site was updated while this page was open
-  if (/Failed to fetch|NetworkError|Load failed|UNREACHABLE|Cannot reach the server/i.test(m)) return 'offline';
+  if (/Failed to fetch|NetworkError|Load failed|OFFLINE|No internet connection/i.test(m) || (error as { code?: string } | null)?.code === 'OFFLINE') return 'offline';
   const status = (error as { status?: number } | null)?.status;
   if (typeof status === 'number' && status >= 500) return 'server';
   return 'crash';

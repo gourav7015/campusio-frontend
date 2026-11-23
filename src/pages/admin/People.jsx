@@ -39,7 +39,7 @@ function AdmitStudent({ L, onClose, onDone }) {
   };
   return (
     <Modal wide title="Admit a student" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button>
-      <Button variant="primary" loading={busy} disabled={!v.name || !v.dob || !v.sectionId || !v.gName || !v.gPhone || dBad} onClick={() => submit(false)}>Admit student</Button></>}>
+      <Button variant="primary" loading={busy} disabled={!v.name || !v.dob || !v.sectionId || !v.gName || !v.gPhone || !/\S+@\S+\.\S+/.test(v.gEmail) || dBad} onClick={() => submit(false)}>Admit student</Button></>}>
       <div className="form-grid">
         <Field label="Full name"><Input {...f.bind('name')} /></Field><Field label="Date of birth"><Input type="date" {...f.bind('dob')} /></Field>
         <Field label="Class & section" hint="A student appears on a register only once enrolled in a section"><Select {...f.bind('sectionId')} options={L.sectionOptions} placeholder="Select section" /></Field>
@@ -48,7 +48,7 @@ function AdmitStudent({ L, onClose, onDone }) {
         <Field label="Phone"><Input {...f.bind('phone')} /></Field><Field label="House" hint={houses.options.length ? undefined : 'Add the school\'s houses first (People → Houses)'}><Select {...f.bind('house')} options={houses.options} placeholder="No house" /></Field><Field label="Address" full><Input {...f.bind('address')} /></Field>
         <div className="full"><h3>Guardian</h3></div>
         <Field label="Guardian name"><Input {...f.bind('gName')} /></Field><Field label="Relationship"><Input {...f.bind('gRel')} /></Field>
-        <Field label="Guardian phone"><Input {...f.bind('gPhone')} /></Field><Field label="Guardian email"><Input type="email" {...f.bind('gEmail')} /></Field>
+        <Field label="Guardian mobile number"><Input {...f.bind('gPhone')} /></Field><Field label="Guardian email" hint="Required: sign-in codes and password resets for the family go here"><Input type="email" {...f.bind('gEmail')} /></Field>
         {v.sectionId && (
           <div className="full stack-sm">
             <h3>Fees</h3>
@@ -167,7 +167,7 @@ export function StudentDetail() {
           <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
           <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
-            tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel o={o} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
+            tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel studentId={id} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
           {tab === 'profile' && (
             <div className="grid g2">
               <Card title="Personal"><dl className="kv"><dt>Date of birth</dt><dd>{fmtDate(st.dob, true)}</dd><dt>Gender</dt><dd>{label(st.gender) || '—'}</dd><dt>Phone</dt><dd>{st.phone || '—'}</dd><dt>Address</dt><dd>{st.address || '—'}</dd><dt>House</dt><dd>{st.house || '—'}</dd><dt>Status</dt><dd><Badge tone={statusTone(st.status)}>{label(st.status)}</Badge></dd></dl></Card>
@@ -208,7 +208,7 @@ export function StudentDetail() {
 }
 
 const teacherFields = (ranks = [], houses = []) => [
-  { name: 'name', label: 'Full name', required: true }, { name: 'employeeId', label: 'Employee id', required: true }, { name: 'email', label: 'Email', type: 'email', hint: 'Used as the login id if provided' }, { name: 'phone', label: 'Phone' },
+  { name: 'name', label: 'Full name', required: true }, { name: 'employeeId', label: 'Employee id', required: true }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Sign-in codes and password resets are sent here. Used as the login id.' }, { name: 'phone', label: 'Mobile number', required: true }, { name: 'dob', label: 'Date of birth', type: 'date', required: true, hint: 'Asked when a forgotten password is reset' },
   { name: 'designation', label: 'Designation', type: 'select', options: ranks, hint: 'Only designations the school has registered (People → Designations)' }, { name: 'house', label: 'House (mentors its students)', type: 'select', options: houses }, { name: 'qualification', label: 'Qualification' }, { name: 'joiningDate', label: 'Joining date', type: 'date' }, { name: 'address', label: 'Address' },
   { name: 'bankName', label: 'Bank name' }, { name: 'accountName', label: 'Name on the account' }, { name: 'accountNo', label: 'Account number', hint: 'Salary is paid here' }, { name: 'ifsc', label: 'IFSC code', placeholder: 'HDFC0001234' },
   { name: 'uan', label: 'UAN (for PF)', placeholder: '12 digits' }, { name: 'esiNo', label: 'ESI number' }, { name: 'pan', label: 'PAN', placeholder: 'ABCDE1234F' },

@@ -82,7 +82,9 @@ test('an officer role is held by a person: give it to someone on the staff list,
   await expect.poll(async () => who.locator('option').count()).toBeGreaterThan(1); // people already on the staff list
   await who.selectOption({ index: 1 });
   await expect(dlg.getByLabel('Full name')).toHaveCount(0); // the person already has a name
-  await dlg.getByLabel('Email (login id)').fill(`holder${Date.now().toString().slice(-6)}@gps.test`);
+  await dlg.getByLabel('Email', { exact: true }).fill(`holder${Date.now().toString().slice(-6)}@gps.test`);
+  await dlg.getByLabel('Mobile number').fill('9876500011');
+  await dlg.getByLabel('Date of birth').fill('1988-08-08');
   await dlg.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('dialog', { name: 'Staff account' })).toContainText('Temporary password');
   await page.getByRole('dialog', { name: 'Staff account' }).getByRole('button', { name: 'Done' }).click();

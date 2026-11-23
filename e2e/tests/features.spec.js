@@ -74,7 +74,9 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   await page.goto('/admin/sub-admins');
   await page.getByRole('button', { name: '+ Add a sub-admin' }).click();
   await page.getByLabel('Name').fill(`Desk Clerk ${uid}`);
-  await page.getByLabel('Email (their login)').fill(`desk${uid}@gps.test`);
+  await page.getByLabel('Email', { exact: true }).fill(`desk${uid}@gps.test`);
+  await page.getByLabel('Mobile number').fill('9876500013');
+  await page.getByLabel('Date of birth').fill('1990-10-10');
   await page.getByRole('button', { name: /Attendance desk/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   const creds = page.getByRole('dialog', { name: /Login for/ });

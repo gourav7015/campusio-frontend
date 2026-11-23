@@ -11,19 +11,19 @@ import {
 export { default as PlatformDashboard } from './PlatformDashboard';
 
 function NewSchool({ onClose, onDone }) {
-  const f = useForm({ name: '', code: '', board: '', address: '', phone: '', plan: 'starter', status: 'trial', expiresOn: '', adminName: '', adminEmail: '' });
+  const f = useForm({ name: '', code: '', board: '', address: '', phone: '', plan: 'starter', status: 'trial', expiresOn: '', adminName: '', adminEmail: '', adminPhone: '', adminDob: '' });
   const [run, busy] = useAction();
   const v = f.values;
   const submit = async () => {
     const out = await run(() => post('/api/platform/schools', {
       name: v.name, code: v.code, board: v.board || undefined, address: v.address || undefined, phone: v.phone || undefined,
       subscription: { plan: v.plan, status: v.status, expiresOn: v.expiresOn || undefined },
-      admin: { name: v.adminName, email: v.adminEmail },
+      admin: { name: v.adminName, email: v.adminEmail, phone: v.adminPhone, dob: v.adminDob },
     }), 'School created');
     if (out) onDone(out);
   };
   return (
-    <Modal title="Register a new school" onClose={onClose} wide footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit} disabled={!v.name || !v.code || !v.adminName || !v.adminEmail}>Create school</Button></>}>
+    <Modal title="Register a new school" onClose={onClose} wide footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} onClick={submit} disabled={!v.name || !v.code || !v.adminName || !v.adminEmail || v.adminPhone.replace(/\D/g, '').length < 10 || !v.adminDob}>Create school</Button></>}>
       <div className="form-grid">
         <Field label="School name"><Input {...f.bind('name')} /></Field><Field label="School code" hint="Short unique code, e.g. dps"><Input {...f.bind('code')} /></Field>
         <Field label="Board"><Input {...f.bind('board')} placeholder="CBSE / State" /></Field><Field label="Phone"><Input {...f.bind('phone')} /></Field>
@@ -32,7 +32,7 @@ function NewSchool({ onClose, onDone }) {
         
         <Field label="Subscription ends on" hint="Leave blank for no end date"><Input type="date" {...f.bind('expiresOn')} /></Field><div />
         <div className="full"><h3>School administrator</h3><p className="muted small">The school admin signs in with this email and creates all other users for the school.</p></div>
-        <Field label="Admin name"><Input {...f.bind('adminName')} /></Field><Field label="Admin email (login id)"><Input type="email" {...f.bind('adminEmail')} /></Field>
+        <Field label="Admin name"><Input {...f.bind('adminName')} /></Field><Field label="Admin email" hint="Sign-in codes and password resets go here"><Input type="email" {...f.bind('adminEmail')} /></Field><Field label="Admin mobile number"><Input type="tel" {...f.bind('adminPhone')} /></Field><Field label="Admin date of birth" hint="Asked when a forgotten password is reset"><Input type="date" {...f.bind('adminDob')} /></Field>
       </div>
     </Modal>
   );
@@ -100,15 +100,15 @@ export function SchoolDetail() {
               { label: 'Status', render: (a) => <Badge tone={statusTone(a.status)}>{a.status}</Badge> },
               { label: '', render: (a) => <div className="row">
                 <Button size="sm" onClick={async () => { const r = await run(() => post(`/api/platform/users/${a._id}/reset-password`)); if (r) setCreds(r); }}>Reset password</Button>
-                {a.twoFactor && <ConfirmButton size="sm" message={`Switch off two-factor sign-in for ${a.name}? Use this when they lost their phone and recovery codes. They are signed out everywhere.`} onConfirm={async () => { await run(() => post(`/api/platform/users/${a._id}/reset-2fa`), 'Two-factor sign-in reset'); s.reload(); }}>Reset two-factor</ConfirmButton>}
+                {a.twoFactor && <ConfirmButton size="sm" message={`Switch off sign-in codes for ${a.name}? Use this when they can no longer receive them. They are signed out everywhere.`} onConfirm={async () => { await run(() => post(`/api/platform/users/${a._id}/reset-2fa`), 'Two-factor sign-in reset'); s.reload(); }}>Reset two-factor</ConfirmButton>}
                 <Button size="sm" onClick={async () => { await run(() => patch(`/api/platform/users/${a._id}`, { status: a.status === 'active' ? 'disabled' : 'active' }), 'Updated'); s.reload(); }}>{a.status === 'active' ? 'Disable' : 'Enable'}</Button></div> },
             ]} />
           </Card>
         </div>
         <FeatureSwitches schoolId={id} />
-        {addAdmin && <Modal title="Add school administrator" onClose={() => setAddAdmin(false)} footer={<><Button onClick={() => setAddAdmin(false)}>Cancel</Button><Button variant="primary" loading={busy} disabled={!adm.values.name || !adm.values.email} onClick={async () => {
+        {addAdmin && <Modal title="Add school administrator" onClose={() => setAddAdmin(false)} footer={<><Button onClick={() => setAddAdmin(false)}>Cancel</Button><Button variant="primary" loading={busy} disabled={!adm.values.name || !adm.values.email || String(adm.values.phone || '').replace(/\D/g, '').length < 10 || !adm.values.dob} onClick={async () => {
           const r = await run(() => post(`/api/platform/schools/${id}/admins`, adm.values), 'Admin created'); if (r) { setAddAdmin(false); adm.reset(); s.reload(); setCreds(r); } }}>Create</Button></>}>
-          <div className="stack"><Field label="Name"><Input {...adm.bind('name')} /></Field><Field label="Email (login id)"><Input type="email" {...adm.bind('email')} /></Field></div></Modal>}
+          <div className="stack"><Field label="Name"><Input {...adm.bind('name')} /></Field><Field label="Email" hint="Sign-in codes and password resets go here"><Input type="email" {...adm.bind('email')} /></Field><Field label="Mobile number"><Input type="tel" {...adm.bind('phone')} /></Field><Field label="Date of birth" hint="Asked when a forgotten password is reset"><Input type="date" {...adm.bind('dob')} /></Field></div></Modal>}
         <CredentialsModal creds={creds} onClose={() => setCreds(null)} />
       </div>)}</Async>
   );

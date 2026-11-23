@@ -1,5 +1,5 @@
-import type { HTMLAttributes, ReactNode } from 'react';
-import { AlertTriangle, Inbox, RotateCw, type LucideIcon } from 'lucide-react';
+import { useSyncExternalStore, type HTMLAttributes, type ReactNode } from 'react';
+import { AlertTriangle, Inbox, RotateCw, WifiOff, type LucideIcon } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Button } from './button';
 import { ErrorScreen, isConnectionProblem } from '../ErrorScreen';
@@ -31,7 +31,7 @@ export function EmptyState({ icon: Icon = Inbox, title, description, action, cla
 export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
   if (isConnectionProblem(error)) return <ErrorScreen inline error={error} onRetry={onRetry} />;
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Something went wrong';
-  const message = /Failed to fetch|NetworkError|Load failed/i.test(raw) ? 'We cannot reach the server. Check your internet connection and try again.' : raw;
+  const message = raw;
   return (
     <div role="alert" className={cn('flex flex-col items-center px-6 py-10 text-center', className)}>
       <div className="mb-4 grid size-11 place-items-center rounded-xl bg-danger-soft text-danger-ink"><AlertTriangle className="size-5" aria-hidden /></div>
@@ -48,3 +48,18 @@ export const Callout = ({ tone = 'info', children, className }: { tone?: 'info' 
     warning: 'border-warning/30 bg-warning-soft text-warning-ink', danger: 'border-danger/25 bg-danger-soft text-danger-ink',
   }[tone], className)}>{children}</div>
 );
+
+const onlineNow = () => (typeof navigator === 'undefined' ? true : navigator.onLine);
+const watchOnline = (cb: () => void) => { window.addEventListener('online', cb); window.addEventListener('offline', cb); return () => { window.removeEventListener('online', cb); window.removeEventListener('offline', cb); }; };
+
+/** A bar across the top while the device has no internet connection, so a failure to save or load is understood as the connection, not the app. */
+export function OfflineBanner() {
+  const online = useSyncExternalStore(watchOnline, onlineNow, () => true);
+  if (online) return null;
+  return (
+    <div role="status" className="fixed inset-x-0 top-0 z-[80] flex items-center justify-center gap-2 border-b border-warning/40 bg-warning-soft px-4 py-2 text-center text-sm font-medium text-warning-ink">
+      <WifiOff className="size-4 shrink-0" aria-hidden />
+      No internet connection. Changes cannot be saved until you are back online.
+    </div>
+  );
+}

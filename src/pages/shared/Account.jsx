@@ -36,7 +36,7 @@ export default function Account() {
           <div><Button variant="primary" type="submit" loading={busy}>Update password</Button></div>
         </form>
       </Card>
-      {!forced && <TwoFactor user={user} onChange={refresh} />}
+      {!forced && <SignInCodes user={user} onChange={refresh} />}
       {!forced && (
         <Card title="Signed-in devices" action={<Button size="sm" onClick={async () => { await run(() => post('/api/auth/sessions/revoke-others'), (r) => `${r.revoked} other session(s) signed out`); sessions.reload(); }}>Sign out other devices</Button>}>
           <Async state={sessions}>{(rows) => (
@@ -50,70 +50,48 @@ export default function Account() {
   );
 }
 
-/** Two-factor sign-in with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy…). */
-function TwoFactor({ user, onChange }) {
+/** Two-factor sign-in: after the password, a 6-digit code is emailed to the registered address. Switched on or off with the password and a code. */
+function SignInCodes({ user, onChange }) {
+  const opts = useApi('/api/auth/options');
   const [run, busy] = useAction();
-  const [step, setStep] = useState('idle'); // idle → password → scan → codes ; or off / newcodes
+  const [flow, setFlow] = useState(null); // { purpose: 'enable' | 'disable', step: 'password' | 'code', sentTo }
   const [pw, setPw] = useState(''); const [code, setCode] = useState('');
-  const [setup, setSetup] = useState(null); const [codes, setCodes] = useState(null);
-  const reset = () => { setStep('idle'); setPw(''); setCode(''); setSetup(null); };
-  const privileged = user.role === 'school_admin' || user.role === 'super_admin';
-  const showCodes = (c) => { setCodes(c); setStep('codes'); };
+  const on = !!user.twoFactor;
+  const available = !!opts.data?.emailCodes;
+  const close = () => { setFlow(null); setPw(''); setCode(''); };
+  const send = async (e) => {
+    e.preventDefault();
+    const r = await run(() => post(flow.purpose === 'enable' ? '/api/auth/2fa/start' : '/api/auth/2fa/disable-start', { password: pw }));
+    if (r) setFlow({ ...flow, step: 'code', sentTo: r.sentTo });
+  };
+  const confirm = async (e) => {
+    e.preventDefault();
+    const r = await run(() => post('/api/auth/2fa/confirm', { code }), flow.purpose === 'enable' ? 'Sign-in codes are on' : 'Sign-in codes are off');
+    if (r) { close(); onChange(); }
+  };
   return (
-    <Card title="Two-factor sign-in" action={user.twoFactor ? <Badge tone="green">On</Badge> : <Badge tone={privileged ? 'amber' : 'grey'}>Off</Badge>}>
-      {step === 'codes' && codes && (
-        <div className="stack">
-          <div className="alert info" role="status">Keep these recovery codes somewhere safe, away from your phone. Each works once if you lose the phone. They are shown only now.</div>
-          <ul style={{ columns: 2, listStyle: 'none', padding: 0, margin: 0, fontFamily: 'ui-monospace, monospace' }}>{codes.map((c) => <li key={c}>{c}</li>)}</ul>
-          <div className="row" style={{ gap: 8 }}>
-            <Button size="sm" onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}>Copy</Button>
-            <Button size="sm" variant="primary" onClick={() => { setCodes(null); reset(); onChange(); }}>I have saved them</Button>
-          </div>
-        </div>
-      )}
-      {step !== 'codes' && !user.twoFactor && (
-        <div className="stack">
-          <p className="muted" style={{ margin: 0 }}>{privileged ? 'Recommended for administrators: ' : ''}after your password, sign-in also asks for a 6-digit code from an app on your phone, so a stolen password alone is not enough.</p>
-          {step === 'idle' && <div><Button variant="primary" onClick={() => setStep('password')}>Turn on</Button></div>}
-          {step === 'password' && (
-            <form className="stack" onSubmit={async (e) => { e.preventDefault(); const r = await run(() => post('/api/auth/2fa/setup', { password: pw })); if (r) { setSetup(r); setStep('scan'); } }}>
-              <Field label="Your password" hint="We ask again before changing how you sign in"><PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
-              <div className="row" style={{ gap: 8 }}><Button variant="primary" type="submit" loading={busy}>Continue</Button><Button type="button" onClick={reset}>Cancel</Button></div>
-            </form>
-          )}
-          {step === 'scan' && setup && (
-            <form className="stack" onSubmit={async (e) => { e.preventDefault(); const r = await run(() => post('/api/auth/2fa/enable', { code }), 'Two-factor sign-in is on'); if (r) showCodes(r.recoveryCodes); }}>
-              <ol style={{ margin: 0, paddingLeft: 18 }}>
-                <li>Install an authenticator app (Google Authenticator, Microsoft Authenticator or Authy).</li>
-                <li>Scan this picture with it, or type the key by hand.</li>
-                <li>Type the 6-digit code the app shows.</li>
-              </ol>
-              <div className="row" style={{ gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                <img alt="QR code to scan with your authenticator app" width={180} height={180} src={`data:image/svg+xml;base64,${btoa(setup.qrSvg)}`} style={{ background: '#fff', borderRadius: 8 }} />
-                <div><div className="small muted">Key for typing by hand</div><code style={{ fontSize: 15, wordBreak: 'break-all' }}>{setup.secret.match(/.{1,4}/g).join(' ')}</code></div>
-              </div>
-              <Field label="6-digit code"><Input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
-              <div className="row" style={{ gap: 8 }}><Button variant="primary" type="submit" loading={busy}>Turn on</Button><Button type="button" onClick={reset}>Cancel</Button></div>
-            </form>
-          )}
-        </div>
-      )}
-      {step !== 'codes' && user.twoFactor && (
-        <div className="stack">
-          <p className="muted" style={{ margin: 0 }}>Sign-in asks for a code from your authenticator app. If you lose your phone, use a recovery code, or ask your School Admin (or AtKaksha) to reset it.</p>
-          {(step === 'idle') && <div className="row" style={{ gap: 8 }}><Button onClick={() => setStep('newcodes')}>New recovery codes</Button><Button variant="danger" onClick={() => setStep('off')}>Turn off</Button></div>}
-          {(step === 'off' || step === 'newcodes') && (
-            <form className="stack" onSubmit={async (e) => {
-              e.preventDefault();
-              if (step === 'off') { const r = await run(() => post('/api/auth/2fa/disable', { password: pw, code }), 'Two-factor sign-in is off'); if (r) { reset(); onChange(); } } else { const r = await run(() => post('/api/auth/2fa/recovery-codes', { password: pw, code })); if (r) showCodes(r.recoveryCodes); }
-            }}>
-              <Field label="Your password"><PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
-              <Field label="Code from your app (or a recovery code)"><Input autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
-              <div className="row" style={{ gap: 8 }}><Button variant={step === 'off' ? 'danger' : 'primary'} type="submit" loading={busy}>{step === 'off' ? 'Turn off' : 'Make new codes'}</Button><Button type="button" onClick={reset}>Cancel</Button></div>
-            </form>
-          )}
-        </div>
-      )}
+    <Card title="Sign-in code by email" action={on ? <Badge tone="green">On</Badge> : <Badge tone="grey">Off</Badge>}>
+      <div className="stack">
+        <p className="muted" style={{ margin: 0 }}>After your password, we email a 6-digit code to your registered email address{user.registeredEmail ? ` (${user.registeredEmail})` : ''}. Type it to finish signing in, so a stolen password alone is not enough.</p>
+        {!flow && (on
+          ? <div><Button onClick={() => setFlow({ purpose: 'disable', step: 'password' })}>Turn off</Button></div>
+          : <div><Button variant="primary" disabled={!available || !user.registeredEmail} onClick={() => setFlow({ purpose: 'enable', step: 'password' })}>Turn on</Button></div>)}
+        {!flow && !on && !user.registeredEmail && <p className="small muted" style={{ margin: 0 }}>There is no email address on file for this account. Ask your school office to add one.</p>}
+        {!flow && !on && user.registeredEmail && !available && !opts.loading && <p className="small muted" style={{ margin: 0 }}>Sign-in codes are not switched on for this site yet.</p>}
+        {flow?.step === 'password' && (
+          <form className="stack" onSubmit={send}>
+            <Field label="Your password" hint="We ask again before changing how you sign in"><PasswordInput autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
+            <div className="row" style={{ gap: 8 }}><Button variant="primary" type="submit" loading={busy}>Send code</Button><Button type="button" onClick={close}>Cancel</Button></div>
+          </form>
+        )}
+        {flow?.step === 'code' && (
+          <form className="stack" onSubmit={confirm}>
+            <div className="alert info" role="status">We emailed a 6-digit code to {flow.sentTo}. It works for 5 minutes.</div>
+            <Field label="6-digit code"><Input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+            <div className="row" style={{ gap: 8 }}><Button variant="primary" type="submit" loading={busy}>{flow.purpose === 'enable' ? 'Turn on' : 'Turn off'}</Button><Button type="button" onClick={close}>Cancel</Button></div>
+          </form>
+        )}
+      </div>
     </Card>
   );
 }

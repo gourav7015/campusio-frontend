@@ -51,17 +51,20 @@ async function parseError(res) {
   try { body = await res.json(); } catch { json = false; }
   // A gateway/proxy error with no JSON body means the API process itself is unreachable.
   if (!json && [500, 502, 503, 504].includes(res.status)) {
-    return new ApiError('Cannot reach the server. Please check that the API is running and try again.', res.status, 'UNREACHABLE');
+    return new ApiError('The server did not answer. Please try again in a moment.', res.status, 'UNREACHABLE');
   }
   if (res.status === 401 && session.token) session.onUnauthorized();
   const detail = Array.isArray(body.details) && body.details[0]?.message ? ` (${body.details.map((d) => (d.path ? `${d.path}: ` : '') + d.message).join('; ')})` : '';
   return new ApiError((body.error || `Request failed (${res.status})`) + (body.code === 'VALIDATION' ? detail : ''), res.status, body.code, body.details);
 }
 
-const UNREACHABLE = 'Cannot reach the server. Check your internet connection and try again.';
-/** fetch, but a dropped connection becomes the same friendly error as a dead gateway, so every screen can show one error page for it. */
+export const NO_INTERNET = 'No internet connection. Check your Wi-Fi or mobile data and try again.';
+/** True when a failure was the connection itself (the request never got an answer), not something the app or the server did. */
+export const isOffline = (e) => e?.code === 'OFFLINE';
+/** fetch, but a dropped connection becomes one clear "no internet connection" error, so every screen can say so instead of showing an app error. */
 async function send(url, init) {
-  try { return await fetch(url, init); } catch { throw new ApiError(UNREACHABLE, 0, 'UNREACHABLE'); }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new ApiError(NO_INTERNET, 0, 'OFFLINE'); // the device says it is offline: no need to try
+  try { return await fetch(url, init); } catch { throw new ApiError(NO_INTERNET, 0, 'OFFLINE'); }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -99,7 +102,7 @@ export async function api(path, { method = 'GET', body, query, form } = {}) {
   let res;
   for (let attempt = 0; ; attempt++) {
     try { res = await send(`${BASE}${path}${qs(query)}`, init); break; } catch (e) {
-      if (!retryable || attempt >= 2) throw e;
+      if (!retryable || attempt >= 2 || (typeof navigator !== 'undefined' && navigator.onLine === false)) throw e;
       await sleep(attempt === 0 ? 400 : 1200);
     }
   }

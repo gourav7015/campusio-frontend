@@ -31,10 +31,10 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     ...state, acting,
-    /** Returns the signed-in user, or `{ twoFactor: challenge }` when the person must now give a code from their authenticator app. */
+    /** Returns the signed-in user, or `{ twoFactor: challenge, sentTo }` when the person must now type the code just emailed to them. */
     async login(loginId, password, portal, keep = false) {
       const r = await api('/api/auth/login', { method: 'POST', body: { loginId, password, portal } });
-      if (r.twoFactorRequired) return { twoFactor: r.challenge };
+      if (r.twoFactorRequired) return { twoFactor: r.challenge, sentTo: r.sentTo };
       return finish(r, keep);
     },
     async loginWithCode(challenge, code, keep = false) { return finish(await api('/api/auth/login/2fa', { method: 'POST', body: { challenge, code } }), keep); },

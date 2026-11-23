@@ -57,15 +57,15 @@ describe('error page', () => {
     expect(screen.getByRole('heading', { name: 'Wrong stop' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to home' })).toHaveAttribute('href', '/student');
   });
-  it('a dropped connection becomes the friendly "no signal" page, and a server fault the "bad moment" page', async () => {
+  it('a dropped connection becomes the "no internet connection" page, and a server fault the "bad moment" page', async () => {
     const { api } = await import('../api/client.js');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     const err = await api('/api/x').catch((e) => e);
     vi.unstubAllGlobals();
-    expect(err.code).toBe('UNREACHABLE');
+    expect(err.code).toBe('OFFLINE');
     expect(err.message).not.toMatch(/Failed to fetch/);
     const { unmount } = render(<ErrorBox error={err} retry={() => {}} />);
-    expect(screen.getByRole('heading', { name: 'No signal on this route' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No internet connection' })).toBeInTheDocument();
     unmount();
     render(<ErrorBox error={Object.assign(new Error('boom'), { status: 500 })} retry={() => {}} />);
     expect(screen.getByRole('heading', { name: 'Our server is having a bad moment' })).toBeInTheDocument();

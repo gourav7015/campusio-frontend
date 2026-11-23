@@ -6,7 +6,7 @@ import { AppShell } from './shell/AppShell';
 // Development-only reference for the design system (not built into production).
 const Gallery = import.meta.env.DEV ? lazy(() => import('./design/Gallery')) : null;
 import { Spinner, ToastProvider } from './components/ui.jsx';
-import { DialogsProvider } from './design/ui';
+import { DialogsProvider, OfflineBanner } from './design/ui';
 import NotFound from './pages/NotFound';
 const Privacy = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Privacy })));
 const Terms = lazy(() => import('./pages/legal/Legal').then((m) => ({ default: m.Terms })));
@@ -15,7 +15,7 @@ const Refunds = lazy(() => import('./pages/legal/Legal').then((m) => ({ default:
 import PortalLogin, { Landing, homeFor } from './pages/Login.jsx';
 const Approvals = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.Approvals })));
 const SubAdmins = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SubAdmins })));
-const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const DocumentSettings = lazy(() => import('./pages/admin/DocumentSettings.jsx'));
 const SchoolInfoAdmin = lazy(() => import('./pages/admin/Admin2.jsx').then((m) => ({ default: m.SchoolInfoAdmin })));
 const Guide = lazy(() => import('./pages/shared/Guide.jsx'));
@@ -137,11 +137,12 @@ export default function App() {
   if (loading) return <Spinner />;
   return (
     <ToastProvider><DialogsProvider>
+      <OfflineBanner />
       <Suspense fallback={<Spinner />}><Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
         {Gallery && <Route path="/design" element={<Suspense fallback={null}><Gallery /></Suspense>} />}
-        <Route path="/login" element={<Navigate to="/" replace />} /><Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/login" element={<Navigate to="/" replace />} /><Route path="/forgot-password" element={<ForgotPassword />} />
         {['student', 'teacher', 'finance', 'library', 'transport', 'staff', 'admin', 'platform'].map((p) => <Route key={p} path={`/${p}/login`} element={<PortalLogin portal={p} />} />)}
         <Route element={user ? <AccountShell /> : <Navigate to="/" replace />}><Route path="/account" element={<Account />} /></Route>
 

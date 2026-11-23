@@ -107,7 +107,8 @@ test('budgets are revenue or capital; the fees overview lists every instalment; 
 
   await signIn(page, 'student', 'gps.adm20260001', 'Student@12345');
   await page.goto('/student/fees');
-  await expect(page.getByText('Instalments', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Fees', { exact: true }).first()).toBeVisible(); // one table: instalments with their charges underneath
+  await expect(page.getByText('Dues & due dates')).toHaveCount(0);
   await expect(page.getByRole('cell', { name: 'Paid', exact: true }).or(page.getByRole('cell', { name: 'Open', exact: true })).or(page.getByRole('cell', { name: 'Overdue', exact: true })).first()).toBeVisible();
   await signOut(page);
   expect(problems.filter((p) => !p.includes('dialog') && !/HTTP 40[13]/.test(p))).toEqual([]);

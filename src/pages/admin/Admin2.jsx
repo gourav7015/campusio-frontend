@@ -69,17 +69,17 @@ export function SubAdmins() {
 }
 
 function SubAdminForm({ opts, user, onClose, onDone }) {
-  const [name, setName] = useState(user?.name || ''); const [email, setEmail] = useState(user?.email || ''); const [perms, setPerms] = useState(new Set(user?.permissions || []));
+  const [name, setName] = useState(user?.name || ''); const [email, setEmail] = useState(user?.email || ''); const [phone, setPhone] = useState(''); const [dob, setDob] = useState(''); const [perms, setPerms] = useState(new Set(user?.permissions || []));
   const [run, busy] = useAction();
   const toggle = (k) => setPerms((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const save = async () => {
     const body = { name, permissions: [...perms] };
-    const r = await run(() => (user ? patch(`${A}/sub-admins/${user.id}`, body) : post(`${A}/sub-admins`, { ...body, email })), user ? 'Saved' : 'Sub-admin created');
+    const r = await run(() => (user ? patch(`${A}/sub-admins/${user.id}`, body) : post(`${A}/sub-admins`, { ...body, email, phone, dob })), user ? 'Saved' : 'Sub-admin created');
     if (r) { onDone(user ? null : { ...r, name }); onClose(); }
   };
   return (
-    <FormShell title={user ? `Edit ${user.name}` : 'Add a sub-admin'} onClose={onClose} onSave={save} busy={busy} disabled={!name.trim() || (!user && !email.trim()) || !perms.size}>
-      <div className="form-grid"><Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>{!user && <Field label="Email (their login)"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>}</div>
+    <FormShell title={user ? `Edit ${user.name}` : 'Add a sub-admin'} onClose={onClose} onSave={save} busy={busy} disabled={!name.trim() || (!user && (!email.trim() || phone.replace(/\D/g, '').length < 10 || !dob)) || !perms.size}>
+      <div className="form-grid"><Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>{!user && <Field label="Email" hint="Sign-in codes and password resets are sent here"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>}{!user && <Field label="Mobile number"><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>}{!user && <Field label="Date of birth" hint="Asked when a forgotten password is reset"><Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></Field>}</div>
       <div className="stack-sm" style={{ marginTop: 12 }}>
         <b>Quick sets</b>
         <div className="row wrap">{Object.entries(opts.presets).map(([k, p]) => <Button key={k} size="sm" onClick={() => setPerms(new Set(p.permissions))}>{p.label}</Button>)}</div>

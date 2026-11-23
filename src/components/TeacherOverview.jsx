@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Badge, Card, DataTable, Empty, Stat, fmtDate, fmtMoney, label, statusTone } from './ui.jsx';
+import { Badge, Button, Card, DataTable, Empty, Stat, fmtDate, fmtMoney, label, statusTone, useAction } from './ui.jsx';
+import { download } from '../api/client.js';
 import Heatmap from './Heatmap.jsx';
 import { BarsChart } from './Charts.jsx';
 
@@ -54,6 +55,7 @@ export function AttendancePanel({ o }) {
 }
 
 export function SalaryPanel({ o }) {
+  const [run] = useAction();
   const p = o.pay;
   if (!p.current) return <Empty title="No salary set yet">Set it in Payroll &amp; salaries.</Empty>;
   return (
@@ -63,7 +65,7 @@ export function SalaryPanel({ o }) {
         <Card title="Earnings" flush><DataTable rows={p.current.earnings} rowKey="label" columns={[{ label: 'Component', key: 'label' }, { label: 'Amount', render: (e) => fmtMoney(e.amount) }]} /></Card>
         <Card title="Deductions" flush><DataTable rows={p.current.deductions} rowKey="label" empty="No fixed deductions" columns={[{ label: 'Component', key: 'label' }, { label: 'Amount', render: (e) => fmtMoney(e.amount) }]} /></Card>
       </div>
-      <Card title="Payslips" flush><DataTable rows={p.payslips} empty="No approved payroll yet" columns={[{ label: 'Month', render: (s) => <b>{monthLabel(s.month)}</b> }, { label: 'Days paid', render: (s) => `${s.paidDays} / ${s.workingDays}` }, { label: 'Gross', render: (s) => fmtMoney(s.gross) }, { label: 'Deductions', render: (s) => fmtMoney(s.totalDeductions) }, { label: 'Net', render: (s) => <b>{fmtMoney(s.net)}</b> }, { label: 'Status', render: (s) => <Badge tone={s.status === 'paid' ? 'green' : 'amber'}>{label(s.status)}</Badge> }]} /></Card>
+      <Card title="Payslips" flush><DataTable rows={p.payslips} empty="No approved payroll yet" columns={[{ label: 'Month', render: (s) => <b>{monthLabel(s.month)}</b> }, { label: 'Days paid', render: (s) => `${s.paidDays} / ${s.workingDays}` }, { label: 'Gross', render: (s) => fmtMoney(s.gross) }, { label: 'Deductions', render: (s) => fmtMoney(s.totalDeductions) }, { label: 'Net', render: (s) => <b>{fmtMoney(s.net)}</b> }, { label: 'Status', render: (s) => <Badge tone={s.status === 'paid' ? 'green' : 'amber'}>{label(s.status)}</Badge> }, { label: '', render: (s) => <Button size="sm" onClick={() => run(() => download(`/api/school/payroll/payslips/${s._id}/pdf`, `payslip-${s.payslipNo}.pdf`))}>Payslip</Button> }]} /></Card>
       <Card title="Salary history" flush><DataTable rows={p.history} rowKey="effectiveFrom" columns={[{ label: 'From', render: (h) => fmtDate(h.effectiveFrom, true) }, { label: 'Level', render: (h) => h.levelName || 'Custom' }, { label: 'Gross', render: (h) => fmtMoney(h.gross) }, { label: 'Net', render: (h) => fmtMoney(h.net) }, { label: 'Reason', key: 'reason' }]} /></Card>
       <p className="muted small">Salary is changed in <Link to="/admin/payroll?tab=salaries">Payroll &amp; salaries</Link>.</p>
     </div>

@@ -53,8 +53,8 @@ export function Promotion() {
 
 // ───────────── Bulk import (data dumping) ─────────────
 const TEMPLATES = {
-  students: { cols: ['name', 'dob', 'gender', 'className', 'section', 'admissionNo', 'rollNo', 'admissionDate', 'phone', 'address', 'house', 'guardianName', 'guardianRelationship', 'guardianPhone'], sample: { name: 'Asha Verma', dob: '2013-04-21', gender: 'female', className: 'Class 8', section: 'A', admissionNo: 'A1001', guardianName: 'Ravi Verma', guardianRelationship: 'Father', guardianPhone: '9876543210' } },
-  teachers: { cols: ['name', 'employeeId', 'email', 'phone', 'designation', 'qualification', 'joiningDate', 'subjects'], sample: { name: 'Neha Iyer', employeeId: 'T100', email: 'neha@school.org', subjects: 'Mathematics;Science' } },
+  students: { cols: ['name', 'dob', 'gender', 'className', 'section', 'admissionNo', 'rollNo', 'admissionDate', 'phone', 'address', 'house', 'guardianName', 'guardianRelationship', 'guardianPhone', 'guardianEmail'], sample: { name: 'Asha Verma', dob: '2013-04-21', gender: 'female', className: 'Class 8', section: 'A', admissionNo: 'A1001', guardianName: 'Ravi Verma', guardianRelationship: 'Father', guardianPhone: '9876543210', guardianEmail: 'ravi.verma@example.com' } },
+  teachers: { cols: ['name', 'employeeId', 'email', 'phone', 'dob', 'designation', 'qualification', 'joiningDate', 'subjects'], sample: { name: 'Neha Iyer', employeeId: 'T100', email: 'neha@school.org', phone: '9876543210', dob: '1988-06-15', subjects: 'Mathematics;Science' } },
 };
 
 export function Import() {

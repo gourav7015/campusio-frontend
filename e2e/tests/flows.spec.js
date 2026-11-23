@@ -294,8 +294,10 @@ test('admin: subjects come from teachers (no master list); staff accounts for fi
   await page.goto('/admin/staff');
   await page.getByRole('button', { name: '+ Add sign-in' }).click();
   await page.getByLabel('Full name').fill('Fatima Clerk');
-  await page.getByLabel('Email (login id)').fill(`clerk${uid}@gps.test`);
   await page.getByLabel('Portal').selectOption('finance');
+  await page.getByLabel('Email', { exact: true }).fill(`clerk${uid}@gps.test`);
+  await page.getByLabel('Mobile number').fill('9876500012');
+  await page.getByLabel('Date of birth').fill('1989-09-09');
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   const creds = page.getByRole('dialog', { name: 'Staff account' });
   await expect(creds).toContainText('Temporary password');
@@ -826,7 +828,8 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await page.getByLabel('Date of birth').fill('2014-06-15');
   await page.getByLabel(/Class & section/).selectOption({ label: 'Class 6 A · 4/40' });
   await page.getByLabel('Guardian name').fill('Mr Guardian');
-  await page.getByLabel('Guardian phone').fill('9876501234');
+  await page.getByLabel('Guardian mobile number').fill('9876501234');
+  await page.getByLabel('Guardian email').fill('parent.admit@gps.test');
   // the form shows what will be billed; a personal discount needs a reason and cannot exceed the tuition
   const dlg = page.getByRole('dialog', { name: 'Admit a student' });
   await expect(dlg.getByText('Total to be billed')).toBeVisible();
@@ -890,7 +893,9 @@ test('super admin creates a school, acts inside it for data setup, and exits', a
   await page.getByLabel('School name').fill(school);
   await page.getByLabel('School code').fill(`rv${uid}`);
   await page.getByLabel('Admin name').fill('Riya Admin');
-  await page.getByLabel('Admin email (login id)').fill(`admin@rv${uid}.test`);
+  await page.getByLabel('Admin email').fill(`admin@rv${uid}.test`);
+  await page.getByLabel('Admin mobile number').fill('9876500014');
+  await page.getByLabel('Admin date of birth').fill('1975-05-05');
   await page.getByRole('button', { name: 'Create school' }).click();
   const creds = page.getByRole('dialog', { name: 'School administrator created' });
   await expect(creds).toContainText(`admin@rv${uid}.test`);

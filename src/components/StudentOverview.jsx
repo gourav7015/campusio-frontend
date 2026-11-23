@@ -1,4 +1,7 @@
-import { Badge, Card, DataTable, Empty, Stat, fmtDate, fmtMoney, label, statusTone } from './ui.jsx';
+import { Async, Badge, Button, Card, DataTable, Empty, Stat, fmtDate, fmtMoney, label, statusTone, useAction } from './ui.jsx';
+import FeeSchedule from './FeeSchedule.jsx';
+import { useApi } from '../hooks/useApi.js';
+import { download } from '../api/client.js';
 import Heatmap from './Heatmap.jsx';
 import { BarsChart } from './Charts.jsx';
 
@@ -52,14 +55,26 @@ export function HomeworkPanel({ o }) {
   ]} /></Card>;
 }
 
-export function FeesPanel({ o }) {
-  const f = o.fees;
+/** A student's fees as the School Admin sees them: every instalment and charge with its Receipt, and every payment. Read-only; Finance does the collecting. */
+export function FeesPanel({ studentId }) {
+  const base = '/api/school/finance';
+  const a = useApi(`${base}/students/${studentId}/account`);
+  const [run] = useAction();
+  const receipt = (p) => run(() => download(`${base}/payments/${p.id || p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`));
   return (
-    <div className="stack">
-      <div className="grid g4"><Stat value={fmtMoney(f.totals.assigned)} label="Billed" /><Stat value={fmtMoney(f.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(f.totals.pending)} label="Pending" tone="amber" /><Stat value={fmtMoney(f.totals.overdue)} label="Overdue" tone={f.totals.overdue ? 'red' : 'green'} /></div>
-      <Card title="Charges" flush><DataTable rows={f.charges} empty="No charges" columns={[{ label: 'Charge', render: (c) => <b>{c.label}</b> }, { label: 'Due', render: (c) => fmtDate(c.dueDate, true) }, { label: 'Amount', render: (c) => fmtMoney(c.net) }, { label: 'Paid', render: (c) => fmtMoney(c.paidAmount) }, { label: 'Balance', render: (c) => fmtMoney(c.outstanding) }, { label: 'Status', render: (c) => <Badge tone={c.overdue ? 'red' : statusTone(c.status)}>{c.overdue ? 'Overdue' : label(c.status)}</Badge> }]} /></Card>
-      <p className="muted small">Fees are handled by the Finance desk. This is a read-only view.</p>
-    </div>
+    <Async state={a}>{(x) => (
+      <div className="stack">
+        <div className="grid g4"><Stat value={fmtMoney(x.totals.assigned)} label="Billed" /><Stat value={fmtMoney(x.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(x.totals.pending)} label="Pending" tone="amber" /><Stat value={fmtMoney(x.totals.overdue)} label="Overdue" tone={x.totals.overdue ? 'red' : 'green'} /></div>
+        <FeeSchedule installments={x.installments} charges={x.charges.map((c) => ({ id: c._id, label: c.label, kind: c.kind, dueDate: c.dueDate, period: c.period, amount: c.amount, concession: c.concession, paid: c.paidAmount, outstanding: c.outstanding, status: c.status, overdue: c.overdue, notes: c.concessions?.map((k) => `Concession ${fmtMoney(k.amount)} — ${k.reason}`) }))}
+          payments={x.payments.map((p) => ({ id: p._id, receiptNo: p.receiptNo, kind: p.kind, status: p.status, paidOn: p.paidOn, chargeIds: p.allocations.map((al) => String(al.chargeId)) }))} onReceipt={receipt} />
+        <Card title="Payments & receipts" flush><DataTable rows={x.payments} empty="No payments yet" columns={[
+          { label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) },
+          { label: 'Type', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : <Badge tone="green">Payment</Badge>) },
+          { label: 'Amount', render: (p) => fmtMoney(p.amount) }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'For', render: (p) => p.allocations.map((al) => al.label).join(', ') },
+          { label: '', render: (p) => <Button size="sm" onClick={() => receipt(p)}>Receipt</Button> }]} /></Card>
+        <p className="muted small">Fees are handled by the Finance desk. This is a read-only view.</p>
+      </div>
+    )}</Async>
   );
 }
 

@@ -124,6 +124,9 @@ test('the desk logins page can add a Staff portal login', async ({ page }) => {
   await dlg.getByLabel('Portal').selectOption('staff');
   await dlg.getByLabel('Full name').fill('Pappu Peon');
   await dlg.getByLabel('Job title').selectOption({ index: 1 });
+  await dlg.getByLabel('Email', { exact: true }).fill(`peon${Date.now().toString().slice(-6)}@gps.test`);
+  await dlg.getByLabel('Mobile number').fill('9876500011');
+  await dlg.getByLabel('Date of birth').fill('1988-08-08');
   await dlg.getByRole('button', { name: 'Save' }).click();
   const creds = page.getByRole('dialog', { name: 'Staff account' });
   await expect(creds).toContainText('Temporary password');
