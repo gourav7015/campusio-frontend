@@ -83,3 +83,28 @@ test('the platform administrator adds, hides, reorders and removes people on the
   expect(visitor.problems.filter((p) => !/HTTP 4\d\d/.test(p))).toEqual([]);
   await visitor.ctx.close(); await platform.ctx.close();
 });
+
+const API = process.env.API_URL || 'http://localhost:4010';
+test('on a phone the Connect page never scrolls sideways, even with a long list of people; only the row of names scrolls', async ({ browser }) => {
+  const login = await (await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginId: 'superadmin@erp.local', password: 'Super@12345', portal: 'platform' }) })).json();
+  const call = (method, path, body) => fetch(`${API}${path}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${login.token}` }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json().catch(() => ({})));
+  const added = [];
+  try {
+    for (const n of ['Hemanth Rithvik', 'Abhishek Sehrawat', 'Aashwi Ranjan', 'Rajeshwari Venkataraman']) added.push((await call('POST', '/api/platform/team', { name: `${n} Test`, role: 'Marketing Manager', phone: '+91 98765 43210', email: 'sales@atkaksha.com', languages: 'English, Hindi, Tamil', about: 'A short line about what this person looks after.', topics: ['Live demo', 'Quotes'] })).id);
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const page = await ctx.newPage();
+    await page.goto('/connect');
+    await expect(page.getByRole('radio').first()).toBeVisible();
+    const over = await page.evaluate(() => ({ page: document.documentElement.scrollWidth - window.innerWidth, card: Math.round(document.querySelector('article').getBoundingClientRect().right - window.innerWidth) }));
+    expect(over.page).toBeLessThanOrEqual(0); // the page itself does not scroll sideways
+    expect(over.card).toBeLessThanOrEqual(0); // the card fits the screen
+    // the names scroll as a row, and picking one still shows its card
+    expect(await page.evaluate(() => { const r = document.querySelector('[role=radiogroup]'); return r.scrollWidth > r.clientWidth; })).toBe(true);
+    await page.getByRole('radio').nth(3).click();
+    await expect(page.getByRole('article')).toContainText('Aashwi Ranjan Test');
+    // the message form fits too
+    await page.getByRole('tab', { name: 'Send a message' }).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    await ctx.close();
+  } finally { for (const id of added) if (id) await call('DELETE', `/api/platform/team/${id}`); }
+});

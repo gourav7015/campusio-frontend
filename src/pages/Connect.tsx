@@ -74,8 +74,8 @@ function TeamTab({ data, goMessage }: { data: Connect; goMessage: () => void }) 
   const wa = digits(p.whatsapp || p.phone);
   const first = p.name.split(' ')[0];
   return (
-    <div className="grid gap-x-14 gap-y-9 lg:grid-cols-[5fr_7fr]">
-      <div className="lg:row-span-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-x-14 gap-y-9 lg:grid-cols-[5fr_7fr]">
+      <div className="min-w-0 lg:row-span-2">
         <h2 id="pick-label" className="mb-3.5 text-[13px] font-medium text-muted-foreground">Who would you like to talk to?</h2>
         <div role="radiogroup" aria-labelledby="pick-label" className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible">
           {data.team.map((m, i) => {
@@ -93,7 +93,7 @@ function TeamTab({ data, goMessage }: { data: Connect; goMessage: () => void }) 
         </div>
       </div>
 
-      <article aria-live="polite" aria-label={`Contact details for ${p.name}`} className="overflow-hidden rounded-[28px] border border-border bg-card shadow-lg lg:sticky lg:top-6 lg:row-span-2 lg:self-start">
+      <article aria-live="polite" aria-label={`Contact details for ${p.name}`} className="min-w-0 overflow-hidden rounded-[28px] border border-border bg-card shadow-lg lg:sticky lg:top-6 lg:row-span-2 lg:self-start">
         <div className={cn('flex items-center gap-5 px-6 py-7 sm:gap-6 sm:px-10 sm:py-9', t.soft)}>
           <span aria-hidden className={cn('grid size-[72px] shrink-0 place-items-center rounded-full bg-card text-2xl font-medium sm:size-24 sm:text-[32px]', t.ink)}>{initials(p.name)}</span>
           <div className="min-w-0"><h3 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{p.name}</h3>{p.role && <div className={cn('mt-1 font-medium', t.ink)}>{p.role}</div>}</div>
@@ -174,7 +174,7 @@ function MessageTab({ data, goTeam }: { data: Connect; goTeam: () => void }) {
     } catch (err) { setError((err as Error).message || 'We could not send your message. Please try again, or write to us by email.'); } finally { setBusy(false); }
   };
   return (
-    <div className="grid gap-14 lg:grid-cols-[7fr_4fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-14 lg:grid-cols-[7fr_4fr]">
       <section className="rounded-2xl border border-border bg-card p-5 sm:p-8" aria-labelledby="form-title">
         {done ? (
           <div>
