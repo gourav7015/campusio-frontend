@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { leaveFields, leavePayload, daysText } from '../../components/leaveForm.js';
+import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw } from '../../components/leaveForm.js';
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post, put, patch, del, upload, openFile } from '../../api/client.js';
@@ -313,8 +313,10 @@ export function Leave() {
       <Async state={l}>{(d) => (<>
         <div className="grid g4">{Object.entries(d.balances).filter(([, b]) => b.allowance > 0).map(([k, b]) => <Stat key={k} value={b.remaining} label={`${label(k)} leave left`} sub={`${b.used} used of ${b.allowance}${b.granted ? ` (${b.granted} extra from the school)` : ''}`} />)}</div>
         {d.grants?.length > 0 && <Card title="Extra leave given to me this year" flush><DataTable rows={d.grants} rowKey="_id" columns={[{ label: 'Type', render: (g) => label(g.leaveType) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Given on', render: (g) => fmtDate(g.createdAt, true) }]} /></Card>}
-        <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{label(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
-          { label: '', render: (x) => ['draft', 'submitted', 'approved'].includes(x.status) && <ConfirmButton size="sm" message="Cancel this leave application?" onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/cancel`), 'Cancelled'); l.reload(); }}>Cancel</ConfirmButton> }]} /></Card></>)}</Async>
+        <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{leaveStatus(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
+          { label: '', render: (x) => canWithdraw(x) && (x.status === 'approved'
+            ? <ConfirmButton size="sm" message="Cancel this approved leave? The days go back to your balance and the office is told." onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/withdraw`), 'Leave cancelled'); l.reload(); }}>Cancel leave</ConfirmButton>
+            : <ConfirmButton size="sm" message="Withdraw this application? It will no longer wait for a decision." onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/withdraw`), 'Application withdrawn'); l.reload(); }}>Withdraw</ConfirmButton>) }]} /></Card></>)}</Async>
       {modal && <FormModal title="Apply for leave" fields={leaveFields({ typeHint: 'Unpaid leave is deducted from your salary for those days.' })}
         onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${T}/leave`, leavePayload(v)); l.reload(); return true; }} />}
     </div>

@@ -110,7 +110,7 @@ function BulkChange({ L, filter, total, onClose, onDone }) {
 
 export function Students() {
   const nav = useNavigate();
-  const L = useLookups();
+  const L = useLookups(undefined, { openYears: true });
   const [q, setQ] = useState(''); const [sectionId, setSectionId] = useState(''); const [status, setStatus] = useState('active'); const [page, setPage] = useState(1);
   const dq = useDebounced(q);
   const list = useApi('/api/school/students', { q: dq, sectionId, status, page, limit: 25 });

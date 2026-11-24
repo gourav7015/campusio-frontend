@@ -21,3 +21,8 @@ export function leavePayload(v) {
 }
 
 export const daysText = (l) => (l.halfDay ? `½ (${l.halfSession === 'first' ? 'first' : 'second'} half)` : l.days);
+
+/** What a leave's status is called on screen: an application taken back is "Withdrawn" (the stored word is cancelled). */
+export const leaveStatus = (s) => (s === 'cancelled' ? 'Withdrawn' : String(s || '').replace(/^./, (c) => c.toUpperCase()));
+/** Can this leave still be taken back? Waiting for a decision, or approved and not yet begun. */
+export const canWithdraw = (l, today = new Date().toLocaleDateString('en-CA')) => ['draft', 'submitted'].includes(l.status) || (l.status === 'approved' && l.startDate > today);

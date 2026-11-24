@@ -123,7 +123,7 @@ export function ClassPanel({ c, year, open, onToggle, onChange, teachers, loads,
   const [run] = useAction();
   const { confirm } = useDialogs();
   const [modal, setModal] = useState(null);
-  const [view, setView] = useState('section');
+  const [view, setView] = useState('all');
   const many = c.sections.length > 1; // one section: no switcher needed
   const closed = year.status === 'closed';
   const gaps = c.gaps.noClassTeacher.length + c.gaps.noTeacher.reduce((a, x) => a + x.sections.length, 0);

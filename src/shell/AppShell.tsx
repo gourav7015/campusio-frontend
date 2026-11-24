@@ -54,7 +54,7 @@ function useCrumbs(portal: Portal): Crumb[] {
 
 export function AppShell({ area }: { area: PortalKey }) {
   const { user, school, acting, setActing } = useSession();
-  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; classTeacher?: boolean } | null);
+  const portal = portalFor(PORTALS[area], user as unknown as { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null);
   const { pathname } = useLocation();
   const blocked = area === 'admin' ? blockedAdminPage(pathname, user as unknown as { adminLevel?: string; permissions?: string[] } | null) : null;
   const nav = useNavigate();

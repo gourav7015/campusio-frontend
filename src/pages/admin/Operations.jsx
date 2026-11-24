@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { leaveFields, leavePayload, daysText } from '../../components/leaveForm.js';
+import { leaveFields, leavePayload, daysText, leaveStatus } from '../../components/leaveForm.js';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, patch, del, download } from '../../api/client.js';
@@ -159,10 +159,10 @@ export function LeaveAdmin({ embedded = false }) {
   const [run, busy] = useAction();
   return (
     <div className="stack">
-      {(() => { const pick = <Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />;
+      {(() => { const pick = <Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: leaveStatus(s) }))} aria-label="Status" />;
         return embedded ? <div className="row between"><p className="muted small" style={{ margin: 0 }}>Approve or reject leave and arrange substitutes for the periods that are missed.</p>{pick}</div>
           : <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={pick} />; })()}
-      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{l.status}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
+      <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{leaveStatus(l.status)}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
       {editing && <FormModal title={`Edit leave · ${editing.teacherId?.name}`} initial={editing} submitLabel="Save changes" fields={leaveFields({ startLabel: 'From', endLabel: 'To', after: [{ name: 'editNote', label: 'Note to the teacher (optional)', full: true }] })} onClose={() => setEditing(null)} onSubmit={async (v) => { await patch(`/api/school/leave/${editing._id}`, leavePayload(v)); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The days are counted again from the working days in the new dates, and the teacher is told what changed.</p></FormModal>}
       {view && <LeaveReview leave={view} L={L} onClose={() => { setView(null); list.reload(); }} run={run} busy={busy} />}
     </div>

@@ -46,10 +46,9 @@ export function Promotion() {
     if (r) { setDone(r); setPlan(null); setPicked([]); setAnyway(false); L.reload(); progress.reload(); setup.reload(); }
   };
   const sectionsFor = (i) => plan.availableSections.filter((s) => (i.action === 'retain' ? s.className === i.fromClass : i.action === 'promote' ? s.className === i.toClass || !i.toClass : false));
-  const asks = (c) => c.sections.filter((s) => s.request).map((s) => `${s.name}: ${s.request.status === 'approved' ? 'approved, teacher is moving it' : 'teacher is asking'}`).join('; ');
   return (
     <div className="stack">
-      <PageHeader title="Year-end promotion" subtitle="Classes move to the next year on their own dates. Choose the classes, review each student, then confirm. Classes you leave out, and classes already moved, are not touched." />
+      <PageHeader title="Year-end promotion" subtitle="A class moves to the next year as a whole, all its sections together, on its own dates. Choose the classes, review each student, then confirm. Classes you leave out, and classes already moved, are not touched." />
       {next && fromYear && <NextYearModal from={fromYear} onClose={() => setNext(false)} onCreated={(y) => { L.reload(); setTo(y._id); }} />}
       <Card title="1. Which years">
         <div className="row wrap">
@@ -87,7 +86,6 @@ export function Promotion() {
               { label: 'Status', render: (c) => <><Badge tone={STATUS_TONE[c.status]}>{c.statusLabel}</Badge>{c.sessionEnded && c.waiting > 0 && <div className="small muted">session ended</div>}</> },
               { label: 'Session', render: (c) => <span style={{ whiteSpace: 'nowrap' }}>{fmtDate(c.startDate, true)} – {fmtDate(c.endDate, true)}{c.ownDates && <div className="small muted">its own dates</div>}</span> },
               { label: 'Waiting', render: (c) => c.waiting }, { label: 'Moved', render: (c) => c.moved },
-              { label: 'Class teacher asked', render: (c) => asks(c) || <span className="muted">—</span> },
             ]} />
           )}</Async>
         </Card>
@@ -99,7 +97,7 @@ export function Promotion() {
         <div className="grid g4"><Stat value={plan.summary.total} label="Students" /><Stat value={items.filter((i) => i.action === 'promote').length} label="To promote" tone="green" /><Stat value={items.filter((i) => i.action === 'retain').length} label="To repeat" /><Stat value={items.filter((i) => i.action === 'complete').length} label="Finishing school" /></div>
         <Card flush><DataTable rows={items} rowKey="enrolmentId" columns={[{ label: 'Student', render: (i) => <><b>{i.name}</b><div className="small muted">{i.admissionNo}</div></> }, { label: 'From', render: (i) => `${i.fromClass} ${i.fromSection}` },
           { label: 'What happens', render: (i) => <Select aria-label={`What happens to ${i.name}`} value={i.action} onChange={(e) => { const action = e.target.value; const match = plan.items.find((p) => p.enrolmentId === i.enrolmentId); upd(i.enrolmentId, { action, toSectionId: action === 'promote' ? match?.toSectionId : undefined }); }} options={plan.actions.map((a) => ({ value: a, label: label(a) }))} /> },
-          { label: 'Goes to', render: (i) => (['promote', 'retain'].includes(i.action) ? <Select aria-label={`Section for ${i.name}`} value={i.toSectionId || ''} onChange={(e) => upd(i.enrolmentId, { toSectionId: e.target.value })} placeholder="Choose section" options={sectionsFor(i).map((x) => ({ value: x.id, label: `${x.className} ${x.name} · ${x.planned}/${x.capacity} · ${x.classTeacher ? `class teacher ${x.classTeacher}` : 'no class teacher yet'}` }))} /> : <span className="muted">—</span>) },
+          { label: 'Goes to', render: (i) => (['promote', 'retain'].includes(i.action) ? <Select aria-label={`Section for ${i.name}`} value={i.toSectionId || ''} onChange={(e) => upd(i.enrolmentId, { toSectionId: e.target.value })} placeholder="Choose section" options={sectionsFor(i).map((x) => ({ value: x.id, label: `${x.className} ${x.name} (${x.yearName}) · ${x.planned}/${x.capacity} · ${x.classTeacher ? `class teacher ${x.classTeacher}` : 'no class teacher yet'}` }))} /> : <span className="muted">—</span>) },
           { label: '', render: (i) => <>{i.warnings?.map((w) => <Badge key={w} tone="red">{w}</Badge>)}{i.notices?.map((w) => <Badge key={w} tone="amber">{w}</Badge>)}</> }]} /></Card>
         <Card title="Left as they are">
           <p className="small muted" style={{ margin: 0 }}>{plan.classes.filter((c) => !c.inScope).length ? plan.classes.filter((c) => !c.inScope).map((c) => `${c.className}: ${c.waiting ? `${c.waiting} students stay in ${plan.fromYear.name}` : c.moved ? 'already moved on' : 'nobody to move'}`).join(' · ') : 'Every class with students waiting is in this promotion.'}</p>

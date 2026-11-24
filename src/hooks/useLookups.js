@@ -2,15 +2,16 @@ import { useMemo } from 'react';
 import { useApi } from './useApi.js';
 
 /** Class / section / subject / teacher / year lookups for School Admin forms. */
-export function useLookups(yearId) {
+export function useLookups(yearId, { openYears = false } = {}) {
   const years = useApi('/api/school/years');
   const classes = useApi('/api/school/classes');
   const subjects = useApi('/api/school/subjects');
-  const sections = useApi('/api/school/sections', { yearId });
+  const sections = useApi('/api/school/sections', { yearId, open: openYears && !yearId ? 1 : undefined }); // openYears: every year still running, for pages that follow students wherever their class is
   const teachers = useApi('/api/school/teachers', { limit: 200, status: 'active' });
   return useMemo(() => {
     const classMap = new Map((classes.data || []).map((c) => [c._id, c]));
-    const sectionLabel = (s) => `${classMap.get(s.classId)?.name || ''} ${s.name}`.trim();
+    const manyYears = new Set((sections.data || []).map((s) => s.yearId)).size > 1; // two years at once: the same class name can mean last session's or the new one, so the year is said
+    const sectionLabel = (s) => `${classMap.get(s.classId)?.name || ''} ${s.name}${manyYears && s.yearName ? ` (${s.yearName})` : ''}`.trim();
     return {
       years: years.data || [], classes: classes.data || [], subjects: subjects.data || [], sections: sections.data || [], teachers: teachers.data?.items || [],
       currentYear: (years.data || []).find((y) => y.isCurrent),

@@ -27,7 +27,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
   admin: {
     key: 'admin', title: 'School admin', home: '/admin', variant: 'workspace', api: '/api/school', search: true,
     groups: [
-      { items: [dash('/admin'), { to: '/admin/approvals', label: 'Approvals', icon: BadgeCheck }] },
+      { items: [dash('/admin'), { to: '/admin/approvals', label: 'Approvals', icon: BadgeCheck, badge: '/api/school/approvals/summary' }] },
       { label: 'People', items: [
         { to: '/admin/students', label: 'Students', icon: GraduationCap }, { to: '/admin/classes', label: 'Classes and sections', icon: Layers },
         { to: '/admin/employees', label: 'Employees', icon: Users }, { to: '/admin/designations', label: 'Designations', icon: BadgeCheck }, { to: '/admin/houses', label: 'Houses', icon: Flag }, { to: '/admin/payroll', label: 'Payroll and salaries', icon: Wallet },
@@ -54,7 +54,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       { label: 'Teaching', items: [
         { to: '/teacher/timetable', label: 'My timetable', icon: CalendarDays }, { to: '/teacher/classes', label: 'My classes', icon: School }, { to: '/teacher/subjects', label: 'My subjects', icon: BookOpen },
         { to: '/teacher/attendance', label: 'Attendance', icon: UserCheck }, { to: '/teacher/period-attendance', label: 'Period attendance', icon: Clock }, { to: '/teacher/homework', label: 'Homework', icon: NotebookPen }, 
-        { to: '/teacher/exams', label: 'Examinations and marks', icon: ClipboardList }, { to: '/teacher/performance', label: 'Student performance', icon: TrendingUp }, { to: '/teacher/house', label: 'My house', icon: Flag }, { to: '/teacher/promotion', label: 'Move my class on', icon: TrendingUp },
+        { to: '/teacher/exams', label: 'Examinations and marks', icon: ClipboardList }, { to: '/teacher/performance', label: 'Student performance', icon: TrendingUp }, { to: '/teacher/house', label: 'My house', icon: Flag },
       ] },
       { label: 'School', items: [{ to: '/teacher/library', label: 'Library', icon: BookMarked }, { to: '/teacher/communication', label: 'Communication', icon: MessagesSquare }, { to: '/teacher/chats', label: 'Parent messages', icon: MessageCircle }, { to: '/teacher/remarks', label: 'Remarks', icon: MessageSquareWarning }, { to: '/teacher/swaps', label: 'Period swaps', icon: Repeat }, { to: '/teacher/school-info', label: 'School information', icon: Info }] },
       { label: 'Me', items: [
@@ -142,8 +142,8 @@ export function blockedAdminPage(pathname: string, user?: { adminLevel?: string;
 }
 
 /** The portal as one signed-in person sees it: a sub-admin gets only the pages their permissions open. */
-export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; classTeacher?: boolean } | null): Portal {
-  if (p.key === 'teacher') { const drop = new Set([...(user?.periodWise ? [] : ['/teacher/period-attendance']), ...(user?.classTeacher ? [] : ['/teacher/promotion'])]); return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })) }; }
+export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null): Portal {
+  if (p.key === 'teacher') { const drop = new Set(user?.periodWise ? [] : ['/teacher/period-attendance']); return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })) }; }
   // a staff member sees "Mark attendance" only when the School Admin has given them the attendance desk
   if (p.key === 'staff') return user?.canMarkAttendance ? p : { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/staff/attendance-desk') })) };
   if (p.key !== 'admin' || user?.adminLevel !== 'sub') return p;

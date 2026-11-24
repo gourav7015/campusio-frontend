@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { leaveFields, leavePayload, daysText } from './leaveForm.js';
+import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw } from './leaveForm.js';
 import { useApi } from '../hooks/useApi.js';
 import { post, patch } from '../api/client.js';
-import { Async, Badge, Button, Card, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
 import FormModal from './FormModal.jsx';
 import { useDialogs } from '../design/ui';
 
@@ -29,11 +29,15 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRec
         <Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} empty="No applications" columns={[
           { label: 'Staff member', render: (l) => <><b>{l.staffId?.name}</b><div className="small muted">{l.staffId?.staffId}</div></> }, { label: 'Type', render: (l) => label(l.leaveType) },
           { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' },
-          { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{label(l.status)}</Badge>{l.awaitingAdmin && l.status === 'submitted' && <div><Badge tone="amber">With the school admin</Badge></div>}{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },
+          { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{leaveStatus(l.status)}</Badge>{l.awaitingAdmin && l.status === 'submitted' && <div><Badge tone="amber">With the school admin</Badge></div>}{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },
           ...(canEdit ? [{ label: '', render: (l) => l.status === 'submitted' && (l.canDecide || l.canPassOn
             ? <div className="row">{l.canDecide && <><Button size="sm" variant="primary" onClick={() => decide(l, 'approve')}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(l, 'reject')}>Reject</Button></>}
               {l.canPassOn && <Button size="sm" onClick={() => passOn(l)}>Send to admin</Button>}</div>
-            : <span className="small muted">Waiting for the school admin</span>) }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && <Button size="sm" onClick={() => setEdit(l)}>Edit</Button> }] : []),
+            : <span className="small muted">Waiting for the school admin</span>) }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && (
+              <div className="row" style={{ gap: 6 }}>
+                <Button size="sm" onClick={() => setEdit(l)}>Edit</Button>
+                {canWithdraw(l) && <ConfirmButton size="sm" message={l.status === 'approved' ? `Cancel the approved leave of ${l.staffId?.name}? The attendance for those days is no longer marked as leave.` : `Withdraw the leave application of ${l.staffId?.name}?`} onConfirm={async () => { await run(() => post(`${base}/${l._id}/withdraw`), l.status === 'approved' ? 'Leave cancelled' : 'Application withdrawn'); list.reload(); }}>{l.status === 'approved' ? 'Cancel leave' : 'Withdraw'}</ConfirmButton>}
+              </div>) }] : []),
         ]} />}</Async>
       </Card>
       <p className="muted small">Approved leave fills the attendance register for those days. Unpaid leave is deducted from salary.</p>
