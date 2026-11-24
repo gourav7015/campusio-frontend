@@ -29,6 +29,7 @@ export function PublicFooter() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-6 text-sm text-muted-foreground sm:px-8">
         <p>© {new Date().getFullYear()} {site.company || site.name}</p>
         <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
+          <Link className="hover:text-foreground hover:underline" to="/connect">Connect with us</Link>
           <Link className="hover:text-foreground hover:underline" to="/privacy">Privacy policy</Link>
           <Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link>
           <Link className="hover:text-foreground hover:underline" to="/cookies">Cookies and storage</Link>

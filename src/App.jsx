@@ -83,6 +83,8 @@ const ExamDetail = lazy(() => import('./pages/admin/Exams.jsx').then((m) => ({ d
 const AnnouncementsAdmin = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.AnnouncementsAdmin })));
 const Events = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.Events })));
 const MessagesAdmin = lazy(() => import('./pages/admin/Comms.jsx').then((m) => ({ default: m.MessagesAdmin })));
+const ConnectPage = lazy(() => import('./pages/Connect'));
+const ConnectAdmin = lazy(() => import('./pages/platform/ConnectAdmin.jsx'));
 const ClassStructure = lazy(() => import('./pages/admin/ClassStructure.jsx'));
 const Promotion = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Promotion })));
 const Import = lazy(() => import('./pages/admin/Tools.jsx').then((m) => ({ default: m.Import })));
@@ -141,14 +143,14 @@ export default function App() {
       <OfflineBanner />
       <Suspense fallback={<Spinner />}><Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
+        <Route path="/connect" element={<ConnectPage />} /><Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
         {Gallery && <Route path="/design" element={<Suspense fallback={null}><Gallery /></Suspense>} />}
         <Route path="/login" element={<Navigate to="/" replace />} /><Route path="/forgot-password" element={<ForgotPassword />} />
         {['student', 'teacher', 'finance', 'library', 'transport', 'staff', 'admin', 'platform'].map((p) => <Route key={p} path={`/${p}/login`} element={<PortalLogin portal={p} />} />)}
         <Route element={user ? <AccountShell /> : <Navigate to="/" replace />}><Route path="/account" element={<Account />} /></Route>
 
         <Route path="/platform" element={<Guard roles={['super_admin']}><AppShell area="platform" /></Guard>}>
-          <Route index element={<PlatformDashboard />} /><Route path="helpdesk" element={<HelpDesk handler platform base="/api/platform/helpdesk" title="Help desk" subtitle="Tickets from schools. Replies reach the school admin by email and in their portal." />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} /><Route path="errors" element={<PlatformErrors />} />
+          <Route index element={<PlatformDashboard />} /><Route path="connect" element={<ConnectAdmin />} /><Route path="helpdesk" element={<HelpDesk handler platform base="/api/platform/helpdesk" title="Help desk" subtitle="Tickets from schools. Replies reach the school admin by email and in their portal." />} /><Route path="schools" element={<Schools />} /><Route path="schools/:id" element={<SchoolDetail />} /><Route path="audit" element={<PlatformAudit />} /><Route path="errors" element={<PlatformErrors />} />
         </Route>
 
         <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><AppShell area="admin" /></Guard>}>
