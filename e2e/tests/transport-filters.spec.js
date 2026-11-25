@@ -25,7 +25,9 @@ test('the Buses page can be narrowed, opens already narrowed from the dashboard 
 
   // a bus put into maintenance shows on the dashboard at once; made running again, it goes away: no refresh
   const setStatus = async (status) => {
-    await page.getByRole('row', { name: /GPS-01/ }).getByRole('button', { name: 'Edit' }).click();
+    await page.getByRole('row', { name: /GPS-01/ }).getByRole('button', { name: /More for bus/ }).click();
+    await page.getByRole('menuitem', { name: 'Edit bus' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(1); // only the edit form, not the bus detail behind it
     await page.getByRole('dialog').getByLabel('Status').selectOption(status);
     await page.getByRole('dialog').getByRole('button', { name: 'Save bus' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);

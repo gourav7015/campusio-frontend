@@ -6,7 +6,9 @@ import {
 
 export type PortalKey = 'platform' | 'admin' | 'teacher' | 'student' | 'finance' | 'library' | 'transport' | 'staff';
 export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; /** API path that returns { count }: shown as a small number beside the label */ badge?: string }
-export interface NavGroup { label?: string; /** the area's icon in the School admin rail */ icon?: LucideIcon; items: NavItem[] }
+export interface NavGroup {
+  /** shown only to a class teacher */
+  classTeacherOnly?: boolean; label?: string; /** the area's icon in the School admin rail */ icon?: LucideIcon; items: NavItem[] }
 /** control: dark operator console. workspace: dense light sidebar. teaching: compact, task-first. personal: floating, friendly. areas: a slim rail of areas with the open area's pages beside it (School admin). top: a top bar of areas, and the open area's pages under it (Teacher, Staff). */
 export type ShellVariant = 'control' | 'workspace' | 'teaching' | 'personal' | 'areas' | 'top';
 export interface Portal {
@@ -53,7 +55,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Money', icon: IndianRupee, items: [
         { to: '/admin/fees', label: 'Fees (view)', icon: IndianRupee },
-        { to: '/admin/payroll', label: 'Payroll (view and approve)', icon: Wallet },
+        { to: '/admin/payroll', label: 'Payroll (view)', icon: Wallet },
         { to: '/admin/documents', label: 'Receipts and payslips', icon: FilePenLine },
       ] },
       { label: 'Messages', icon: Mail, items: [
@@ -84,6 +86,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/teacher/timetable', label: 'My timetable', icon: CalendarDays },
         { to: '/teacher/calendar', label: 'School calendar', icon: CalendarDays },
       ] },
+      { label: 'My class', icon: School, classTeacherOnly: true, items: [{ to: '/teacher/my-class', label: 'My class', icon: School }] },
       { label: 'Classes', icon: Users, items: [
         { to: '/teacher/classes', label: 'My classes', icon: School },
         { to: '/teacher/subjects', label: 'My subjects', icon: BookOpen },
@@ -135,12 +138,25 @@ export const PORTALS: Record<PortalKey, Portal> = {
     ],
   },
   finance: {
-    key: 'finance', title: 'Finance', home: '/finance', variant: 'workspace', api: null, search: false,
-    groups: [{ items: [
-      dash('/finance'), { to: '/finance/structures', label: 'Fee structures', icon: FileSpreadsheet }, { to: '/finance/policy', label: 'Fee policy', icon: Scale },
-      { to: '/finance/students', label: 'Students and dues', icon: Users }, { to: '/finance/payments', label: 'Payments and receipts', icon: CreditCard }, { to: '/finance/online', label: 'Online payments', icon: Smartphone }, { to: '/finance/defaulters', label: 'Defaulters', icon: AlertTriangle }, { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
-      { to: '/finance/payroll', label: 'Payroll and salaries', icon: Wallet }, { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/vendors', label: 'Vendors', icon: Store }, { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
-    ] }],
+    key: 'finance', title: 'Finance', home: '/finance', variant: 'top', api: null, search: false,
+    tabs: ['/finance', '/finance/payments', '/finance/students', '/finance/payroll'],
+    groups: [
+      { label: 'Home', icon: LayoutDashboard, items: [dash('/finance')] },
+      { label: 'Fees', icon: CreditCard, items: [
+        { to: '/finance/students', label: 'Students and dues', icon: Users }, { to: '/finance/payments', label: 'Payments and receipts', icon: CreditCard },
+        { to: '/finance/online', label: 'Online payments', icon: Smartphone }, { to: '/finance/defaulters', label: 'Defaulters', icon: AlertTriangle },
+        { to: '/finance/structures', label: 'Fee structures', icon: FileSpreadsheet }, { to: '/finance/policy', label: 'Fee policy', icon: Scale },
+      ] },
+      { label: 'Payroll', icon: Wallet, items: [{ to: '/finance/payroll', label: 'Payroll and salaries', icon: Wallet }] },
+      { label: 'Spending', icon: Receipt, items: [
+        { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/vendors', label: 'Vendors', icon: Store }, { to: '/finance/spending-receipts', label: 'Receipts', icon: FileText },
+      ] },
+      { label: 'Reports', icon: BarChart3, items: [{ to: '/finance/reports', label: 'Reports', icon: BarChart3 }] },
+      { label: 'Office', icon: Landmark, items: [
+        { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays },
+        { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
+      ] },
+    ],
   },
   library: {
     key: 'library', title: 'Library', home: '/library', variant: 'workspace', api: null, search: false,
@@ -196,8 +212,10 @@ export function blockedAdminPage(pathname: string, user?: { adminLevel?: string;
 }
 
 /** The portal as one signed-in person sees it: a sub-admin gets only the pages their permissions open. */
-export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean } | null): Portal {
-  if (p.key === 'teacher') { const drop = new Set(user?.periodWise ? [] : ['/teacher/period-attendance']); return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })).filter((g) => g.items.length) }; }
+export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; isClassTeacher?: boolean; onlinePayments?: boolean } | null): Portal {
+  // Finance sees "Online payments" only in a school where online payment is switched on
+  if (p.key === 'finance' && user?.onlinePayments === false) return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/finance/online') })).filter((g) => g.items.length) };
+  if (p.key === 'teacher') { const drop = new Set(user?.periodWise ? [] : ['/teacher/period-attendance']); return { ...p, groups: p.groups.filter((g) => !g.classTeacherOnly || user?.isClassTeacher).map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })).filter((g) => g.items.length) }; }
   // a staff member sees "Mark attendance" only when the School Admin has given them the attendance desk
   if (p.key === 'staff') return user?.canMarkAttendance ? p : { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/staff/attendance-desk') })) };
   if (p.key !== 'admin' || user?.adminLevel !== 'sub') return p;

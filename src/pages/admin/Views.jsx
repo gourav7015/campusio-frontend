@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post, patch } from '../../api/client.js';
 import { Async, Badge, Button, Card, CredentialsModal, DataTable, Empty, Field, Modal, PageHeader, Select, Tabs, useAction, fmtDateTime, statusTone, label } from '../../components/ui.jsx';
-import { Expenses, Budgets, Vendors } from '../finance/FinanceMore.jsx';
+import { Expenses, Budgets, VendorsHub, SpendingReceipts } from '../finance/FinanceMore.jsx';
 import { FinanceDashboard, FeeStructures, FeePolicy, StudentsDues, Payments, FinanceReports, FinanceDefaulters } from '../finance/Finance.jsx';
 import { LibraryDashboard, Books, Loans } from '../library/Library.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
@@ -20,8 +20,8 @@ export function AdminFees() {
   const tab = sp.get('tab') || 'overview';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students & dues'], ['payments', 'Payments'], ['defaulters', 'Defaulters'], ['reports', 'Reports'], ['expenses', 'Expenditure'], ['vendors', 'Vendors'], ['budgets', 'Budgets']]} value={tab} onChange={(t) => setSp({ tab: t })} />
-      {tab === 'overview' && <FinanceDashboard readOnly />}{tab === 'structures' && <FeeStructures readOnly />}{tab === 'policy' && <FeePolicy readOnly />}{tab === 'students' && <StudentsDues readOnly />}{tab === 'payments' && <Payments readOnly />}{tab === 'expenses' && <Expenses readOnly />}{tab === 'budgets' && <Budgets readOnly />}{tab === 'vendors' && <Vendors readOnly />}{tab === 'defaulters' && <FinanceDefaulters readOnly />}{tab === 'reports' && <FinanceReports readOnly />}
+      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students & dues'], ['payments', 'Payments'], ['defaulters', 'Defaulters'], ['reports', 'Reports'], ['expenses', 'Expenditure'], ['vendors', 'Vendors'], ['spending-receipts', 'Spending receipts'], ['budgets', 'Budgets']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      {tab === 'overview' && <FinanceDashboard readOnly />}{tab === 'structures' && <FeeStructures readOnly />}{tab === 'policy' && <FeePolicy readOnly />}{tab === 'students' && <StudentsDues readOnly />}{tab === 'payments' && <Payments readOnly />}{tab === 'expenses' && <Expenses readOnly />}{tab === 'budgets' && <Budgets readOnly />}{tab === 'vendors' && <VendorsHub readOnly />}{tab === 'spending-receipts' && <SpendingReceipts readOnly />}{tab === 'defaulters' && <FinanceDefaulters readOnly />}{tab === 'reports' && <FinanceReports readOnly />}
     </div>
   );
 }

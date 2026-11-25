@@ -2,7 +2,7 @@ import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, u
 import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Loader2, Lock } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 import { isOffline } from '../api/client.js';
-import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Pagination, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
 
 // Toasts, dialogs and empty states now come from the design system; the screens built earlier keep their imports.
 export { ToastProvider, useToast };
@@ -90,8 +90,13 @@ export function ConfirmButton({ children, message, onConfirm, confirmLabel, ...p
 }
 
 /** Columns with a `key` (or a `sort` function) sort when their header is clicked. */
-export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show yet', rowKey = '_id', rowClassName }) {
+/** `pageSize` (optional) shows that many rows at a time with Previous / Next under the table; sorting still covers every row. */
+export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show yet', rowKey = '_id', rowClassName, pageSize, compact }) {
   const [sort, setSort] = useState(null);
+  const [page, setPage] = useState(0);
+  const count = rows?.length ?? 0;
+  const [seen, setSeen] = useState(count);
+  if (seen !== count) { setSeen(count); setPage(0); } // a new set of rows starts again at page one
   const sorted = useMemo(() => {
     if (!sort || !rows) return rows;
     const col = columns[sort.ci];
@@ -104,9 +109,12 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
     return sort.dir === 'desc' ? out.reverse() : out;
   }, [rows, sort, columns]);
   if (!rows?.length) return <Empty title={empty} />;
-  const toggle = (ci) => setSort((s) => (s?.ci === ci ? (s.dir === 'asc' ? { ci, dir: 'desc' } : null) : { ci, dir: 'asc' }));
+  const toggle = (ci) => { setSort((s) => (s?.ci === ci ? (s.dir === 'asc' ? { ci, dir: 'desc' } : null) : { ci, dir: 'asc' })); setPage(0); };
+  const pages = pageSize ? Math.ceil(sorted.length / pageSize) : 1;
+  const at = Math.min(page, pages - 1);
+  const shown = pageSize ? sorted.slice(at * pageSize, (at + 1) * pageSize) : sorted;
   return (
-    <div className="table-wrap"><table>
+    <><div className={`table-wrap${compact ? ' compact' : ''}`}><table>
       <thead><tr>{columns.map((c, ci) => {
         const sortable = !!(c.key || c.sort); const on = sort?.ci === ci;
         return (
@@ -119,11 +127,11 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
           </th>
         );
       })}</tr></thead>
-      <tbody>{sorted.map((r, i) => (
-        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={`${onRowClick ? 'clickable' : ''} ${rowClassName?.(r) || ''}`.trim()} onClick={onRowClick ? (e) => { if (e.target.closest?.('button, a, input, select, textarea, label, [role="button"]')) return; onRowClick(r); } : undefined}>
+      <tbody>{shown.map((r, i) => (
+        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={`${onRowClick ? 'clickable' : ''} ${rowClassName?.(r) || ''}`.trim()} onClick={onRowClick ? (e) => { if (e.target.closest?.('button, a, input, select, textarea, label, [role="button"], [role="menu"], [role="menuitem"], [role="dialog"]')) return; onRowClick(r); } : undefined}>
           {columns.map((c, ci) => <td key={`${ci}-${c.label}`} className={c.right ? 'right' : ''}>{c.render ? c.render(r) : r[c.key]}</td>)}
         </tr>))}</tbody>
-    </table></div>
+    </table></div>{pageSize && sorted.length > pageSize && <Pagination page={at} pageCount={pages} total={sorted.length} pageSize={pageSize} onPage={setPage} />}</>
   );
 }
 

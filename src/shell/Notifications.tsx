@@ -13,7 +13,7 @@ interface NoticeList { unread: number; items: Notice[] }
 /** Which page explains a notification, inside the viewer's own portal. */
 const PAGE_FOR: Record<string, string> = {
   homework: 'homework', attendance: 'attendance', material: 'materials', announcement: 'announcements', result: 'results', exam: 'exams',
-  timetable: 'timetable', leave: 'leave', staff_leave: 'leave?tab=transport', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk',
+  timetable: 'timetable', leave: 'leave', staff_leave: 'leave?tab=transport', marks: 'exams', message: 'messages', fees: 'fees', library: 'library', ticket: 'helpdesk', payroll: 'payroll',
 };
 const targetFor = (role: string, type?: string, id?: string) => `/${role}/${PAGE_FOR[type ?? ''] ?? 'notifications'}${id && type === 'ticket' ? `?open=${id}` : ''}`; // a help desk notification opens that ticket
 

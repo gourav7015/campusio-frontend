@@ -60,6 +60,8 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-weight: 500; fon
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th.nw, td.nw { white-space: nowrap; }
+/* a compact table (tighter cells) for wide lists that must fit without sideways scrolling */
+.table-wrap.compact th, .table-wrap.compact td { padding-left: 10px; padding-right: 10px; }
 th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 10px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--surface-2); }
 td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; } tr:last-child td { border-bottom: 0; } tbody tr { transition: background-color .1s var(--ease); } tbody tr:hover { background: var(--surface-2); }
 tr.clickable { cursor: pointer; }

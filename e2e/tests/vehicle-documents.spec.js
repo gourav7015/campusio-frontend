@@ -11,7 +11,9 @@ test('the transport officer records a bus’s registration and pollution papers 
   const problems = watch(page, ['/api/auth/me']); // signing out leaves one stale session check
   await signIn(page, 'transport', 'transport@gps.test', 'Transport@12345');
   await page.goto('/transport/buses');
-  await page.getByRole('row', { name: /GPS-01/ }).getByRole('button', { name: 'Documents' }).click();
+  await page.getByRole('row', { name: /GPS-01/ }).getByRole('button', { name: /More for bus/ }).click();
+  await page.getByRole('menuitem', { name: 'Documents' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1); // only the papers, not the bus detail behind them
   const card = page.getByRole('dialog').locator('.card').filter({ has: page.getByText('Vehicle documents', { exact: true }) });
   for (const t of ['Registration certificate (RC)', 'Insurance', 'Pollution certificate (PUC)', 'Fitness certificate', 'Route permit', 'Road tax']) await expect(card.getByRole('cell', { name: t, exact: true })).toBeVisible();
 

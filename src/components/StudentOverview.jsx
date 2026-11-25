@@ -2,6 +2,7 @@ import { Async, Badge, Button, Card, DataTable, Empty, Stat, fmtDate, fmtMoney, 
 import FeeSchedule from './FeeSchedule.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { download } from '../api/client.js';
+import { useOffice } from '../context/ClassOffice.jsx';
 import Heatmap from './Heatmap.jsx';
 import { BarsChart } from './Charts.jsx';
 
@@ -57,7 +58,7 @@ export function HomeworkPanel({ o }) {
 
 /** A student's fees as the School Admin sees them: every instalment and charge with its Receipt, and every payment. Read-only; Finance does the collecting. */
 export function FeesPanel({ studentId }) {
-  const base = '/api/school/finance';
+  const { finance: base } = useOffice();
   const a = useApi(`${base}/students/${studentId}/account`);
   const [run] = useAction();
   const receipt = (p) => run(() => download(`${base}/payments/${p.id || p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`));

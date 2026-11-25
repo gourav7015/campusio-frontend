@@ -22,7 +22,8 @@ const Guide = lazy(() => import('./pages/shared/Guide.jsx'));
 const SchoolInfoPage = lazy(() => import('./pages/shared/SchoolInfo.jsx').then((m) => ({ default: m.SchoolInfoPage })));
 const Expenses = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.Expenses })));
 const Budgets = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.Budgets })));
-const Vendors = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.Vendors })));
+const SpendingReceipts = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.SpendingReceipts })));
+const Vendors = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.VendorsHub })));
 const TaxBankProfile = lazy(() => import('./pages/finance/FinanceMore.jsx').then((m) => ({ default: m.TaxBankProfile })));
 const TeacherChats = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.TeacherChats })));
 const TeacherRemarks = lazy(() => import('./pages/teacher/Teacher3.jsx').then((m) => ({ default: m.TeacherRemarks })));
@@ -97,6 +98,8 @@ const AdminLibrary = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({
 const AdminTransport = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.AdminTransport })));
 const Staff = lazy(() => import('./pages/admin/Views.jsx').then((m) => ({ default: m.Staff })));
 const Payroll = lazy(() => import('./pages/admin/Payroll.jsx'));
+const MyClass = lazy(() => import('./pages/teacher/MyClass.jsx'));
+const ClassStudent = lazy(() => import('./pages/teacher/ClassStudent.jsx'));
 const Salary = lazy(() => import('./pages/teacher/Salary.jsx'));
 const FinanceDashboard = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FinanceDashboard })));
 const FeeStructures = lazy(() => import('./pages/finance/Finance.jsx').then((m) => ({ default: m.FeeStructures })));
@@ -168,7 +171,7 @@ export default function App() {
 
         <Route path="/finance" element={<Guard roles={['finance']}><AppShell area="finance" /></Guard>}>
           <Route index element={<FinanceDashboard />} /><Route path="structures" element={<FeeStructures />} /><Route path="policy" element={<FeePolicy />} /><Route path="students" element={<StudentsDues />} /><Route path="students/:id" element={<StudentAccount />} /><Route path="payments" element={<Payments />} /><Route path="reports" element={<FinanceReports />} /><Route path="defaulters" element={<FinanceDefaulters />} />
-          <Route path="online" element={<OnlinePayments />} /><Route path="payroll" element={<Payroll base="/api/finance/payroll" role="finance" />} /><Route path="expenses" element={<Expenses />} /><Route path="budgets" element={<Budgets />} /><Route path="vendors" element={<Vendors />} /><Route path="profile" element={<TaxBankProfile />} /><Route path="school-info" element={<SchoolInfoPage base="/api/finance" />} /><Route path="helpdesk" element={askAtKaksha('/api/finance/tickets')} /><Route path="calendar" element={deskCalendar('/api/finance')} />
+          <Route path="online" element={<OnlinePayments />} /><Route path="payroll" element={<Payroll base="/api/finance/payroll" role="finance" />} /><Route path="expenses" element={<Expenses />} /><Route path="budgets" element={<Budgets />} /><Route path="vendors" element={<Vendors />} /><Route path="vendor-payments" element={<Navigate to="/finance/vendors?sub=payments" replace />} /><Route path="spending-receipts" element={<SpendingReceipts />} /><Route path="profile" element={<TaxBankProfile />} /><Route path="school-info" element={<SchoolInfoPage base="/api/finance" />} /><Route path="helpdesk" element={askAtKaksha('/api/finance/tickets')} /><Route path="calendar" element={deskCalendar('/api/finance')} />
         </Route>
 
         <Route path="/transport" element={<Guard roles={['transport']}><AppShell area="transport" /></Guard>}>
@@ -187,7 +190,7 @@ export default function App() {
         </Route>
 
         <Route path="/teacher" element={<Guard roles={['teacher']}><AppShell area="teacher" /></Guard>}>
-          <Route index element={<TeacherDashboard />} /><Route path="timetable" element={<T1.TeacherTimetable />} /><Route path="classes" element={<T1.Classes />} /><Route path="classes/:sectionId" element={<T1.ClassWorkspace />} /><Route path="students/:id" element={<T1.StudentView />} />
+          <Route index element={<TeacherDashboard />} /><Route path="timetable" element={<T1.TeacherTimetable />} /><Route path="my-class" element={<MyClass />} /><Route path="my-class/students/:id" element={<ClassStudent />} /><Route path="classes" element={<T1.Classes />} /><Route path="classes/:sectionId" element={<T1.ClassWorkspace />} /><Route path="students/:id" element={<T1.StudentView />} />
           <Route path="subjects" element={<T1.Subjects />} /><Route path="attendance" element={<T1.Attendance />} /><Route path="homework" element={<T2.Homework />} /><Route path="materials" element={<Navigate to="/teacher" replace />} />
           <Route path="exams" element={<T2.Exams />} /><Route path="exams/:examSubjectId/:sectionId" element={<T2.MarksSheet />} /><Route path="marks" element={<Navigate to="/teacher/exams" replace />} /><Route path="performance" element={<T2.Performance />} /><Route path="house" element={<TeacherHouse />} /><Route path="queries" element={<HelpDesk noun="query" base="/api/teacher/queries" title="Queries to the office" subtitle="Ask the school office about your attendance, your leave or anything else. The office desk and the School Admin answer here." />} />
           <Route path="salary" element={<Salary />} /><Route path="my-attendance" element={<MyAttendance />} /><Route path="communication" element={<Communication />} /><Route path="announcements" element={<AnnouncementsPage base="/api/teacher" />} /><Route path="messages" element={<Communication />} /><Route path="library" element={<LibraryMine base="/api/teacher" />} /><Route path="leave" element={<T2.Leave />} /><Route path="profile" element={<T2.Profile />} />

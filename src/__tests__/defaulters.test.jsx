@@ -38,7 +38,7 @@ describe('Defaulters', () => {
     expect(await screen.findByText('Class 9')).toBeInTheDocument(); // zero defaulters, still listed
     expect(screen.getByText(/3 defaulter\(s\) of 100 billed students/)).toBeInTheDocument();
     fireEvent.click(screen.getByText('Class 8'));
-    expect(await screen.findByText(/Defaulters in Class 8/)).toBeInTheDocument();
+    expect(await screen.findByRole('complementary', { name: /Defaulters in Class 8/ })).toBeInTheDocument(); // the class opens in a panel beside the list
     expect(await screen.findByText('Student 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export by class' })).toBeInTheDocument();
   });

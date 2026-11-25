@@ -480,7 +480,7 @@ test('library: add a book, issue and return it at the desk; student sees it; fin
   expect(problems.filter((p) => !/HTTP 409 POST \/api\/library\/issue/.test(p))).toEqual([]); // the 409 is the deliberate double-issue attempt
 });
 
-test('payroll: Finance defines a level, sets a salary, generates and adjusts; the admin only views and approves; Finance pays; the teacher sees the payslip', async ({ page }) => {
+test('payroll: Finance defines a level, sets a salary, prepares the month, adds a bonus and approves the amounts; the admin only views; Finance pays; the teacher sees the payslip', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   await page.goto('/finance/payroll');
@@ -505,10 +505,10 @@ test('payroll: Finance defines a level, sets a salary, generates and adjusts; th
   await expect(page.getByText('Net per month ₹1,12,000')).toBeVisible();
   await page.getByRole('button', { name: 'Save salary' }).click();
   await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Vice Principal');
-  // this month's payroll
-  await page.getByRole('tab', { name: 'Payroll runs' }).click();
-  await page.getByRole('button', { name: '+ Generate payroll' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Generate' }).click();
+  // this month's payroll prepares itself on the payroll day; this school has none yet, so Finance prepares it now
+  await page.getByRole('tab', { name: 'This month' }).click();
+  await expect(page.getByText(/prepares itself on day \d+ of every month/)).toBeVisible();
+  await page.getByRole('button', { name: 'Prepare it now' }).click();
   await expect(page.getByText('Draft').first()).toBeVisible();
   const row = page.getByRole('row', { name: /Meera Gupta/ });
   await expect(row).toContainText('₹1,12,000');
@@ -518,33 +518,45 @@ test('payroll: Finance defines a level, sets a salary, generates and adjusts; th
   await page.getByLabel('Amount 1').fill('5000');
   await page.getByRole('button', { name: 'Save adjustments' }).click();
   await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('₹1,17,000');
-  // Finance prepares the month but cannot approve it: that is the School Admin's step
-  await expect(page.getByText(/Waiting for the School Admin to approve/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);
-  await signOut(page);
-  // the School Admin sees everything, has no buttons that change pay, and approves the month
-  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/payroll');
-  await expect(page.getByText(/Run by the Finance department/)).toBeVisible();
-  await expect(page.getByRole('button', { name: '+ Generate payroll' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Salaries' }).click();
-  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Vice Principal');
-  await expect(page.getByRole('button', { name: 'Revise' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Pay levels' }).click();
-  await expect(page.getByRole('button', { name: '+ New level' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Payroll runs' }).click();
-  await page.getByRole('button', { name: 'Open' }).first().click();
-  await expect(page.getByRole('button', { name: /Adjust/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Approve' }).click();
+  // a bonus for everyone, previewed before it is saved
+  await page.getByRole('button', { name: 'Add a bonus…' }).click();
+  const bd = page.getByRole('dialog');
+  await bd.getByLabel('Bonus name').fill('Festival bonus');
+  await bd.getByLabel('Amount (₹)').fill('1000');
+  await bd.getByRole('button', { name: 'Preview' }).click();
+  await expect(bd.getByText(/\d+ people, ₹.* in all/)).toBeVisible();
+  await bd.getByRole('button', { name: 'Add the bonus' }).click();
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('₹1,18,000');
+  // the list can be narrowed to one person
+  await page.getByLabel('Search people').fill('Meera');
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Kamla Devi/ })).toHaveCount(0);
+  await page.getByLabel('Search people').fill('');
+  // there is no payslip to print for an unpaid salary
+  await expect(page.getByRole('button', { name: 'PDF' })).toHaveCount(0);
+  // Finance checks the amounts and approves them: they are saved in the payroll and locked
+  await page.getByRole('button', { name: 'Approve amounts' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Approved').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /Mark all paid/ })).toHaveCount(0); // paying is Finance's work
+  await expect(page.getByRole('button', { name: 'Adjust' })).toHaveCount(0); // locked once approved
+  await signOut(page);
+  // the School Admin sees the month and what is going to each person, and cannot change anything
+  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
+  await page.goto('/admin/payroll');
+  await expect(page.getByText(/cannot change anything/)).toBeVisible();
+  await expect(page.getByText('This month: ')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('₹1,18,000');
+  for (const name of ['Approve amounts', 'Add a bonus…', 'Recalculate', 'Prepare it now', /Mark all paid/, /Adjust/]) await expect(page.getByRole('button', { name })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Salaries' }).click();
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Vice Principal');
+  for (const name of ['Revise', 'Give an increment…']) await expect(page.getByRole('button', { name })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Pay levels' }).click();
+  await expect(page.getByRole('button', { name: '+ New level' })).toHaveCount(0);
   await signOut(page);
   // Finance records the payments
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   await page.goto('/finance/payroll');
-  await page.getByRole('button', { name: 'Open' }).first().click();
-  await expect(page.getByRole('button', { name: 'Adjust' })).toHaveCount(0); // locked once approved
+  await expect(page.getByText(/does not send money/)).toBeVisible();
   // the bank file lists who can be paid by transfer (Kamla has a bank account on record) and who still needs details
   await page.getByRole('button', { name: 'Bank file' }).click();
   await expect(page.getByRole('dialog').getByText('Ready to pay')).toBeVisible();
@@ -554,17 +566,26 @@ test('payroll: Finance defines a level, sets a salary, generates and adjusts; th
   await page.getByRole('button', { name: 'PF / ESI / PT' }).click();
   await expect(page.getByRole('dialog').getByText(/No statutory deductions are switched on/)).toBeVisible(); // off until the school turns them on
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).first().click();
+  // people can be paid together: tick one and pay just her, then pay everyone who is left
+  await page.getByLabel('Select Meera Gupta').check();
+  await expect(page.getByText('1 selected')).toBeVisible();
+  await page.getByRole('button', { name: 'Mark selected paid (1)' }).click();
+  await page.getByLabel('Reference / batch no.').fill('NEFT-E2E-0');
+  await page.getByRole('button', { name: 'Record payment' }).click();
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Paid');
+  await expect(page.getByRole('row', { name: /Kamla Devi/ })).toContainText('Pending');
   await page.getByRole('button', { name: /Mark all paid/ }).click();
   await page.getByLabel('Reference / batch no.').fill('NEFT-E2E-1');
   await page.getByRole('button', { name: 'Record payment' }).click();
   await expect(page.getByText('Paid').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Mark all paid/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'PDF' }).first()).toBeVisible(); // the payslip can be printed now that the salary is paid
   await signOut(page);
   // the teacher sees her own pay and downloads the payslip
   await signIn(page, 'teacher', 'gupta@gps.test', 'Teach@12345');
   await page.goto('/teacher/salary');
   await expect(page.getByText('Vice Principal').first()).toBeVisible();
-  await expect(page.getByRole('cell', { name: '₹1,17,000' }).first()).toBeVisible(); // gross and net are both 1,17,000
+  await expect(page.getByRole('cell', { name: '₹1,18,000' }).first()).toBeVisible(); // gross and net are both 1,18,000
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).first().click()]);
   expect(dl.suggestedFilename()).toMatch(/^payslip-PAY\d{6}-T002\.pdf$/);
   // and cannot reach payroll as a manager, from either department

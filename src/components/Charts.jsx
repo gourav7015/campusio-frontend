@@ -28,14 +28,15 @@ export function TrendChart({ data, x, lines, height = 240, domain = [0, 100], un
   );
 }
 
-export function BarsChart({ data, x, bars, height = 240, domain, stacked, unit = '' }) {
+/** `format` shows the amounts on the axis and in the tip in a friendlier way (for example ₹1.5L). */
+export function BarsChart({ data, x, bars, height = 240, domain, stacked, unit = '', format }) {
   if (!data?.length) return <ChartEmpty />;
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 8, right: 12, left: format ? 4 : -12, bottom: 0 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey={x} {...axis} tickFormatter={tick} /><YAxis domain={domain} allowDecimals={false} {...axis} />
-        <Tooltip formatter={(v) => `${v}${unit}`} contentStyle={{ borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }} />
+        <XAxis dataKey={x} {...axis} tickFormatter={tick} /><YAxis domain={domain} allowDecimals={false} {...axis} tickFormatter={format ? (v) => format(v, true) : undefined} width={format ? 52 : undefined} />
+        <Tooltip formatter={(v) => (format ? format(v) : `${v}${unit}`)} contentStyle={{ borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)' }} />
         {bars.length > 1 && <Legend wrapperStyle={{ color: 'var(--text)' }} />}
         {bars.map((b, i) => <Bar key={b.key} dataKey={b.key} name={b.name || b.key} fill={b.color || PALETTE[i]} stackId={stacked ? 's' : undefined} radius={[5, 5, 0, 0]} />)}
       </BarChart>

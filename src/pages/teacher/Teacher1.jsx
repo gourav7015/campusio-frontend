@@ -70,6 +70,45 @@ export function ClassWorkspace() {
   );
 }
 
+/** The class teacher's complete picture of a student: personal and family details, the bus. (Fees and personal documents are never part of it.) */
+function FullFile({ f }) {
+  const p = f.personal || {};
+  const b = f.bus;
+  return (
+    <div className="grid g2">
+      <Card title="Personal and family">
+        <dl className="kv">
+          <dt>Date of birth</dt><dd>{p.dob ? fmtDate(p.dob, true) : '—'}</dd><dt>Admitted on</dt><dd>{p.admissionDate ? fmtDate(p.admissionDate, true) : '—'}</dd>
+          <dt>Blood group</dt><dd>{p.bloodGroup || '—'}</dd><dt>Emergency contact</dt><dd>{p.emergencyContact?.name ? `${p.emergencyContact.name}${p.emergencyContact.phone ? ` · ${p.emergencyContact.phone}` : ''}` : '—'}</dd>
+        </dl>
+      </Card>
+      <Card title="School bus">{b ? <dl className="kv"><dt>Bus</dt><dd>{b.busNo}{b.routeName ? ` · ${b.routeName}` : ''}</dd><dt>Boarding stop</dt><dd>{b.stop || '—'}</dd><dt>Pick-up / drop</dt><dd>{[b.pickupTime, b.dropTime].filter(Boolean).join(' / ') || '—'}</dd>
+        {b.driver && <><dt>Driver</dt><dd>{b.driver.name}{b.driver.phone ? ` · ${b.driver.phone}` : ''}</dd></>}</dl> : <span className="muted">Does not use the school bus.</span>}</Card>
+      <Card flush title="Parents and guardians" className="g-full"><DataTable rows={f.guardians} rowKey="name" empty="No guardian on record" columns={[{ label: 'Name', render: (g) => <b>{g.name}</b> }, { label: 'Relationship', key: 'relationship' }, { label: 'Phone', render: (g) => g.phone || '—' }, { label: 'Email', render: (g) => g.email || '—' }]} /></Card>
+    </div>
+  );
+}
+
+/** Marks in every subject for the class teacher: the summary, strong and weak subjects, the rank in each exam, and marks entered but not published yet. */
+function MarksOverview({ f }) {
+  const sm = f.summary;
+  return (
+    <div className="stack">
+      {f.exams.length > 0 && <div className="grid g4">
+        <Stat value={sm.average != null ? fmtPct(sm.average) : '—'} label="Average of all exams" sub={`${sm.examsTaken} exam${sm.examsTaken === 1 ? '' : 's'} · pass mark ${sm.passMark}%`} tone="blue" />
+        <Stat value={sm.latest?.rank ? `${sm.latest.rank} of ${sm.latest.outOf}` : '—'} label="Rank in the class" sub={sm.latest ? `${sm.latest.exam}: ${fmtPct(sm.latest.percentage)}` : undefined} />
+        <Stat value={sm.best ? sm.best.subject : '—'} label="Strongest subject" sub={sm.best ? fmtPct(sm.best.average) : undefined} tone="green" />
+        <Stat value={sm.weakest ? sm.weakest.subject : '—'} label="Needs most help" sub={sm.weakest ? fmtPct(sm.weakest.average) : undefined} tone="amber" />
+      </div>}
+      {f.subjectAverages.length > 0 && <Card title="Subject by subject, over all exams" flush><DataTable rows={f.subjectAverages} rowKey="subject" columns={[{ label: 'Subject', render: (x) => <b>{x.subject}</b> }, { label: 'Average', render: (x) => fmtPct(x.average) }, { label: 'Highest', render: (x) => fmtPct(x.highest) }, { label: 'Lowest', render: (x) => fmtPct(x.lowest) }, { label: 'Exams', key: 'exams' }]} /></Card>}
+      {f.exams.length > 0 && <Card title="Rank in each exam" flush><DataTable rows={f.exams} rowKey="id" columns={[{ label: 'Exam', render: (e) => <b>{e.exam}</b> }, { label: 'Result', render: (e) => `${fmtPct(e.percentage)} ${e.grade || ''}` }, { label: 'Rank', render: (e) => (e.rank ? `${e.rank} of ${e.outOf}` : '—') }, { label: 'Outcome', render: (e) => <Badge tone={e.result === 'pass' ? 'green' : 'red'}>{label(e.result || '—')}</Badge> }]} /></Card>}
+      <Card title="Entered but not published yet" flush>
+        <DataTable rows={f.pending} rowKey={(p) => `${p.exam}-${p.subject}`} empty="Every mark entered for this student has been published" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', render: (p) => <b>{p.subject}</b> }, { label: 'Marks', render: (p) => (p.absent ? 'Absent' : p.exempt ? 'Exempt' : p.obtained != null ? `${p.obtained} / ${p.max}` : '—') }, { label: 'Stage', render: (p) => <Badge tone={statusTone(p.status)}>{label(p.status)}</Badge> }]} />
+      </Card>
+    </div>
+  );
+}
+
 export function StudentView() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -86,8 +125,9 @@ export function StudentView() {
         {tab === 'profile' && <Card><dl className="kv"><dt>Gender</dt><dd>{label(s.profile.gender) || '—'}</dd><dt>House</dt><dd>{s.profile.house || '—'}</dd><dt>Guardian</dt><dd>{s.profile.guardian || '—'}</dd></dl>{s.contact && <><h3 style={{ marginTop: 14 }}>Contact details <Button size="sm" onClick={() => setEditing(true)}>Update</Button></h3><dl className="kv"><dt>Student phone</dt><dd>{s.contact.phone || '—'}</dd><dt>Student email</dt><dd>{s.contact.email || '—'}</dd><dt>Address</dt><dd>{s.contact.address || '—'}</dd><dt>Guardian phone</dt><dd>{s.contact.guardianPhone || '—'}</dd><dt>Guardian email</dt><dd>{s.contact.guardianEmail || '—'}</dd></dl>
             <p className="small muted">As class teacher you keep these up to date. Students and parents can only look at them.</p></>}
           <p className="small muted" style={{ marginTop: 10 }}>Fees, personal documents and unrelated administrative details are not shown to teachers.</p></Card>}
+        {tab === 'profile' && s.full && <FullFile f={s.full} />}
         {tab === 'attendance' && <div className="grid g4"><Stat value={fmtPct(s.attendance.percentage)} label="Attendance" tone="green" /><Stat value={s.attendance.present} label="Present" /><Stat value={s.attendance.absent} label="Absent" tone="red" /><Stat value={s.attendance.late + s.attendance.leave} label="Late / leave" /></div>}
-        {tab === 'marks' && (s.marks.length ? s.marks.map((m) => <Card key={m.exam} title={`${m.exam} · ${label(m.examType)}${m.percentage != null ? ` · ${m.percentage}% ${m.grade || ''}` : ''}`} flush><DataTable rows={m.subjects} rowKey="subject" columns={[{ label: 'Subject', render: (x) => <b>{x.subject}</b> }, { label: 'Marks by field', render: (x) => (x.absent ? <Badge tone="red">Absent</Badge> : (x.components || []).map((c) => `${c.label} ${c.value ?? '—'}/${c.max}`).join(' · ')) }, { label: 'Total', render: (x) => `${x.obtained ?? '—'} / ${x.max}` }, { label: '%', render: (x) => fmtPct(x.percentage) }, { label: 'Grade', key: 'grade' }, { label: 'Remark', key: 'remarks' }]} /></Card>) : <Empty title="No published marks yet" />)}
+        {tab === 'marks' && <>{s.full && <MarksOverview f={s.full} />}{(s.marks.length ? s.marks.map((m) => <Card key={m.exam} title={`${m.exam} · ${label(m.examType)}${m.percentage != null ? ` · ${m.percentage}% ${m.grade || ''}` : ''}`} flush><DataTable rows={m.subjects} rowKey="subject" columns={[{ label: 'Subject', render: (x) => <b>{x.subject}</b> }, { label: 'Marks by field', render: (x) => (x.absent ? <Badge tone="red">Absent</Badge> : (x.components || []).map((c) => `${c.label} ${c.value ?? '—'}/${c.max}`).join(' · ')) }, { label: 'Total', render: (x) => `${x.obtained ?? '—'} / ${x.max}` }, { label: '%', render: (x) => fmtPct(x.percentage) }, { label: 'Grade', key: 'grade' }, { label: 'Remark', key: 'remarks' }]} /></Card>) : <Empty title="No published marks yet" />)}</>}
         {tab === 'homework' && <Card flush><DataTable rows={s.homework} empty="No homework from you for this class" columns={[{ label: 'Title', key: 'title' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }]} /></Card>}
         {tab === 'remarks' && <div className="stack"><Card title="Add a remark or guideline for the family">
           <div className="form-grid"><Field label="Kind"><Select value={kind} onChange={(e) => setKind(e.target.value)} options={[['remark', 'Remark'], ['homework', 'Homework'], ['behaviour', 'Behaviour'], ['guideline', 'Guideline']].map(([value, l]) => ({ value, label: l }))} /></Field>
@@ -119,22 +159,22 @@ export function Subjects() {
   );
 }
 
-export function Attendance() {
+export function Attendance({ sectionId: fixed, embedded } = {}) {
   const dlg = useDialogs();
   const classes = useApi(`${T}/classes`);
   const mine = (classes.data || []).filter((c) => c.isClassTeacher);
   const params = new URLSearchParams(window.location.search);
   const [sectionId, setSectionId] = useState(params.get('sectionId') || '');
   const [date, setDate] = useState(params.get('date') || todayStr());
-  const sid = (mine.find((c) => c.sectionId === sectionId) || mine[0])?.sectionId || '';
+  const sid = (mine.find((c) => c.sectionId === (fixed || sectionId)) || mine[0])?.sectionId || '';
   const hist = useApi(sid ? `${T}/attendance/history` : null, { sectionId: sid });
   const queries = useApi(`${T}/attendance/queries`, { status: 'open' });
   const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit. You can open an earlier date at any time and change it." actions={mine.length > 0 && <>
+      {embedded ? <div className="row between wrap"><span className="muted small">Mark, review the totals, then submit. You can open an earlier date at any time and change it.</span><Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></div> : <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit. You can open an earlier date at any time and change it." actions={mine.length > 0 && <>
         <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class and section" />
-        <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></>} />
+        <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></>} />}
       {classes.loading ? null : !mine.length ? <Empty title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}
       {mine.length > 0 && <div className="grid g2">
         <Card title="Recent registers" flush><Async state={hist} empty={<div className="empty small">No registers yet</div>}>{(rows) => <DataTable rows={rows.slice(0, 8)} columns={[{ label: 'Date', render: (r) => <a href="#!" onClick={(e) => { e.preventDefault(); setDate(r.date); }}>{fmtDate(r.date, true)}</a> }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }]} />}</Async></Card>

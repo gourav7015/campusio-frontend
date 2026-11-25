@@ -256,11 +256,11 @@ export function MarksSheet() {
 }
 
 // ───────────── Performance (class-wise) ─────────────
-export function Performance() {
+export function Performance({ sectionId: fixed, embedded } = {}) {
   const classes = useApi(`${T}/classes`);
   const [tab, setTab] = useState('class');
   const [sectionId, setSectionId] = useState('');
-  const sid = sectionId || (classes.data?.find((c) => c.isClassTeacher) || classes.data?.[0])?.sectionId || ''; // default to their own class
+  const sid = fixed || sectionId || (classes.data?.find((c) => c.isClassTeacher) || classes.data?.[0])?.sectionId || ''; // default to their own class
   const matrix = useApi(sid && tab === 'class' ? `${T}/performance/class/${sid}` : null);
   const analytics = useApi(tab === 'analytics' ? `${T}/performance` : null);
   const nav = useNavigate();
@@ -274,7 +274,7 @@ export function Performance() {
   };
   return (
     <div className="stack">
-      <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />
+      {!embedded && <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />}
       <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts & insights']]} value={tab} onChange={setTab} />
       {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
         <Card title={`${mine?.className || ''} ${mine?.section || ''} — ${m.scope === 'overall' ? 'overall results (you are the class teacher)' : 'your subject only'}`} flush>

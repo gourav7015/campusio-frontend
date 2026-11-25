@@ -1,7 +1,7 @@
 import { EmptyState, Badge } from '../design/ui';
 import { BookCover } from './BookCover';
 
-interface Book { _id: string; title: string; author?: string; category?: string; available: number; total: number }
+interface Book { _id: string; title: string; author?: string; category?: string; available: number; total: number; referenceOnly?: boolean }
 
 /** Catalogue view: cover tiles with availability. The table view stays for inventory work. */
 export default function BookGrid({ items, onOpen }: { items: Book[]; onOpen: (b: Book) => void }) {
@@ -14,7 +14,7 @@ export default function BookGrid({ items, onOpen }: { items: Book[]; onOpen: (b:
             <div className="transition-transform duration-150 group-hover:-translate-y-0.5"><BookCover title={b.title} category={b.category} /></div>
             <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{b.title}</p>
             <p className="truncate text-xs text-muted-foreground">{b.author || 'Unknown author'}</p>
-            <div className="mt-1.5"><Badge tone={b.available > 0 ? 'success' : 'danger'} dot>{b.available > 0 ? `${b.available} of ${b.total} available` : 'All on loan'}</Badge></div>
+            <div className="mt-1.5">{b.referenceOnly ? <Badge tone="warning" dot>Library use only</Badge> : <Badge tone={b.available > 0 ? 'success' : 'danger'} dot>{b.available > 0 ? `${b.available} of ${b.total} available` : 'All on loan'}</Badge>}</div>
           </button>
         </li>
       ))}

@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { del, patch, post } from '../../api/client.js';
+import { ArrowLeftRight, FileText, MoreHorizontal, Pencil } from 'lucide-react';
 import VehicleDocuments from '../../components/VehicleDocuments.jsx';
+import { Button as DButton, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, FilterBar, ListCard } from '../../design/ui';
+import { cn } from '../../design/lib/cn';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 
 const tone = (s) => ({ active: 'green', maintenance: 'amber', retired: '' }[s] || '');
@@ -19,7 +22,7 @@ export default function Buses({ base, readOnly = false }) {
   // the dashboard links here already narrowed (?attention=crew or papers); these are the choices on screen
   const [fl, setFl] = useState({ q: '', status: '', attention: ['crew', 'papers', 'nodocs'].includes(sp.get('attention')) ? sp.get('attention') : '' });
   const setF = (patch) => setFl((x) => ({ ...x, ...patch }));
-  const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [docsOf, setDocsOf] = useState(null); // view: the whole bus (riders, stops, papers); docsOf: only its papers
+  const [swap, setSwap] = useState(null); const [edit, setEdit] = useState(null); const [view, setView] = useState(null); const [docsOf, setDocsOf] = useState(null); // view: the whole bus (riders, stops, papers); docsOf: only its papers
   return (
     <div className="stack">
       <PageHeader title="Buses and riders" subtitle={readOnly ? 'Managed by the Transport officer. You can see everything here, but buses and riders are changed from the Transport desk.' : 'Vehicles, their driver and conductor, routes and stops, and the students who ride each bus. Students see their own bus on their portal.'}
@@ -35,28 +38,76 @@ export default function Buses({ base, readOnly = false }) {
         const filtered = Object.values(fl).some(Boolean);
         return (<>
           <div className="grid g3"><Stat value={rows.length} label="Buses" sub={`${rows.filter((b) => b.status === 'active').length} running`} /><Stat value={riders} label="Students ride" sub={`${seats - riders} seats free`} tone="blue" /><Stat value={alerts.length} label="Certificates to renew" sub="expired or within 30 days" tone={alerts.length ? 'red' : 'green'} /></div>
-          <Card><div className="row wrap" style={{ alignItems: 'end' }}>
-            <Field label="Search"><Input aria-label="Search buses" placeholder="Bus, route, driver or conductor" value={fl.q} onChange={(e) => setF({ q: e.target.value })} /></Field>
-            <Field label="Status"><Select aria-label="Status" value={fl.status} onChange={(e) => setF({ status: e.target.value })} placeholder="Any status" options={[{ value: 'active', label: 'Running' }, { value: 'maintenance', label: 'In maintenance' }, { value: 'retired', label: 'Retired' }]} /></Field>
-            <Field label="Needs attention"><Select aria-label="Needs attention" value={fl.attention} onChange={(e) => setF({ attention: e.target.value })} placeholder="Everything" options={[{ value: 'crew', label: 'Short of a driver or conductor' }, { value: 'papers', label: 'Certificates or licences expired or due soon' }, { value: 'nodocs', label: 'No documents added' }]} /></Field>
-            {filtered && <Button onClick={() => setFl({ q: '', status: '', attention: '' })}>Clear</Button>}
-            <span className="muted small" role="status" style={{ alignSelf: 'center' }}>{shown.length} of {rows.length} buses</span>
-          </div></Card>
-          <Card flush><DataTable rows={shown} empty="No buses match these choices" onRowClick={(b) => setView(b._id)} columns={[
-            { label: 'Bus', render: (b) => <><b>{b.busNo}</b> <Badge tone={tone(b.status)}>{label(b.status)}</Badge><div className="small muted">{b.registrationNo} {b.vehicleModel ? `· ${b.vehicleModel}` : ''}</div></> },
-            { label: 'Route', render: (b) => <>{b.routeName || '—'}<div className="small muted">{b.stops.length} stops{b.startTime ? ` · starts ${b.startTime}` : ''}</div></> },
-            { label: 'Driver', render: (b) => (b.driver ? <>{b.driver.name}<div className="small muted">{b.driver.phone}</div></> : <Badge tone="amber">No driver</Badge>) },
-            { label: 'Conductor', render: (b) => (b.conductor ? <>{b.conductor.name}<div className="small muted">{b.conductor.phone}</div></> : <Badge tone="amber">No conductor</Badge>) },
-            { label: 'Seats', render: (b) => <Badge tone={b.students >= b.capacity ? 'red' : b.students > b.capacity * 0.85 ? 'amber' : 'green'}>{b.students} / {b.capacity}</Badge> },
-            { label: 'Documents', render: (b) => (b.documents?.total ? <Badge tone={b.documents.withCopy < b.documents.total ? 'amber' : 'green'}>{b.documents.total} on file</Badge> : <Badge tone="amber">None added</Badge>) },
-            { label: 'To renew', render: (b) => (b.alerts.length ? <div className="stack" style={{ gap: 2 }}>{b.alerts.map((a, i) => <Badge key={i} tone={a.expired ? 'red' : 'amber'} title={fmtDate(a.date, true)}>{a.field}: {a.expired ? 'expired' : 'due'} {fmtDate(a.date, true)}</Badge>)}</div> : <span className="muted">—</span>) },
-            { label: '', render: (b) => <div className="row"><Button size="sm" onClick={(e) => { e.stopPropagation(); setView(b._id); }}>{readOnly ? 'Open' : 'Riders and stops'}</Button><Button size="sm" onClick={(e) => { e.stopPropagation(); setDocsOf(b); }}>Documents</Button>{!readOnly && <Button size="sm" onClick={(e) => { e.stopPropagation(); setEdit(b); }}>Edit</Button>}</div> },
-          ]} /></Card></>);
+          <ListCard>
+            <FilterBar search={fl.q} onSearch={(v) => setF({ q: v })} searchLabel="Search buses" placeholder="Search bus, route, driver or conductor">
+              <Select aria-label="Status" value={fl.status} onChange={(e) => setF({ status: e.target.value })} placeholder="Any status" options={[{ value: 'active', label: 'Running' }, { value: 'maintenance', label: 'In maintenance' }, { value: 'retired', label: 'Retired' }]} />
+              <Select aria-label="Needs attention" value={fl.attention} onChange={(e) => setF({ attention: e.target.value })} placeholder="Everything" options={[{ value: 'crew', label: 'Short of a driver or conductor' }, { value: 'papers', label: 'Certificates or licences expired or due soon' }, { value: 'nodocs', label: 'No documents added' }]} />
+              {filtered && <Button size="sm" onClick={() => setFl({ q: '', status: '', attention: '' })}>Clear</Button>}
+            </FilterBar>
+            <div className="border-b border-border/70 px-4 py-2 text-[13.5px] text-muted-foreground" role="status">{shown.length} of {rows.length} buses</div>
+            <DataTable compact rows={shown} pageSize={25} empty="No buses match these choices" onRowClick={(b) => setView(b._id)} columns={[
+              { label: 'Bus', sort: (b) => b.busNo, render: (b) => <><div className="whitespace-nowrap"><b>{b.busNo}</b>{b.status !== 'active' && <> <Badge tone={tone(b.status)}>{label(b.status)}</Badge></>}</div><div className="small muted truncate" style={{ maxWidth: 150 }} title={[b.registrationNo, b.vehicleModel].filter(Boolean).join(' · ')}>{b.registrationNo}</div></> },
+              { label: 'Route', render: (b) => <><div className="max-w-[140px] xl:max-w-[190px]">{b.routeName || '—'}</div><div className="small muted whitespace-nowrap">{b.stops.length} stops{b.startTime ? ` · ${b.startTime}` : ''}</div></> },
+              { label: 'Crew', render: (b) => (
+                <div className="max-w-[130px] space-y-1 text-sm xl:max-w-[190px]">
+                  <div className="truncate" title={b.driver ? `${b.driver.name} ${b.driver.phone || ''}` : undefined}><span className="small muted">Driver </span>{b.driver ? b.driver.name : <Badge tone="amber">None yet</Badge>}</div>
+                  <div className="truncate" title={b.conductor ? `${b.conductor.name} ${b.conductor.phone || ''}` : undefined}><span className="small muted">Conductor </span>{b.conductor ? b.conductor.name : <Badge tone="amber">None yet</Badge>}</div>
+                </div>) },
+              { label: 'Seats', sort: (b) => b.students / (b.capacity || 1), render: (b) => (
+                <div className="flex items-center gap-2 whitespace-nowrap" title={`${b.students} of ${b.capacity} seats taken`}>
+                  <div className="hidden h-1.5 w-10 overflow-hidden rounded-full bg-muted xl:block" aria-hidden><div className={cn('h-full rounded-full', b.students >= b.capacity ? 'bg-danger' : b.students > b.capacity * 0.85 ? 'bg-warning' : 'bg-success')} style={{ width: `${Math.min(100, (b.students / (b.capacity || 1)) * 100)}%` }} /></div>
+                  <span className="text-[13px] tabular-nums">{b.students} / {b.capacity}</span>
+                </div>) },
+              { label: 'Papers', render: (b) => (
+                <div className="flex flex-col items-start gap-1">
+                  {b.documents?.total ? <Badge tone={b.documents.withCopy < b.documents.total ? 'amber' : 'green'}>{b.documents.total} on file</Badge> : <Badge tone="amber">None added</Badge>}
+                  {b.alerts.map((a, i) => <Badge key={i} tone={a.expired ? 'red' : 'amber'} title={fmtDate(a.date, true)}>{a.field} {a.expired ? 'expired' : 'due'} {fmtDate(a.date)}</Badge>)}
+                </div>) },
+              { label: '', render: (b) => (
+                <div className="flex items-center justify-end gap-1.5">
+                  <Button size="sm" aria-label={readOnly ? 'Open' : 'Riders and stops'} onClick={(e) => { e.stopPropagation(); setView(b._id); }}>{readOnly ? 'Open' : 'Riders'}</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><DButton variant="ghost" size="icon-sm" aria-label={`More for bus ${b.busNo}`} onClick={(e) => e.stopPropagation()}><MoreHorizontal /></DButton></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()} onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onSelect={() => setDocsOf(b)}><FileText /> Documents</DropdownMenuItem>
+                      {!readOnly && <DropdownMenuItem onSelect={() => setEdit(b)}><Pencil /> Edit bus</DropdownMenuItem>}
+                      {!readOnly && <DropdownMenuItem onSelect={() => setSwap(b)}><ArrowLeftRight /> Swap crew…</DropdownMenuItem>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>) },
+            ]} />
+          </ListCard></>);
       }}</Async>
       {edit && <BusModal base={base} bus={edit} onClose={() => setEdit(null)} onSaved={list.reload} />}
+      {swap && <SwapCrewModal base={base} bus={swap} buses={list.data || []} onClose={() => setSwap(null)} onDone={list.reload} />}
       {docsOf && <BusDocuments base={base} bus={docsOf} readOnly={readOnly} onClose={() => { setDocsOf(null); list.reload(); }} />}
       {view && <BusDetail base={base} id={view} readOnly={readOnly} onClose={() => { setView(null); list.reload(); }} />}
     </div>
+  );
+}
+
+/** Swap crew between this bus and another one (the driver, the conductor, or both), or this bus's driver and conductor with each other. Previewed first. */
+function SwapCrewModal({ base, bus, buses, onClose, onDone }) {
+  const [what, setWhat] = useState('driver'); const [other, setOther] = useState('');
+  const [pre, setPre] = useState(null); const [run, busy] = useAction();
+  const body = (preview) => ({ busId: bus._id, what, ...(what === 'roles' ? {} : { otherBusId: other }), preview });
+  const ready = what === 'roles' || !!other;
+  const change = (patch) => { if ('what' in patch) setWhat(patch.what); if ('other' in patch) setOther(patch.other); setPre(null); };
+  const crewText = (b) => `${b.busNo}: ${b.driver?.name || 'no driver'} / ${b.conductor?.name || 'no conductor'}`;
+  return (
+    <Modal wide title={`Swap crew · ${bus.busNo}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button>
+      {!pre ? <Button variant="primary" loading={busy} disabled={!ready} onClick={async () => { const r = await run(() => post(`${base}/buses/swap`, body(true))); if (r) setPre(r); }}>Preview</Button>
+        : <Button variant="primary" loading={busy} onClick={async () => { const r = await run(() => post(`${base}/buses/swap`, body(false)), 'Crew swapped'); if (r) { onDone(); onClose(); } }}>Swap now</Button>}</>}>
+      <div className="stack">
+        <div className="alert info">Now: {crewText(bus)}</div>
+        <div className="form-grid">
+          <Field label="What to swap"><Select aria-label="What to swap" value={what} onChange={(e) => change({ what: e.target.value })} options={[{ value: 'driver', label: 'The drivers of the two buses' }, { value: 'conductor', label: 'The conductors of the two buses' }, { value: 'both', label: 'The whole crews (driver and conductor)' }, { value: 'roles', label: 'This bus: driver and conductor with each other' }]} /></Field>
+          {what !== 'roles' && <Field label="With bus"><Select aria-label="With bus" value={other} onChange={(e) => change({ other: e.target.value })} placeholder="Choose a bus" options={buses.filter((x) => x._id !== bus._id).map((x) => ({ value: x._id, label: crewText(x) }))} /></Field>}
+        </div>
+        <p className="muted small" style={{ margin: 0 }}>Each person must be able to do the job they move to. A driver marked "can also be a conductor" can take a conductor's seat.</p>
+        {pre && <DataTable rows={pre.changes.map((c, i) => ({ ...c, key: `${i}` }))} rowKey="key" columns={[{ label: 'Bus', render: (c) => <b>{c.busNo}</b> }, { label: 'Seat', render: (c) => label(c.seat) }, { label: 'Now', render: (c) => c.from || '—' }, { label: 'After', render: (c) => <b>{c.to || 'No one'}</b> }]} />}
+      </div>
+    </Modal>
   );
 }
 
@@ -68,7 +119,13 @@ function BusModal({ base, bus, onClose, onSaved }) {
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const stop = (i, p, v) => set('stops', f.stops.map((s, j) => (j === i ? { ...s, [p]: v } : s)));
   // only people who can fill the seat, and who are not already on another bus
-  const crew = (role) => (staff.data?.items || []).filter((s) => s.busRole === role && (!s.bus || s.bus.busNo === bus.busNo)).map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})${s.licenseNo ? ` · ${s.licenseNo}` : ''}` }));
+  const people = staff.data?.items || [];
+  const skills = (s) => s.busRoles || (s.busRole ? [s.busRole] : []);
+  // only people who can fill the seat, who are not on another bus, and who are not already in the other seat of this one
+  const crew = (role) => people.filter((s) => skills(s).includes(role) && (!s.bus || s.bus.busNo === bus.busNo) && s._id !== (role === 'driver' ? f.conductorId : f.driverId))
+    .map((s) => ({ value: s._id, label: `${s.name} (${s.staffId})${s.licenseNo ? ` · ${s.licenseNo}` : ''}${skills(s).length > 1 ? ' · driver and conductor' : ''}` }));
+  const canFill = (id, role) => { const s = people.find((x) => x._id === id); return !id || (!!s && skills(s).includes(role)); };
+  const canSwap = !!(f.driverId || f.conductorId) && canFill(f.driverId, 'conductor') && canFill(f.conductorId, 'driver');
   const save = async () => {
     const body = { monthlyFare: Number(f.monthlyFare) || 0, ...clean({ busNo: f.busNo.trim(), registrationNo: f.registrationNo, vehicleModel: f.vehicleModel, status: f.status, routeName: f.routeName, startTime: f.startTime, endTime: f.endTime, notes: f.notes }),
       capacity: Number(f.capacity), driverId: f.driverId || null, conductorId: f.conductorId || null, stops: f.stops.filter((s) => s.name.trim()).map((s) => ({ ...clean({ name: s.name.trim(), pickupTime: s.pickupTime, dropTime: s.dropTime }), ...(s.fare !== '' && s.fare != null ? { fare: Number(s.fare) } : {}) })) };
@@ -90,6 +147,9 @@ function BusModal({ base, bus, onClose, onSaved }) {
           <Field label="Reaches school"><Input type="time" value={f.endTime} onChange={(e) => set('endTime', e.target.value)} /></Field>
           <Field label="Driver" hint="Add drivers in Transport staff first"><Select value={f.driverId} onChange={(e) => set('driverId', e.target.value)} placeholder="No driver yet" options={crew('driver')} /></Field>
           <Field label="Conductor" hint="Add conductors in Transport staff first"><Select value={f.conductorId} onChange={(e) => set('conductorId', e.target.value)} placeholder="No conductor yet" options={crew('conductor')} /></Field>
+          <Field label="Swap seats" full hint={canSwap ? 'The driver becomes the conductor and the conductor becomes the driver. Save the bus to keep it.' : 'Seats can be swapped only when each person is marked as able to do the other job (Drivers and staff, Edit, "Can also work as").'}>
+            <div><Button type="button" disabled={!canSwap} onClick={() => setF((x) => ({ ...x, driverId: x.conductorId, conductorId: x.driverId }))}><ArrowLeftRight className="size-4" aria-hidden /> Swap driver and conductor</Button></div>
+          </Field>
         </div>
         <div className="stack" style={{ gap: 6 }}>
           <div className="row between"><div className="bold">Route stops</div><Button size="sm" type="button" onClick={() => set('stops', [...f.stops, { name: '', pickupTime: '', dropTime: '' }])}>+ Add stop</Button></div>

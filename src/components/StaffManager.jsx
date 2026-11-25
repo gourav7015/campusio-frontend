@@ -31,8 +31,8 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
         <Async state={list} empty={<Empty title={`No ${noun}s yet`} />}>{(d) => (
           <DataTable rows={d.items} empty={`No ${noun}s match`} columns={[
             { label: 'ID', key: 'staffId' }, { label: 'Name', render: (s) => <><b>{s.name}</b><div className="small muted">{s.phone || '—'}</div></> },
-            { label: 'Designation', render: (s) => <Badge tone={s.group === 'transport' ? 'blue' : ''}>{s.designation}</Badge> },
-            { label: 'On bus', render: (s) => (s.bus ? <Badge tone="green">{s.bus.busNo} · {s.bus.as}</Badge> : s.busRole ? <Badge tone="amber">Not on a bus</Badge> : <span className="muted">—</span>) },
+            { label: 'Designation', render: (s) => <><Badge tone={s.group === 'transport' ? 'blue' : ''}>{s.designation}</Badge>{s.alsoBusRoles?.length > 0 && <div className="small muted">also {s.alsoBusRoles.join(' and ')}</div>}</> },
+            { label: 'On bus', render: (s) => (s.bus ? <Badge tone="green">{s.bus.busNo} · {s.bus.as}</Badge> : (s.busRoles?.length || s.busRole) ? <Badge tone="amber">Not on a bus</Badge> : <span className="muted">—</span>) },
             { label: 'Licence', render: (s) => (s.licenseNo ? <>{s.licenseNo}<div className="small"><Badge tone={soon(s.licenseExpiry) ? 'red' : 'green'}>{s.licenseExpiry ? `valid to ${fmtDate(s.licenseExpiry, true)}` : 'no expiry set'}</Badge></div></> : <span className="muted">—</span>) },
             { label: 'Joined', render: (s) => fmtDate(s.joiningDate, true) }, ...(logins ? [{ label: 'Sign-in', render: (s) => (s.hasLogin ? <><Badge tone="green">Office desk sign-in</Badge></> : s.canMarkAttendance ? <Badge tone="amber">Desk, no sign-in yet</Badge> : <span className="muted">None</span>) }] : []), { label: 'Status', render: (s) => <Badge tone={s.status === 'active' ? 'green' : ''}>{label(s.status)}</Badge> },
             ...(canEdit ? [{ label: '', render: (s) => <div className="row"><Button size="sm" onClick={() => setEdit(s)}>Edit</Button>
@@ -54,7 +54,7 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
   );
 }
 
-const blank = { name: '', designationId: '', phone: '', gender: '', dob: '', bloodGroup: '', joiningDate: '', address: '', licenseNo: '', licenseExpiry: '', idProof: '', emergencyName: '', emergencyPhone: '', notes: '', bankName: '', accountName: '', accountNo: '', ifsc: '', uan: '', esiNo: '', pan: '' };
+const blank = { alsoBusRoles: [],  name: '', designationId: '', phone: '', gender: '', dob: '', bloodGroup: '', joiningDate: '', address: '', licenseNo: '', licenseExpiry: '', idProof: '', emergencyName: '', emergencyPhone: '', notes: '', bankName: '', accountName: '', accountNo: '', ifsc: '', uan: '', esiNo: '', pan: '' };
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v != null));
 
 function StaffModal({ member, designations, staffBase, noun, canDesk, onClose, onSaved }) {
@@ -64,7 +64,7 @@ function StaffModal({ member, designations, staffBase, noun, canDesk, onClose, o
   const d = designations.find((x) => x._id === f.designationId);
   const save = async () => {
     const { emergencyName, emergencyPhone, ...rest } = f;
-    const body = { ...(canDesk ? { canMarkAttendance: !!rest.canMarkAttendance } : {}), ...clean({ name: rest.name.trim(), designationId: rest.designationId, phone: rest.phone, gender: rest.gender, dob: rest.dob, bloodGroup: rest.bloodGroup, joiningDate: rest.joiningDate, address: rest.address, licenseNo: rest.licenseNo, licenseExpiry: rest.licenseExpiry, idProof: rest.idProof, notes: rest.notes }),
+    const body = { ...(canDesk ? { canMarkAttendance: !!rest.canMarkAttendance } : {}), ...(d?.group === 'transport' ? { alsoBusRoles: (rest.alsoBusRoles || []).filter((r) => r !== d.busRole) } : {}), ...clean({ name: rest.name.trim(), designationId: rest.designationId, phone: rest.phone, gender: rest.gender, dob: rest.dob, bloodGroup: rest.bloodGroup, joiningDate: rest.joiningDate, address: rest.address, licenseNo: rest.licenseNo, licenseExpiry: rest.licenseExpiry, idProof: rest.idProof, notes: rest.notes }),
       ...((emergencyName || emergencyPhone) ? { emergencyContact: clean({ name: emergencyName, phone: emergencyPhone }) } : {}),
       ...(rest.accountNo || rest.ifsc || rest.bankName || rest.accountName ? { bank: clean({ bankName: rest.bankName, accountName: rest.accountName, accountNo: rest.accountNo, ifsc: rest.ifsc }) } : {}),
       ...(rest.uan || rest.esiNo || rest.pan ? { statutory: clean({ uan: rest.uan, esiNo: rest.esiNo, pan: rest.pan }) } : {}) };
@@ -76,13 +76,22 @@ function StaffModal({ member, designations, staffBase, noun, canDesk, onClose, o
       <div className="form-grid">
         <Field label="Full name"><Input value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>
         <Field label="Designation" hint="Job titles are kept per school. Use “Designations” to add more."><Select value={f.designationId} onChange={(e) => set('designationId', e.target.value)} placeholder="Choose" options={designations.map((x) => ({ value: x._id, label: x.name }))} /></Field>
+        {d?.group === 'transport' && (
+          <Field label="Can also work as" full hint="One person can hold both skills. Tick the other job they can do on a bus; the one their designation carries is already counted. They are still on one bus at a time.">
+            <div className="row wrap" style={{ gap: 16 }}>
+              {['driver', 'conductor'].filter((r) => r !== d.busRole).map((r) => (
+                <label key={r} className="row"><input type="checkbox" checked={(f.alsoBusRoles || []).includes(r)} onChange={(e) => set('alsoBusRoles', e.target.checked ? [...(f.alsoBusRoles || []), r] : (f.alsoBusRoles || []).filter((x) => x !== r))} /> Can also be a {r}</label>
+              ))}
+            </div>
+          </Field>
+        )}
         <Field label="Phone"><Input value={f.phone} onChange={(e) => set('phone', e.target.value)} /></Field>
         <Field label="Gender"><Select value={f.gender} onChange={(e) => set('gender', e.target.value)} placeholder="—" options={['male', 'female', 'other']} /></Field>
         <Field label="Date of birth"><Input type="date" value={f.dob} onChange={(e) => set('dob', e.target.value)} /></Field>
         <Field label="Blood group"><Input value={f.bloodGroup} onChange={(e) => set('bloodGroup', e.target.value)} placeholder="B+" /></Field>
         <Field label="Joining date"><Input type="date" value={f.joiningDate} onChange={(e) => set('joiningDate', e.target.value)} /></Field>
         <Field label="ID proof (Aadhaar / voter id)"><Input value={f.idProof} onChange={(e) => set('idProof', e.target.value)} /></Field>
-        {d?.busRole === 'driver' && <><Field label="Driving licence number"><Input value={f.licenseNo} onChange={(e) => set('licenseNo', e.target.value)} /></Field><Field label="Licence valid until"><Input type="date" value={f.licenseExpiry} onChange={(e) => set('licenseExpiry', e.target.value)} /></Field></>}
+        {[d?.busRole, ...(f.alsoBusRoles || [])].includes('driver') && <><Field label="Driving licence number"><Input value={f.licenseNo} onChange={(e) => set('licenseNo', e.target.value)} /></Field><Field label="Licence valid until"><Input type="date" value={f.licenseExpiry} onChange={(e) => set('licenseExpiry', e.target.value)} /></Field></>}
         <Field label="Address" full><Input value={f.address} onChange={(e) => set('address', e.target.value)} /></Field>
         <Field label="Emergency contact name"><Input value={f.emergencyName} onChange={(e) => set('emergencyName', e.target.value)} /></Field>
         <Field label="Emergency contact phone"><Input value={f.emergencyPhone} onChange={(e) => set('emergencyPhone', e.target.value)} /></Field>

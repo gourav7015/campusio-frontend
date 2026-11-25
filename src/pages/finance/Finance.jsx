@@ -1,8 +1,8 @@
 import FeeSchedule from '../../components/FeeSchedule.jsx';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { post, put, del, download } from '../../api/client.js';
+import { get, post, put, del, download } from '../../api/client.js';
 import {
   Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, useDebounced, fmtDate, fmtMoney, label, } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
@@ -104,6 +104,51 @@ function AssignModal({ base, s, L, onClose, onDone }) {
 }
 
 // ───────────── students & dues ─────────────
+/** An extra charge (a special teacher, a trip, an activity) for every student of a section or a class. Previewed first; anyone who already has it is left out. */
+function ExtraChargeModal({ base, L, section, onClose, onDone }) {
+  const [f, setF] = useState({ target: 'section', sectionId: section || '', classId: '', label: '', amount: '', dueDate: '' });
+  const [pre, setPre] = useState(null); const [done, setDone] = useState(null);
+  const [run, busy] = useAction();
+  const set = (patch) => { setF((x) => ({ ...x, ...patch })); setPre(null); };
+  const secName = (x) => `${L.classes.find((c) => c._id === x.classId)?.name} ${x.name}`;
+  const who = f.target === 'section' ? f.sectionId : f.classId;
+  const valid = !!who && f.label.trim().length >= 3 && Number(f.amount) > 0;
+  const body = (preview) => ({ [f.target === 'section' ? 'sectionId' : 'classId']: who, label: f.label.trim(), amount: Number(f.amount), ...(f.dueDate ? { dueDate: f.dueDate } : {}), preview });
+  return (
+    <Modal wide title="Add a charge for a section or class" onClose={onClose} footer={done ? <Button variant="primary" onClick={onClose}>Close</Button> : <><Button onClick={onClose}>Cancel</Button>
+      {!pre ? <Button variant="primary" loading={busy} disabled={!valid} onClick={async () => { const r = await run(() => post(`${base}/charges/bulk`, body(true))); if (r) setPre(r); }}>Preview</Button>
+        : <Button variant="primary" loading={busy} disabled={!pre.count} onClick={async () => { const r = await run(() => post(`${base}/charges/bulk`, body(false)), (x) => `Charge added for ${x.applied} students`); if (r) { setDone(r); onDone(); } }}>Add to {pre.count} {pre.count === 1 ? 'student' : 'students'}</Button>}</>}>
+      <div className="stack">
+        {done ? <div className="alert ok">“{done.label}” of {fmtMoney(done.amount)} was added for {done.applied} {done.applied === 1 ? 'student' : 'students'} ({fmtMoney(done.total)} in all). It shows on each student's account and fee page{done.skipped.length ? `; ${done.skipped.length} already had it and were left out` : ''}.</div> : (<>
+          <div className="form-grid">
+            <Field label="Add it for"><Select aria-label="Add it for" value={f.target} onChange={(e) => set({ target: e.target.value })} options={[{ value: 'section', label: 'One section' }, { value: 'class', label: 'A whole class (all its sections)' }]} /></Field>
+            {f.target === 'section'
+              ? <Field label="Section"><Select aria-label="Section" value={f.sectionId} onChange={(e) => set({ sectionId: e.target.value })} placeholder="Choose a section" options={L.sections.map((x) => ({ value: x._id, label: secName(x) }))} /></Field>
+              : <Field label="Class"><Select aria-label="Class" value={f.classId} onChange={(e) => set({ classId: e.target.value })} placeholder="Choose a class" options={L.classes.map((c) => ({ value: c._id, label: c.name }))} /></Field>}
+            <Field label="Charge name" hint="Shown to the student and on the receipt"><Input aria-label="Charge name" value={f.label} onChange={(e) => set({ label: e.target.value })} placeholder="e.g. Special coaching, Science trip" /></Field>
+            <Field label="Amount per student (₹)"><Input type="number" min="1" aria-label="Amount per student" value={f.amount} onChange={(e) => set({ amount: e.target.value })} /></Field>
+            <Field label="Due date" hint="Optional"><Input type="date" aria-label="Due date" value={f.dueDate} onChange={(e) => set({ dueDate: e.target.value })} /></Field>
+          </div>
+          <p className="muted small" style={{ margin: 0 }}>Every active student there gets the charge. Anyone who already has a charge with the same name is left out, so nobody is billed twice. Each student is told.</p>
+          {pre && <div className="stack" style={{ gap: 8 }}>
+            <div style={{ maxHeight: 260, overflowY: 'auto' }}><DataTable rows={pre.rows} rowKey="studentId" empty="Nobody would get this charge" columns={[{ label: 'Student', render: (r) => <><b>{r.name}</b><div className="muted small">{r.admissionNo}</div></> }, { label: 'Class', render: (r) => `${r.className || ''} ${r.section || ''}` }, { label: 'Charge', render: () => fmtMoney(pre.amount) }]} /></div>
+            <p style={{ margin: 0 }}><b>{pre.count} {pre.count === 1 ? 'student' : 'students'}, {fmtMoney(pre.total)} in all.</b></p>
+            {pre.skipped.length > 0 && <p className="muted small" style={{ margin: 0 }}>Left out, already charged: {pre.skipped.slice(0, 4).map((x) => x.name).join(', ')}{pre.skipped.length > 4 ? ` and ${pre.skipped.length - 4} more` : ''}.</p>}
+          </div>}
+        </>)}
+      </div>
+    </Modal>
+  );
+}
+
+/** "Collect payment" from a list row: fetches the student's account and opens the usual form over the list. */
+function useCollect(base, onDone) {
+  const [pay, setPay] = useState(null); const [opening, setOpening] = useState(''); const [run] = useAction();
+  const collect = async (s) => { setOpening(s.studentId); const x = await run(() => get(`${base}/students/${s.studentId}/account`)); setOpening(''); if (x) setPay(x); };
+  const modal = pay ? <PayModal x={pay} base={base} onClose={() => setPay(null)} onDone={() => { setPay(null); onDone?.(); }} /> : null;
+  return { collect, opening, modal };
+}
+
 export function StudentsDues({ readOnly }) {
   const { base, path } = ctxOf(readOnly);
   const nav = useNavigate();
@@ -112,9 +157,12 @@ export function StudentsDues({ readOnly }) {
   const list = useApi(`${base}/students`, { ...f, q: dq, limit: 25 });
   const lookups = useApi(`${base}/lookups`);
   const L = lookups.data || { classes: [], sections: [] };
+  // "Collect payment" on a row opens the same form as the student's account, without leaving the list
+  const { collect, opening, modal: payModal } = useCollect(base, () => list.reload());
+  const [extra, setExtra] = useState(false);
   return (
     <div className="stack">
-      <PageHeader title="Students & dues" subtitle="Open a student to collect a payment, add a charge or give a concession" />
+      <PageHeader title="Students & dues" subtitle="Open a student to collect a payment, add a charge or give a concession" actions={readOnly ? undefined : <Button onClick={() => setExtra(true)} disabled={!L.sections.length}>+ Charge a section or class</Button>} />
       <ListCard>
         <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v, page: 1 })} searchLabel="Search students" placeholder="Search name, admission no, guardian">
           <Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value, page: 1 })} placeholder="All sections" options={L.sections.map((s) => ({ value: s._id, label: `${L.classes.find((c) => c._id === s.classId)?.name} ${s.name}` }))} aria-label="Section" />
@@ -122,10 +170,13 @@ export function StudentsDues({ readOnly }) {
         <Async state={list}>{(d) => (<>
           <DataTable rows={d.items} rowKey="studentId" empty="No students match" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[
             { label: 'Adm. no', key: 'admissionNo' }, { label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => `${s.className || ''} ${s.section || ''}` }, { label: 'Guardian', render: (s) => <>{s.guardian}<div className="small muted">{s.guardianPhone}</div></> },
-            { label: 'Billed', render: (s) => (s.billed ? fmtMoney(s.assigned) : <Badge>Not billed</Badge>) }, { label: 'Paid', render: (s) => fmtMoney(s.paid) }, { label: 'Pending', render: (s) => <b>{fmtMoney(s.pending)}</b> }, { label: 'Overdue', render: (s) => (s.overdue > 0 ? <Badge tone="red">{fmtMoney(s.overdue)}</Badge> : '—') }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />
+            { label: 'Billed', render: (s) => (s.billed ? fmtMoney(s.assigned) : <Badge>Not billed</Badge>) }, { label: 'Paid', render: (s) => fmtMoney(s.paid) }, { label: 'Pending', render: (s) => <b>{fmtMoney(s.pending)}</b> }, { label: 'Overdue', render: (s) => (s.overdue > 0 ? <Badge tone="red">{fmtMoney(s.overdue)}</Badge> : '—') }, { label: 'Next due', render: (s) => fmtDate(s.nextDue) },
+            ...(readOnly ? [] : [{ label: '', render: (s) => (s.pending > 0 ? <Button size="sm" variant="primary" loading={opening === s.studentId} aria-label={`Collect payment from ${s.name}`} onClick={() => collect(s)}>Collect payment</Button> : null) }])]} />
           <div className="card-b row between"><span className="muted small">{d.total} student(s) · pending {fmtMoney(d.totals.pending)} · overdue {fmtMoney(d.totals.overdue)}</span>
             <div className="row"><Button size="sm" disabled={f.page <= 1} onClick={() => setF({ ...f, page: f.page - 1 })}>Previous</Button><span className="small">Page {f.page}</span><Button size="sm" disabled={f.page * 25 >= d.total} onClick={() => setF({ ...f, page: f.page + 1 })}>Next</Button></div></div></>)}</Async>
       </ListCard>
+      {payModal}
+      {extra && <ExtraChargeModal base={base} L={L} section={f.sectionId} onClose={() => setExtra(false)} onDone={() => list.reload()} />}
     </div>
   );
 }
@@ -180,9 +231,11 @@ export function PayModal({ x, base, onClose, onDone }) {
   const [v, setV] = useState({ amount: '', mode: 'cash', reference: '', paidOn: today(), note: '' });
   const [amountEdited, setAmountEdited] = useState(false);
   const [disc, setDisc] = useState({ on: false, type: 'amount', value: '', reason: '' });
-  const [picked, setPicked] = useState([]);
+  // every due starts ticked, so what is shown (the ticks and the amount) always agree; "Select none" takes the amount to 0
+  const [picked, setPicked] = useState(() => open.map((c) => c._id));
   const [run, busy] = useAction();
-  const due = picked.length ? open.filter((c) => picked.includes(c._id)).reduce((n, c) => n + c.outstanding, 0) : x.totals.pending;
+  const everything = picked.length === open.length;
+  const due = Math.round(open.filter((c) => picked.includes(c._id)).reduce((n, c) => n + c.outstanding, 0) * 100) / 100;
   // a discount is taken off the dues this receipt pays; what is left is what the person pays
   const num = Number(disc.value) || 0;
   const off = disc.on ? Math.round((disc.type === 'percent' ? (due * num) / 100 : num) * 100) / 100 : 0;
@@ -192,7 +245,7 @@ export function PayModal({ x, base, onClose, onDone }) {
   const clears = disc.on && off > 0 && net === 0;
   const valid = discountOk && (clears || (amount > 0 && amount <= net + 0.001));
   const submit = async () => {
-    const body = { studentId: x.student.id, ...(clears ? {} : { amount }), mode: v.mode, paidOn: v.paidOn, ...(v.reference ? { reference: v.reference } : {}), ...(v.note ? { note: v.note } : {}), ...(picked.length ? { chargeIds: picked } : {}),
+    const body = { studentId: x.student.id, ...(clears ? {} : { amount }), mode: v.mode, paidOn: v.paidOn, ...(v.reference ? { reference: v.reference } : {}), ...(v.note ? { note: v.note } : {}), ...(!everything && picked.length ? { chargeIds: picked } : {}), // all ticked = the oldest dues first, as before
       ...(disc.on ? { discount: { type: disc.type, value: num, reason: disc.reason.trim() } } : {}) };
     const p = await run(() => post(`${base}/payments`, body), (r) => (r.receiptNo ? `Receipt ${r.receiptNo} issued` : 'Discount applied. Nothing is left to pay for those dues.'));
     if (!p) return;
@@ -203,14 +256,20 @@ export function PayModal({ x, base, onClose, onDone }) {
     <Modal wide title="Collect payment" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!valid} onClick={submit}>{clears ? 'Apply discount' : `Collect ${fmtMoney(amount || 0)}`}</Button></>}>
       <div className="stack">
         <div className="form-grid">
-          <Field label={`Amount (₹) — up to ${fmtMoney(net)}`}><Input type="number" min="1" disabled={clears} value={clears ? 0 : amountEdited ? v.amount : String(net)} onChange={(e) => { setAmountEdited(true); setV({ ...v, amount: e.target.value }); }} /></Field>
+          <Field label={`Amount (₹) — up to ${fmtMoney(net)}`}><Input type="number" min="1" disabled={clears || !picked.length} value={clears || !picked.length ? 0 : amountEdited ? v.amount : String(net)} onChange={(e) => { setAmountEdited(true); setV({ ...v, amount: e.target.value }); }} /></Field>
           <Field label="Mode"><Select value={v.mode} onChange={(e) => setV({ ...v, mode: e.target.value })} options={MODES} /></Field>
           <Field label="Reference (UPI id / cheque no)"><Input value={v.reference} onChange={(e) => setV({ ...v, reference: e.target.value })} /></Field><Field label="Date received"><Input type="date" max={today()} value={v.paidOn} onChange={(e) => setV({ ...v, paidOn: e.target.value })} /></Field>
         </div>
-        <div><div className="bold small" style={{ marginBottom: 4 }}>Pay towards (leave unticked to clear the oldest dues first)</div>
+        <div><div className="row between wrap" style={{ marginBottom: 4, gap: 8 }}>
+          <div className="bold small">Pay towards <span className="muted" style={{ fontWeight: 400 }}>· {picked.length} of {open.length} ticked, {fmtMoney(due)}</span></div>
+          <div className="row" style={{ gap: 6 }}>
+            <Button size="sm" disabled={everything} onClick={() => { setPicked(open.map((c) => c._id)); setAmountEdited(false); }}>Select all</Button>
+            <Button size="sm" disabled={!picked.length} onClick={() => { setPicked([]); setAmountEdited(false); }}>Select none</Button>
+          </div></div>
+          {!picked.length && <p className="small muted" style={{ margin: '0 0 6px' }}>Nothing is ticked, so there is nothing to collect. Tick the dues this payment is for, or choose Select all.</p>}
           {open.map((c) => <label key={c._id} className="row small"><input type="checkbox" checked={picked.includes(c._id)} onChange={(e) => { setPicked(e.target.checked ? [...picked, c._id] : picked.filter((i) => i !== c._id)); setAmountEdited(false); }} /> {c.label} — {fmtMoney(c.outstanding)} {c.overdue && <Badge tone="red">overdue</Badge>}</label>)}</div>
         <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-          <label className="row bold"><input type="checkbox" checked={disc.on} onChange={(e) => { setDisc({ ...disc, on: e.target.checked }); setAmountEdited(false); }} /> Give a discount or concession on {picked.length ? 'the ticked dues' : 'these dues'}</label>
+          <label className="row bold"><input type="checkbox" checked={disc.on} onChange={(e) => { setDisc({ ...disc, on: e.target.checked }); setAmountEdited(false); }} /> Give a discount or concession on {everything ? 'these dues' : 'the ticked dues'}</label>
           {disc.on && <>
             <div className="form-grid">
               <Field label="Discount type"><Select aria-label="Discount type" value={disc.type} onChange={(e) => { setDisc({ ...disc, type: e.target.value }); setAmountEdited(false); }} options={[{ value: 'amount', label: 'Rupees (₹)' }, { value: 'percent', label: 'Percent (%) of what is due' }]} /></Field>
@@ -230,9 +289,11 @@ export function PayModal({ x, base, onClose, onDone }) {
 // ───────────── payments ledger ─────────────
 export function Payments({ readOnly }) {
   const { base } = ctxOf(readOnly);
-  const [f, setF] = useState({ q: '', mode: '', from: '', to: '' });
+  const [f, setF] = useState({ q: '', mode: '', sectionId: '', from: '', to: '' });
   const dq = useDebounced(f.q);
   const list = useApi(`${base}/payments`, { ...f, q: dq });
+  const lookups = useApi(`${base}/lookups`);
+  const L = lookups.data || { classes: [], sections: [] };
   const [run] = useAction();
   const [rev, setRev] = useState(null);
   return (
@@ -240,7 +301,7 @@ export function Payments({ readOnly }) {
       <PageHeader title="Payments & receipts" subtitle="Every receipt ever issued. Receipts are never edited or deleted — mistakes are reversed." actions={<Button onClick={() => run(() => download(`${base}/export/payments.csv`, 'payments.csv', { ...f }))}>Export CSV</Button>} />
       <ListCard>
         <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v })} searchLabel="Search payments" placeholder="Search receipt, reference, student">
-          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={[...MODES, { value: 'online', label: 'Online' }]} placeholder="All modes" aria-label="Mode" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
+          <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={[...MODES, { value: 'online', label: 'Online' }]} placeholder="All modes" aria-label="Mode" /><Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value })} placeholder="All classes" options={L.sections.map((x) => ({ value: x._id, label: `${L.classes.find((c) => c._id === x.classId)?.name} ${x.name}` }))} aria-label="Class" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" style={{ width: 150 }} /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
         <Async state={list} empty={<Empty title="No payments match" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Student', render: (p) => <>{p.student} <span className="muted small">{p.admissionNo}</span></> },
           { label: 'Amount', render: (p) => <b style={{ color: p.kind === 'reversal' ? 'var(--red)' : undefined }}>{p.kind === 'reversal' ? '−' : ''}{fmtMoney(p.amount)}</b> }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'Reference', key: 'reference' }, { label: 'By', key: 'receivedByName' },
           { label: 'Status', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red" >Reversed</Badge> : <Badge tone="green">Completed</Badge>) },
@@ -317,14 +378,19 @@ function Defaulters({ base, path, readOnly }) {
   const [view, setView] = useState('list');
   const [classId, setClassId] = useState('');
   const [page, setPage] = useState(1);
-  const [open, setOpen] = useState(null); // the class whose students are expanded
+  const [open, setOpen] = useState(null); // the class whose students are shown in the side panel
   const [openPage, setOpenPage] = useState(1);
+  const [sec, setSec] = useState(''); // a section of that class
   const [run, busy] = useAction();
   const lookups = useApi(`${base}/lookups`);
   const list = useApi(view === 'list' ? `${base}/students` : null, { status: 'overdue', limit: DEF_PAGE, page, ...(classId ? { classId } : {}) });
   const byClass = useApi(view === 'class' ? `${base}/reports/defaulters-by-class` : null);
-  const inClass = useApi(view === 'class' && open ? `${base}/students` : null, { status: 'overdue', limit: DEF_PAGE, page: openPage, classId: open || undefined });
-  const pick = (v) => { setView(v); setOpen(null); };
+  const inClass = useApi(view === 'class' && open ? `${base}/students` : null, { status: 'overdue', limit: DEF_PAGE, page: openPage, classId: open || undefined, sectionId: sec || undefined });
+  const { collect, opening, modal: payModal } = useCollect(base, () => { inClass.reload(); byClass.reload(); list.reload(); });
+  const pick = (v) => { setView(v); setOpen(null); setSec(''); };
+  // on a narrow screen the panel sits under the table: bring it into view
+  useEffect(() => { if (open && typeof window !== 'undefined' && window.innerWidth <= 1100) document.getElementById('defaulters-panel')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }, [open]);
+  const cls = byClass.data?.items.find((c) => c.classId === open);
   return (<>
     <div className="row wrap">
       <Tabs tabs={[['list', 'All defaulters'], ['class', 'Group by class']]} value={view} onChange={pick} />
@@ -335,15 +401,35 @@ function Defaulters({ base, path, readOnly }) {
     {view === 'list' && <ListCard><Async state={list} empty={<Empty title="No overdue fees" />}>{(d) => (<>
       <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={[...defCols(path), { label: 'Next due', render: (s) => fmtDate(s.nextDue) }]} />
       <ListFooter total={d.total} noun="defaulter" page={page} pageSize={DEF_PAGE} onPage={setPage} /></>)}</Async></ListCard>}
-    {view === 'class' && <Card flush><Async state={byClass} empty={<Empty title="Nothing billed yet" />}>{(d) => (<>
-      <DataTable rows={d.items} rowKey="classId" onRowClick={(c) => { setOpen(open === c.classId ? null : c.classId); setOpenPage(1); }} columns={[
-        { label: 'Class', render: (c) => <><b>{c.className}</b> <span className="muted small">{open === c.classId ? '▾' : '▸'}</span></> }, { label: 'Billed students', key: 'studentsBilled' },
-        { label: 'Defaulters', render: (c) => (c.defaulters ? <Badge tone="red">{c.defaulters}</Badge> : 0) }, { label: '% defaulting', render: (c) => `${c.percentDefaulting}%` }, { label: 'Overdue', render: (c) => (c.overdueAmount ? fmtMoney(c.overdueAmount) : '—') },
-        { label: 'Sections', render: (c) => c.sections.filter((x) => x.defaulters).map((x) => `${x.name}: ${x.defaulters}`).join(' · ') || '—' }]} />
-      <div className="card-b muted small">{d.totals.defaulters} defaulter(s) of {d.totals.studentsBilled} billed students · {fmtMoney(d.totals.overdueAmount)} overdue. Click a class to see its students.</div></>)}</Async></Card>}
-    {view === 'class' && open && <Card title={`Defaulters in ${byClass.data?.items.find((c) => c.classId === open)?.className || 'this class'}`} flush><Async state={inClass} empty={<Empty title="No defaulters in this class" />}>{(d) => (<>
-      <DataTable rows={d.items} rowKey="studentId" onRowClick={(s) => nav(`${path}/students/${s.studentId}`)} columns={defCols(path)} empty="No defaulters in this class" />
-      <ListFooter total={d.total} noun="defaulter" page={openPage} pageSize={DEF_PAGE} onPage={setOpenPage} /></>)}</Async></Card>}
+    {view === 'class' && (
+      <div className={`stu-split${open ? ' open' : ''}`}>
+        <Card flush><Async state={byClass} empty={<Empty title="Nothing billed yet" />}>{(d) => (<>
+          <DataTable rows={d.items} rowKey="classId" rowClassName={(c) => (c.classId === open ? 'sel' : '')} onRowClick={(c) => { setOpen(open === c.classId ? null : c.classId); setOpenPage(1); setSec(''); }} columns={[
+            { label: 'Class', render: (c) => <><b>{c.className}</b> <span className="muted small">{open === c.classId ? '▾' : '▸'}</span></> }, { label: 'Billed students', key: 'studentsBilled' },
+            { label: 'Defaulters', render: (c) => (c.defaulters ? <Badge tone="red">{c.defaulters}</Badge> : 0) }, { label: '% defaulting', render: (c) => `${c.percentDefaulting}%` }, { label: 'Overdue', render: (c) => (c.overdueAmount ? fmtMoney(c.overdueAmount) : '—') },
+            { label: 'Sections', render: (c) => c.sections.filter((x) => x.defaulters).map((x) => `${x.name}: ${x.defaulters}`).join(' · ') || '—' }]} />
+          <div className="card-b muted small">{d.totals.defaulters} defaulter(s) of {d.totals.studentsBilled} billed students · {fmtMoney(d.totals.overdueAmount)} overdue. Click a class to see its students beside the list.</div></>)}</Async></Card>
+        {open && (
+          <aside id="defaulters-panel" className="stu-preview" aria-label={`Defaulters in ${cls?.className || 'this class'}`}>
+            <div className="row" style={{ justifyContent: 'space-between' }}><Badge tone="red">Defaulters</Badge><Button size="sm" onClick={() => setOpen(null)} aria-label="Close class">Close</Button></div>
+            <div><h3 style={{ margin: 0, fontSize: 18, letterSpacing: '-.02em' }}>{cls?.className || 'This class'}</h3><span className="muted small">{cls ? `${cls.defaulters} defaulter${cls.defaulters === 1 ? '' : 's'} · ${fmtMoney(cls.overdueAmount)} overdue` : ''}</span></div>
+            {cls && cls.sections.filter((x) => x.defaulters).length > 1 && <Select aria-label="Section" value={sec} onChange={(e) => { setSec(e.target.value); setOpenPage(1); }} placeholder="All sections" options={cls.sections.filter((x) => x.defaulters).map((x) => ({ value: x.sectionId, label: `${cls.className} ${x.name} (${x.defaulters})` }))} />}
+            <Async state={inClass} empty={<Empty title="No defaulters here" />}>{(d) => (<>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 'calc(100dvh - 400px)', minHeight: 160, overflowY: 'auto' }}>
+                {d.items.map((s) => (
+                  <li key={s.studentId} className="flex items-center gap-2 border-t border-border py-2.5 first:border-t-0">
+                    <button type="button" onClick={() => nav(`${path}/students/${s.studentId}`)} className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><b className="block truncate">{s.name}</b><span className="block truncate text-[13px] text-muted-foreground">{s.className} {s.section} · {s.admissionNo}</span></button>
+                    <Badge tone="red">{fmtMoney(s.overdue)}</Badge>
+                    {!readOnly && <Button size="sm" variant="primary" loading={opening === s.studentId} aria-label={`Collect payment from ${s.name}`} onClick={() => collect(s)}>Collect</Button>}
+                  </li>
+                ))}
+              </ul>
+              <ListFooter total={d.total} noun="defaulter" page={openPage} pageSize={DEF_PAGE} onPage={setOpenPage} /></>)}</Async>
+          </aside>
+        )}
+      </div>
+    )}
+    {payModal}
   </>);
 }
 

@@ -9,6 +9,7 @@ import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { ClassBoard as Structure } from './ClassBoard.jsx';
 import { RegisterModal } from './Operations.jsx';
+import { useOffice } from '../../context/ClassOffice.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
 const daysAgo = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString('en-CA');
@@ -49,9 +50,10 @@ function HomeworkByDay() {
 }
 
 export function HomeworkDay({ sectionId }) {
+  const { api } = useOffice();
   const [date, setDate] = useState(today());
   const [weekStart, setWeekStart] = useState(mondayOf(today()));
-  const q = useApi(`/api/school/sections/${sectionId}/homework`, { date, weekStart });
+  const q = useApi(`${api}/sections/${sectionId}/homework`, { date, weekStart });
   const pick = (d) => { if (!validDay(d)) return; setDate(d); setWeekStart(mondayOf(d)); };
   const moveWeek = (n) => { const w = shiftDay(weekStart, 7 * n); setWeekStart(w); setDate((cur) => { const d = shiftDay(cur, 7 * n); return d > today() ? today() : d; }); };
   const thisWeek = weekStart >= mondayOf(today());
@@ -101,7 +103,8 @@ export function ClassDetail() {
   );
 }
 
-function Overview({ o, go }) {
+export function Overview({ o, go }) {
+  const { readOnly } = useOffice();
   const a = o.attendanceToday;
   return (
     <div className="stack">
@@ -115,18 +118,19 @@ function Overview({ o, go }) {
         <Stat value={o.students} label="Students" sub={`capacity ${o.capacity}`} /><Stat value={o.onBus} label="Ride the school bus" /><Stat value={o.booksOnLoan} label="Library books out" />
         <Stat value={o.subjectTeachers.length} label="Subjects with a teacher" sub={o.subjectTeachers.length ? undefined : 'Assign teachers in Subjects & teachers'} tone={o.subjectTeachers.length ? undefined : 'amber'} />
       </div>
-      <Card title="Subject teachers" action={<Button size="sm" onClick={() => go('subjects')}>Manage</Button>} flush><DataTable rows={o.subjectTeachers} rowKey="id" empty="No teachers assigned yet" columns={[{ label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Teacher', key: 'teacher' }, { label: 'Periods / week', key: 'periodsPerWeek' }]} /></Card>
+      <Card title="Subject teachers" action={readOnly ? undefined : <Button size="sm" onClick={() => go('subjects')}>Manage</Button>} flush><DataTable rows={o.subjectTeachers} rowKey="id" empty="No teachers assigned yet" columns={[{ label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Teacher', key: 'teacher' }, { label: 'Periods / week', key: 'periodsPerWeek' }]} /></Card>
     </div>
   );
 }
 
 import { Monitors } from '../teacher/Teacher1.jsx';
-function SectionStudents({ sectionId }) {
+export function SectionStudents({ sectionId }) {
+  const { api, nav: navBase, readOnly } = useOffice();
   const nav = useNavigate();
-  const q = useApi(`/api/school/sections/${sectionId}/students`);
+  const q = useApi(`${api}/sections/${sectionId}/students`);
   return (
-    <Card title="Students — click one for the full picture (attendance, marks, homework, fees, library, bus)" flush action={<Monitors sectionId={sectionId} rows={q.data || []} path={`/api/school/monitors/${sectionId}`} onSaved={q.reload} />}>
-      <Async state={q}>{(rows) => <DataTable rows={rows} rowKey="studentId" empty="No students" onRowClick={(s) => nav(`/admin/students/${s.studentId}`)} columns={[
+    <Card title="Students — click one for the full picture (attendance, marks, homework, fees, library, bus)" flush action={<Monitors sectionId={sectionId} rows={q.data || []} path={readOnly ? undefined : `/api/school/monitors/${sectionId}`} onSaved={q.reload} />}>
+      <Async state={q}>{(rows) => <DataTable rows={rows} rowKey="studentId" empty="No students" onRowClick={(s) => nav(`${navBase}/students/${s.studentId}`)} columns={[
         { label: 'Roll', key: 'rollNo' }, { label: 'Student', render: (s) => <><b>{s.name}</b> {s.monitor && <Badge tone="blue">Monitor</Badge>}<div className="small muted">{s.admissionNo}</div></> },
         { label: 'Attendance', render: (s) => s.attendance != null ? <Badge tone={s.attendance < 75 ? 'red' : s.attendance < 90 ? 'amber' : 'green'}>{s.attendance}%</Badge> : '—' },
         { label: 'Latest exam', render: (s) => s.latestScore != null ? `${s.latestScore}%` : '—' }, { label: 'Bus', render: (s) => s.bus || <span className="muted">—</span> },

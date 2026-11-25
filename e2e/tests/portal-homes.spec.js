@@ -12,13 +12,31 @@ test('finance: find a student on the home page, see the dues and open the collec
   expect(problems).toEqual([]);
 });
 
-test('library: the scan box carries the accession number to the issue desk', async ({ page }) => {
+test('library: the book search on the home page suggests books, shows the book, and carries the chosen copy to the desk', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'library', 'library@gps.test', 'Library@12345');
-  await page.getByLabel("Scan or type a book's accession number").fill('ACC-1234');
-  await page.getByRole('button', { name: 'Issue this book' }).click();
-  await expect(page).toHaveURL(/\/library\/desk\?acc=ACC-1234/);
-  expect(problems).toEqual([]);
+  const box = page.getByLabel('Search a book by accession number, title or author');
+  const list = page.getByRole('listbox', { name: 'Matching books' });
+  // typing a title suggests copies; picking one shows the book with its copies and the next step
+  await box.fill('malgudi');
+  await expect(list.getByRole('option').first()).toContainText('Malgudi Days');
+  await list.getByRole('option').first().click();
+  const card = page.getByRole('region', { name: 'About Malgudi Days' });
+  await expect(card).toContainText('R. K. Narayan');
+  await expect(card).toContainText(/\d+ of \d+ copies available/);
+  await expect(card.getByRole('radio').first()).toBeVisible();
+  await card.getByRole('button', { name: 'Issue this book' }).click();
+  await expect(page).toHaveURL(/\/library\/desk\?acc=LB\d+/);
+  // a book that is out offers to take it back, and the return desk opens with it filled in
+  await page.goto('/library');
+  await box.fill('LB1');
+  await list.getByRole('option').first().click();
+  await expect(page.getByRole('region', { name: /About Wings of Fire/ })).toContainText('is with');
+  await page.getByRole('button', { name: 'Return this book' }).click();
+  await expect(page).toHaveURL(/\/library\/desk\?mode=return&acc=LB00001/);
+  await expect(page.getByLabel(/Accession number, title/)).toHaveValue('LB00001');
+  await expect(page.getByText(/Due /).first()).toBeVisible();
+  expect(problems, problems.join('\n')).toEqual([]);
 });
 
 test('transport: every route is listed with its stops', async ({ page }) => {
