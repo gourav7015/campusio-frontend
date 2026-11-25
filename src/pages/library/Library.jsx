@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useForm } from '../../hooks/useApi.js';
 import { post, patch, put, del } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Select, Tabs, useAction, useDebounced, fmtDate, fmtMoney, label, statusTone } from '../../components/ui.jsx';
@@ -27,7 +27,8 @@ export function Desk() {
 }
 
 function IssueDesk() {
-  const [type, setType] = useState('student'); const [q, setQ] = useState(''); const [picked, setPicked] = useState(null); const [acc, setAcc] = useState(''); const [out, setOut] = useState(null);
+  const [sp] = useSearchParams(); // the home page's scan box brings the accession number along
+  const [type, setType] = useState('student'); const [q, setQ] = useState(''); const [picked, setPicked] = useState(null); const [acc, setAcc] = useState(sp.get('acc') || ''); const [out, setOut] = useState(null);
   const dq = useDebounced(q);
   const people = useApi(dq.length >= 1 && !picked ? '/api/library/borrowers' : null, { type, q: dq });
   const [run, busy] = useAction();

@@ -74,16 +74,26 @@ function StudentAttendance() {
           <Stat value={d.totals.absent.toLocaleString('en-IN')} label="Absent" tone={d.totals.absent ? 'red' : 'green'} />
           <Stat value={(d.totals.leave + d.totals.excused).toLocaleString('en-IN')} label="On leave" />
         </div>
-        <Card title={`Sections (${shown.length}${shown.length !== rows.length ? ` of ${rows.length}` : ''}) — click a section to open its register`} flush>
-          <DataTable rows={shown} rowKey="sectionId" empty="No section matches these filters" onRowClick={setOpen} columns={[
-            { label: 'Section', sort: (r) => sectionKey(r.className, r.section), render: (r) => <b>{r.className} {r.section}</b> },
-            { label: 'Register', sort: (r) => r.status || '', render: (r) => <Badge tone={r.status === 'submitted' ? 'green' : r.status === 'draft' ? 'amber' : ''}>{r.status === 'submitted' ? 'Submitted' : r.status === 'draft' ? 'Draft' : 'Not started'}</Badge> },
-            { label: 'Present', sort: (r) => (r.totals ? r.totals.present + r.totals.late : -1), render: (r) => (r.totals ? r.totals.present + r.totals.late : '—') },
-            { label: 'Absent', sort: (r) => r.totals?.absent ?? -1, render: (r) => (r.totals?.absent ? <Badge tone="red">{r.totals.absent}</Badge> : r.totals ? 0 : '—') },
-            { label: 'Leave', sort: (r) => (r.totals ? r.totals.leave + r.totals.excused : -1), render: (r) => (r.totals ? r.totals.leave + r.totals.excused : '—') },
-            { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r)}>Open register</Button> },
-          ]} />
-        </Card>
+        <section aria-label="Sections" className="stack-sm">
+          <div className="row" style={{ justifyContent: 'space-between' }}><b>Sections ({shown.length}{shown.length !== rows.length ? ` of ${rows.length}` : ''})</b><span className="muted small">Waiting registers come first. Open one to read it or correct it.</span></div>
+          {shown.length === 0 ? <Card><Empty title="No section matches these filters" /></Card> : (
+            <div className="sec-board">
+              {[...shown].sort((x, y) => (y.status === 'submitted' ? 0 : 1) - (x.status === 'submitted' ? 0 : 1)).map((r) => {
+                const done = r.status === 'submitted'; const here = r.totals ? r.totals.present + r.totals.late : 0; const all = r.totals ? here + r.totals.absent + r.totals.leave + r.totals.excused + (r.totals.half_day || 0) : 0;
+                return (
+                  <div key={r.sectionId} role="group" aria-label={`${r.className} ${r.section}`} className={`sec-card${done ? '' : ' wait'}`} onClick={(e) => { if (!e.target.closest('button, a')) setOpen(r); }}>
+                    <div className="row" style={{ justifyContent: 'space-between' }}><b className="sec-name">{r.className} {r.section}</b><Badge tone={done ? 'green' : r.status === 'draft' ? 'amber' : ''}>{done ? 'Submitted' : r.status === 'draft' ? 'Draft' : 'Not started'}</Badge></div>
+                    {r.totals ? (<>
+                      <div className="sec-bar" role="img" aria-label={`${here} of ${all} present`}><i style={{ width: `${all ? (here / all) * 100 : 0}%` }} /></div>
+                      <div className="small muted">{here} present{r.totals.absent ? <> · <b style={{ color: 'rgb(var(--c-danger-ink))' }}>{r.totals.absent} absent</b></> : ' · none absent'}{r.totals.leave + r.totals.excused ? ` · ${r.totals.leave + r.totals.excused} on leave` : ''}</div>
+                    </>) : <div className="small muted">No register yet today</div>}
+                    <Button size="sm" onClick={() => setOpen(r)}>Open register</Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </>)}</Async>
       <Card title="Open attendance queries from students" flush>
         <Async state={queries} empty={<div className="empty">No open queries</div>}>{(qs) => (qs.length ? <DataTable rows={qs} columns={[

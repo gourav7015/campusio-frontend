@@ -15,21 +15,14 @@ test('the school makes its own houses; students and teachers can be put only in 
   await expect(dlg.getByText('Mentors (teachers)')).toBeVisible();
   await expect(dlg.getByText(/^Students \(\d+\)/)).toBeVisible();
   await dlg.locator('button.btn', { hasText: 'Close' }).click();
-  // a new house
-  await page.getByRole('button', { name: '+ Add house' }).click();
-  const add = page.getByRole('dialog', { name: 'Add a house' });
-  await add.getByLabel('House name').fill('Sahyadri');
-  // the colour is chosen from four swatches only
-  await expect(add.getByRole('radio')).toHaveCount(4);
-  // the four demo houses already use all four, so none can be picked again
-  for (const c of ['Red', 'Green', 'Blue', 'Yellow']) await expect(add.getByRole('radio', { name: new RegExp(`^${c}`) })).toBeDisabled();
-  await add.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Sahyadri', { exact: true })).toBeVisible();
+  // every house has a colour of its own and there are four colours: with the four demo houses all used, a fifth cannot be added
+  await expect(page.getByRole('button', { name: '+ Add house' })).toBeDisabled();
+  await expect(page.getByText(/All four house colours .* are in use/)).toBeVisible();
   // the student form offers only the school's houses
   await page.goto('/admin/students');
   await page.getByRole('button', { name: /Admit|\+ Student|Add student/ }).first().click();
   const sel = page.getByRole('dialog').getByLabel('House');
-  await expect(sel.locator('option', { hasText: 'Sahyadri' })).toHaveCount(1);
+  await expect(sel.locator('option', { hasText: 'Aravali' })).toHaveCount(1);
   await expect(sel.locator('option', { hasText: 'Red' })).toHaveCount(0);
   expect(problems.filter((p) => !/HTTP 40/.test(p))).toEqual([]);
 });

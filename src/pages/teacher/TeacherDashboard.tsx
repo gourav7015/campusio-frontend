@@ -7,6 +7,7 @@ import { AttentionList, Facts, LinkCard } from '../../design/patterns';
 import { Badge, Button, Callout, EmptyState, ErrorState, PageHeader, PageSkeleton, StatCard } from '../../design/ui';
 import { DaySchedule, type Period } from '../../components/Schedule';
 import { fmtDate, fmtDateTime } from '../../components/ui.jsx';
+import { TodayRegister } from './TodayRegister';
 
 interface Dash {
   greeting: { name: string; date: string; working: boolean; firstUpcoming?: { startTime: string; subject?: string } };
@@ -40,6 +41,8 @@ export default function TeacherDashboard() {
           <Button asChild><Link to="/teacher/homework?new=1"><NotebookPen />New homework</Link></Button>
           <Button asChild><Link to="/teacher/exams"><FilePenLine />Marks</Link></Button>
         </>} />
+
+      {x.permissions.takeAttendance && x.greeting.working && <TodayRegister date={x.greeting.date.slice(0, 10)} />}
 
       {x.classGaps && x.classGaps.length > 0 && (
         <Callout tone="warning">

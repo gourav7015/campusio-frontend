@@ -10,6 +10,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 test('the school sets its letterhead, uploads a signature and a stamp, assigns them, and previews the real PDFs', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
+  await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Money/ }).click();
   await page.getByRole('link', { name: 'Receipts and payslips' }).click();
   await expect(page.getByRole('heading', { name: 'Documents and signatures' })).toBeVisible();
   await expect(page.getByText('Nothing uploaded yet')).toBeVisible();

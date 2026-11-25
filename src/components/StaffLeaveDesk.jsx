@@ -8,7 +8,7 @@ import { useDialogs } from '../design/ui';
 
 /** The leave desk for one group of staff: decide applications, and record a leave for someone who cannot apply themselves. */
 export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRecord = canEdit, transport = false }) {
-  const [status, setStatus] = useState('submitted');
+  const [status, setStatus] = useState('all');
   const list = useApi(base, { status: status === 'all' ? undefined : status });
   const staff = useApi(canRecord ? staffBase : null, { limit: 200 });
   const policy = useApi(transport && canRecord ? `${base}/policy` : null);
@@ -24,7 +24,7 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRec
   return (
     <div className="stack">
       {adminDecides && <div className="alert" role="note">The school has kept leave approval for the School Admin. Whatever you record here is sent to the admin to decide.</div>}
-      <Card title="Staff leave" action={<div className="row"><Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'submitted', label: 'Waiting for a decision' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }, { value: 'all', label: 'All' }]} />
+      <Card title="Staff leave" action={<div className="row"><Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, { value: 'submitted', label: 'Waiting for a decision' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]} />
         {canRecord && <Button size="sm" variant="primary" onClick={() => setModal(true)}>Record leave</Button>}</div>} flush>
         <Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} empty="No applications" columns={[
           { label: 'Staff member', render: (l) => <><b>{l.staffId?.name}</b><div className="small muted">{l.staffId?.staffId}</div></> }, { label: 'Type', render: (l) => label(l.leaveType) },

@@ -87,10 +87,11 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   await signIn(page, 'admin', loginId, tempPw);
   await chooseNewPassword(page, tempPw);
   await page.goto('/admin');
-  const nav = page.getByRole('navigation').first();
+  await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Academics/ }).click();
+  const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav.getByRole('link', { name: 'Attendance', exact: true })).toBeVisible(); // the attendance desk preset (staff attendance) opens the Attendance page
-  await expect(nav.getByRole('link', { name: 'Students', exact: true })).toHaveCount(0);
-  await expect(nav.getByRole('link', { name: 'School settings' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Students', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'School settings' })).toHaveCount(0);
   await page.goto('/admin/staff-attendance');
   await expect(page.getByRole('tab', { name: 'Daily register' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Teaching staff', exact: true })).toBeVisible();
@@ -117,7 +118,8 @@ test('the admin makes a sub-admin who sees only what was granted; Finance record
   const row = page.getByRole('row', { name: new RegExp(`Lab beakers ${uid}`) });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Approve' }).click();
-  await expect(row).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Approve' })).toHaveCount(0); // the decision stays on the page, with who decided
+  await expect(row).toContainText('Approved');
   await page.goto('/admin/fees?tab=expenses');
   await expect(page.getByRole('row', { name: new RegExp(`Lab beakers ${uid}`) })).toContainText('Approved');
   await signOut(page);

@@ -6,7 +6,7 @@ const rank = (n) => { n = String(n); if (/^lkg/i.test(n)) return -2; if (/^ukg/i
 test('teacher assignments are in school order and can be filtered; choosing a filter keeps the other choices', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/classes?tab=subjects');
+  await page.goto('/admin/assignments');
   await expect(page.getByRole('heading', { name: 'Subjects & teacher assignments' })).toBeVisible();
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').nth(1)).toBeVisible();
@@ -66,6 +66,7 @@ test('Employees filters belong to the tab, and choosing one never shrinks the ot
 
 test('one Leave page for teachers, non-teaching staff and the transport crew', async ({ page }) => {
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
+  await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^People/ }).click();
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav.getByRole('link', { name: 'Leave', exact: true })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Staff leave', exact: true })).toHaveCount(0);

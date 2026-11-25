@@ -52,7 +52,7 @@ test('transport crew have no login controls, and leave goes to the admin when th
   const row = ap.getByRole('row', { name: new RegExp(`Passed on ${uid}`) });
   await expect(row).toContainText('Harish Driver');
   await row.getByRole('button', { name: 'Approve' }).click();
-  await expect(row).toHaveCount(0);
+  await expect(row.getByRole('button', { name: 'Approve' })).toHaveCount(0); // it stays in the list (the filter is on All), now approved
   await ap.getByLabel('Status').selectOption('approved');
   await expect(ap.getByRole('row', { name: new RegExp(`Passed on ${uid}`) })).toContainText('Approved');
   for (const x of [{ problems: tproblems }, { problems: aproblems }]) expect(x.problems.filter((p) => !/HTTP 40[0-9]/.test(p)), x.problems.join('\n')).toEqual([]);

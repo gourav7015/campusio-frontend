@@ -7,8 +7,7 @@ import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Input, Pag
 import FormModal from '../../components/FormModal.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
-import { Classes as Structure } from './Academics.jsx';
-import { Assignments } from './People.jsx';
+import { ClassBoard as Structure } from './ClassBoard.jsx';
 import { RegisterModal } from './Operations.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
@@ -17,15 +16,16 @@ const shiftDay = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(
 const mondayOf = (d) => shiftDay(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
 const validDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2000-01-01' && d <= today(); // a half-typed date (year 0002…) is ignored
 
-/** Classes & sections: the one place the School Admin looks at classes — structure, subject teachers, attendance, homework, and per-class analysis. */
+/** Classes & sections: the structure of classes and sections, and the homework of a day. (Subjects and teachers have their own page; attendance is under Academics.) */
 export function ClassHub() {
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') || 'structure';
+  if (tab === 'subjects') return <Navigate to="/admin/class-structure" replace />; // subjects and their teachers have their own page (Academics)
   if (tab === 'attendance') return <Navigate to="/admin/attendance" replace />; // attendance of students and staff is one page now, under Administration
   return (
     <div className="stack">
-      <Tabs tabs={[['structure', 'Classes & sections'], ['subjects', 'Subjects & teachers'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
-      {tab === 'structure' && <Structure />}{tab === 'subjects' && <Assignments />}{tab === 'homework' && <HomeworkByDay />}
+      <Tabs tabs={[['structure', 'Classes & sections'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
+      {tab === 'structure' && <Structure />}{tab === 'homework' && <HomeworkByDay />}
     </div>
   );
 }
@@ -34,13 +34,16 @@ export function ClassHub() {
 function HomeworkByDay() {
   const L = useLookups();
   const [classId, setClassId] = useState(''); const [sectionId, setSectionId] = useState('');
-  const sections = L.sections.filter((s) => s.classId === classId && s.yearId === L.currentYear?._id && s.status === 'active');
+  // the page opens on a real section (the first class, its first section) so there is always something to read; the two lists change it
+  const cId = classId || L.classOptions[0]?.value || '';
+  const sections = L.sections.filter((s) => s.classId === cId && s.yearId === L.currentYear?._id && s.status === 'active');
+  const sId = sections.some((s) => s._id === sectionId) ? sectionId : sections[0]?._id || '';
   return (
     <div className="stack">
-      <PageHeader title="Homework by day" subtitle="Choose a class and section to see what every subject set on a day." actions={<>
-        <Select aria-label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setSectionId(''); }} placeholder="Choose a class" options={L.classOptions} />
-        <Select aria-label="Section" value={sectionId} onChange={(e) => setSectionId(e.target.value)} placeholder="Choose a section" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!classId} /></>} />
-      {sectionId ? <HomeworkDay sectionId={sectionId} /> : <Empty title="Choose a class and section" />}
+      <PageHeader title="Homework by day" subtitle="What every subject set on a day. It opens on the first class; change the class or section to look at another." actions={<>
+        <Select aria-label="Class" value={cId} onChange={(e) => { setClassId(e.target.value); setSectionId(''); }} placeholder="Choose a class" options={L.classOptions} />
+        <Select aria-label="Section" value={sId} onChange={(e) => setSectionId(e.target.value)} placeholder="Choose a section" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!cId} /></>} />
+      {sId ? <HomeworkDay key={sId} sectionId={sId} /> : <Empty title="No sections yet" />}
     </div>
   );
 }

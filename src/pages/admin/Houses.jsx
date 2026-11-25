@@ -7,21 +7,24 @@ import { useLookups } from '../../hooks/useLookups.js';
 
 const HOUSE_COLOURS = [{ value: '#dc2626', label: 'Red' }, { value: '#16a34a', label: 'Green' }, { value: '#2563eb', label: 'Blue' }, { value: '#eab308', label: 'Yellow' }];
 
+const noneFree = (d) => HOUSE_COLOURS.every((c) => d.houses.some((h) => (h.color || '').toLowerCase() === c.value));
+
 /** The school's own houses. Students and teachers each belong to one; a teacher in a house mentors its students. There are no houses until the school makes them. */
 export default function Houses() {
   const list = useApi('/api/school/houses');
   const [edit, setEdit] = useState(null); const [roster, setRoster] = useState(null); const [run, busy] = useAction();
-  const fieldsFor = (d) => [{ name: 'name', label: 'House name', required: true, placeholder: 'e.g. Aravali' }, { name: 'color', label: 'Colour (optional)', type: 'swatches', choices: HOUSE_COLOURS.map((c) => ({ ...c, takenBy: d.houses.find((h) => h._id !== edit?._id && (h.color || '').toLowerCase() === c.value)?.name })), hint: 'Shown on its card. Each house has its own colour; tap again to clear.' }, { name: 'motto', label: 'Motto (optional)', full: true }];
+  const fieldsFor = (d) => [{ name: 'name', label: 'House name', required: true, placeholder: 'e.g. Aravali' }, { name: 'color', label: 'Colour', type: 'swatches', choices: HOUSE_COLOURS.map((c) => ({ ...c, takenBy: d.houses.find((h) => h._id !== edit?._id && (h.color || '').toLowerCase() === c.value)?.name })), hint: 'Shown on its card. Each house has its own colour. If you pick none, the first free colour is used.' }, { name: 'motto', label: 'Motto (optional)', full: true }];
   return (
     <Async state={list}>{(d) => (
       <div className="stack">
         <PageHeader title="Houses" subtitle="The school's own houses. Every student belongs to one, and every teacher mentors one. A student or teacher can be put only in a house listed here."
           actions={<>{(d.unplaced.students > 0 || d.unplaced.teachers > 0) && d.houses.length > 0 && <Button loading={busy} onClick={async () => { const r = await run(() => post('/api/school/houses/distribute'), (x) => `Placed ${x.students} student(s) and ${x.teachers} teacher(s)`); if (r) list.reload(); }}>Place everyone without a house</Button>}
-            <Button variant="primary" onClick={() => setEdit({})}>+ Add house</Button></>} />
+            <Button variant="primary" onClick={() => setEdit({})} disabled={noneFree(d)} title={noneFree(d) ? 'All four house colours are in use' : undefined}>+ Add house</Button></>} />
+        {noneFree(d) && <div className="alert info">All four house colours (red, green, blue, yellow) are in use, and every house needs one of its own, so a school can have up to four houses. Delete a house, or change its colour, to make room.</div>}
         {d.houses.length > 0 && (d.unplaced.students > 0 || d.unplaced.teachers > 0) && <div className="alert info">{d.unplaced.students} student(s) and {d.unplaced.teachers} teacher(s) are not in a house yet. “Place everyone without a house” shares them out evenly, class by class. You can also set a student's house from the Students page, one by one or for a whole filtered list.</div>}
         {!d.houses.length ? <Empty title="No houses yet">Add the houses of your school (for example the names your school uses for sports and events). There are no built-in houses.</Empty> : (
           <div className="grid g3">{d.houses.map((h) => (
-            <Card key={h._id} title={<span className="row" style={{ gap: 8, alignItems: 'center' }}><span aria-hidden style={{ width: 14, height: 14, borderRadius: 7, background: h.color || 'var(--grey-300, #9ca3af)', display: 'inline-block' }} />{h.name}</span>} action={h.status === 'archived' ? <Badge tone="amber">Archived</Badge> : null}>
+            <Card key={h._id} title={<span className="row" style={{ gap: 8, alignItems: 'center' }}><span aria-hidden style={{ width: 14, height: 14, borderRadius: 7, background: h.color || 'var(--grey-300, #9ca3af)', display: 'inline-block' }} />{h.name}{!h.color && <Badge>No colour</Badge>}</span>} action={h.status === 'archived' ? <Badge tone="amber">Archived</Badge> : null}>
               {h.motto && <p className="muted small" style={{ marginTop: 0 }}>“{h.motto}”</p>}
               <div className="row" style={{ gap: 24 }}><div><div className="muted small">Students</div><b style={{ fontSize: 22 }}>{h.students}</b></div><div><div className="muted small">Mentors</div><b style={{ fontSize: 22 }}>{h.teachers}</b></div></div>
               <div className="row" style={{ marginTop: 12, gap: 8 }}>

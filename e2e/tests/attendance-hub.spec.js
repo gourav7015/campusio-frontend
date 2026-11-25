@@ -11,7 +11,8 @@ test('Classes & sections no longer has an Attendance tab; attendance is one page
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/classes');
-  for (const t of ['Classes & sections', 'Subjects & teachers', 'Homework by day']) await expect(page.getByRole('tab', { name: t, exact: true })).toBeVisible();
+  for (const t of ['Classes & sections', 'Homework by day']) await expect(page.getByRole('tab', { name: t, exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Subjects & teachers', exact: true })).toHaveCount(0); // they have their own page under Academics
   await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toHaveCount(0);
   await page.goto('/admin/classes?tab=attendance'); // old links still work
   await expect(page).toHaveURL(/\/admin\/attendance/);
@@ -24,25 +25,25 @@ test('the Students tab is filterable by class, section, register and absentees; 
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/attendance');
   await expect(page.getByText('Registers submitted')).toBeVisible();
-  const rows = () => page.getByRole('table').first().getByRole('row');
-  await expect(rows().nth(1)).toBeVisible();
-  const all = (await rows().count()) - 1;
+  const cards = () => page.locator('.sec-card');
+  await expect(cards().first()).toBeVisible();
+  const all = await cards().count();
   expect(all).toBeGreaterThan(1);
   await expect(page.getByLabel('Class', { exact: true })).toHaveCount(0); // filters sit behind the icon
   await openFilters(page);
   const cls = page.getByLabel('Class', { exact: true });
   await cls.selectOption({ label: 'Class 8' });
-  await expect.poll(async () => (await rows().count()) - 1).toBeLessThanOrEqual(all);
+  await expect.poll(async () => cards().count()).toBeLessThanOrEqual(all);
   const sectionOptions = await page.getByLabel('Section', { exact: true }).locator('option').allTextContents();
   expect(sectionOptions.length).toBeGreaterThan(1);
   await page.getByLabel('Section', { exact: true }).selectOption({ label: 'A' });
-  await expect(page.getByRole('table').first()).toContainText('Class 8 A');
+  await expect(cards().first()).toContainText('Class 8 A');
   await page.getByRole('button', { name: 'Clear filters' }).click();
   await page.keyboard.press('Escape');
-  await expect.poll(async () => (await rows().count()) - 1).toBe(all);
+  await expect.poll(async () => cards().count()).toBe(all);
   await page.getByLabel('Search class or section').fill('Class 8 A');
-  await expect.poll(async () => (await rows().count()) - 1).toBe(1);
-  await rows().nth(1).click(); // the whole row opens the register
+  await expect.poll(async () => cards().count()).toBe(1);
+  await cards().first().click(); // the whole card opens the register
   await expect(page.getByRole('dialog')).toContainText('Class 8 A');
 });
 
@@ -70,12 +71,11 @@ test('a whole section row opens the class page; its buttons still do their own j
     await call(token, 'PUT', '/api/school/settings', { attendance: { ...settings.attendance, periodWise: false } });
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
     await page.goto('/admin/classes');
-    const sections = page.getByRole('table').nth(1);
-    await expect(sections.getByRole('row').nth(1)).toBeVisible();
-    await sections.getByRole('row').nth(1).getByRole('button', { name: 'Edit' }).click();
-    await expect(page.getByRole('dialog')).toBeVisible(); // the button opened its form, not the class page
+    await expect(page.getByRole('button', { name: 'Edit', exact: true }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    await expect(page.getByRole('dialog')).toBeVisible(); // the button opened its side panel, not the class page
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-    await sections.getByRole('row').nth(1).getByRole('cell').nth(1).click(); // any other part of the row
+    await page.getByRole('link', { name: 'Open' }).first().click(); // the section's own page
     await expect(page).toHaveURL(/\/admin\/classes\/[a-f0-9]{24}/);
     await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toBeVisible(); // the class page keeps its own attendance
     await expect(page.getByRole('tab', { name: 'By period' })).toHaveCount(0);

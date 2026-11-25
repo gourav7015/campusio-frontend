@@ -57,6 +57,7 @@ const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 const Years = lazy(() => import('./pages/admin/Academics.jsx').then((m) => ({ default: m.Years })));
 const ClassHub = lazy(() => import('./pages/admin/ClassHub.jsx').then((m) => ({ default: m.ClassHub })));
+const Assignments = lazy(() => import('./pages/admin/People.jsx').then((m) => ({ default: m.Assignments })));
 const ClassDetail = lazy(() => import('./pages/admin/ClassHub.jsx').then((m) => ({ default: m.ClassDetail })));
 const SupportStaff = lazy(() => import('./pages/admin/SupportStaff.jsx'));
 const Houses = lazy(() => import('./pages/admin/Houses.jsx'));
@@ -155,7 +156,7 @@ export default function App() {
 
         <Route path="/admin" element={<Guard roles={['school_admin', 'super_admin']} area="admin"><AppShell area="admin" /></Guard>}>
           <Route index element={<AdminDashboard />} /><Route path="years" element={<Years />} /><Route path="classes" element={<ClassHub />} /><Route path="classes/:sectionId" element={<ClassDetail />} />
-          <Route path="students" element={<Students />} /><Route path="students/:id" element={<StudentDetail />} /><Route path="teachers" element={<Teachers />} /><Route path="teachers/:id" element={<TeacherDetail />} /><Route path="assignments" element={<Navigate to="/admin/classes?tab=subjects" replace />} /><Route path="staff" element={<Staff />} />
+          <Route path="students" element={<Students />} /><Route path="students/:id" element={<StudentDetail />} /><Route path="teachers" element={<Teachers />} /><Route path="teachers/:id" element={<TeacherDetail />} /><Route path="assignments" element={<Assignments />} /><Route path="staff" element={<Staff />} />
           <Route path="timetable" element={<Timetable />} /><Route path="attendance" element={<AttendanceHub />} /><Route path="learning" element={<Navigate to="/admin/classes?tab=homework" replace />} /><Route path="exams" element={<AdminExams />} /><Route path="exams/:id" element={<ExamDetail />} /><Route path="leave" element={<LeaveHub />} /><Route path="teacher-leave" element={<Navigate to="/admin/leave?tab=teachers" replace />} />
           <Route path="fees" element={<AdminFees />} /><Route path="fees/students/:id" element={<StudentAccount readOnly />} /><Route path="library" element={<AdminLibrary />} /><Route path="library/books/:id" element={<BookDetail readOnly />} />
           <Route path="announcements" element={<AnnouncementsAdmin />} /><Route path="events" element={<Events />} /><Route path="messages" element={<MessagesAdmin />} />

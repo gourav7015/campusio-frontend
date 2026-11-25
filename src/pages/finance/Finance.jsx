@@ -175,7 +175,7 @@ export function StudentAccount({ readOnly }) {
   );
 }
 
-function PayModal({ x, base, onClose, onDone }) {
+export function PayModal({ x, base, onClose, onDone }) {
   const open = x.charges.filter((c) => c.status === 'open');
   const [v, setV] = useState({ amount: '', mode: 'cash', reference: '', paidOn: today(), note: '' });
   const [amountEdited, setAmountEdited] = useState(false);

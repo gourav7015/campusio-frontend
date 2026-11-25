@@ -75,7 +75,7 @@ test('only the class teacher takes attendance and may change it later; the admin
   // the admin sees the request and corrects the register with a reason
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/classes?tab=attendance'); // the old address opens the Attendance page (Administration)
-  await page.getByRole('row').filter({ hasText: 'Class 8 A' }).getByRole('button', { name: 'Open register' }).click();
+  await page.getByRole('group', { name: 'Class 8 A' }).getByRole('button', { name: 'Open register' }).click();
   // the admin's register is the class teacher's register: a submitted one is corrected with a reason, through the same "Correct" window
   await page.getByRole('dialog').getByRole('button', { name: 'Correct', exact: true }).first().click();
   const why = page.getByRole('dialog', { name: /^Correct attendance/ });
@@ -281,7 +281,7 @@ test('admin: subjects come from teachers (no master list); staff accounts for fi
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await expect(page.getByRole('link', { name: 'Subjects', exact: true })).toHaveCount(0);
-  await page.goto('/admin/classes?tab=subjects'); // subject teachers are nested inside Classes & sections
+  await page.goto('/admin/assignments'); // the teacher-assignment list keeps its own address (the menu points at Subjects and teachers)
   await page.getByRole('button', { name: '+ Assign teacher to a subject' }).click();
   const asg = page.getByRole('dialog', { name: 'Assign teacher to a subject' }); // the page behind has filters with the same names
   await asg.getByLabel('Teacher', { exact: true }).selectOption({ label: 'Priya Rao (T006)' });
@@ -557,9 +557,11 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   // the old stand-alone tabs live inside Classes & sections now
   for (const name of ['Subjects & assignments', 'Homework & materials']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
   await page.goto('/admin/classes');
-  for (const t of ['Subjects & teachers', 'Homework by day']) await expect(page.getByRole('tab', { name: t })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Homework by day' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Subjects & teachers' })).toHaveCount(0); // subjects and teachers have their own page
   await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toHaveCount(0); // attendance is one page under Administration now
-  await page.getByRole('link', { name: 'Class 8 A' }).first().click();
+  await page.getByRole('navigation', { name: 'Classes' }).getByText('Class 8', { exact: true }).first().click();
+  await page.getByRole('link', { name: 'Open' }).first().click();
   await expect(page.getByRole('heading', { name: 'Class 8 A' })).toBeVisible();
   const sectionUrl = page.url();
   await expect(page.getByText('Attendance today')).toBeVisible();
@@ -843,9 +845,11 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await creds.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Close anyway' }).click(); // the dialog warns once if the password was not copied
   await page.getByLabel('Search students').fill(name);
-  await expect(page.getByRole('cell', { name })).toBeVisible();
+  const nameCell = page.getByRole('cell', { name: new RegExp(`^${name}`) });
+  await expect(nameCell).toBeVisible();
   // withdrawal is blocked while fees are unpaid — and can be overridden knowingly
-  await page.getByRole('cell', { name }).click();
+  await nameCell.click(); // the row opens a preview; the profile is one click further
+  await page.getByRole('link', { name: 'Open full profile' }).click();
   await page.getByRole('button', { name: 'Withdraw' }).click();
   await page.getByLabel('Reason').fill('Moving abroad');
   await page.getByRole('dialog').getByRole('button', { name: 'Withdraw', exact: true }).click();
@@ -914,7 +918,7 @@ test('super admin creates a school, acts inside it for data setup, and exits', a
   await expect(gradeSelect.locator('option', { hasText: 'LKG' })).toHaveCount(1);
   await gradeSelect.selectOption('Class 1');
   await page.getByRole('dialog').getByRole('button', { name: 'Add class' }).click();
-  await expect(page.getByRole('cell', { name: 'Class 1' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Classes' }).getByText('Class 1', { exact: true })).toBeVisible();
   await page.goto('/admin/audit');
   await expect(page.getByText('platform').first()).toBeVisible();
   await page.getByRole('button', { name: 'Exit school' }).click();

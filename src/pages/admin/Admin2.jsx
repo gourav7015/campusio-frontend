@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { get, post, put, patch, del, upload, openFile } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Tabs, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, PageHeader, Select, Tabs, useAction, fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import CredentialsCard from '../../components/CredentialsCard.jsx';
 import FileImage from '../../components/FileImage.jsx';
@@ -13,8 +13,17 @@ import { useDialogs } from '../../design/ui';
 const A = '/api/school';
 
 // ───────────── approvals inbox ─────────────
+const APPROVAL_STATUS = [{ value: 'all', label: 'All' }, { value: 'pending', label: 'Waiting for you' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }];
+const APPROVAL_KIND = [{ value: 'all', label: 'All kinds' }, { value: 'expenses', label: 'Expenses' }, { value: 'vendors', label: 'Vendors' }, { value: 'swaps', label: 'Period swaps' }, { value: 'exceptions', label: 'Attendance on a closed day' }];
+
+/** What was decided, by whom and when (and why, for a rejection): shown in place of the buttons once a request is decided. */
+const decision = (r) => (r.status === 'approved' || r.status === 'rejected'
+  ? <div><Badge tone={r.status === 'approved' ? 'green' : 'red'}>{r.status === 'approved' ? 'Approved' : 'Rejected'}</Badge><div className="small muted">{r.decidedByName ? `by ${r.decidedByName}` : ''}{r.decidedAt ? `${r.decidedByName ? ' · ' : ''}${fmtDate(r.decidedAt, true)}` : ''}</div>{r.decisionNote && <div className="small muted">“{r.decisionNote}”</div>}</div>
+  : <Badge tone="amber">Waiting</Badge>);
+
 export function Approvals() {
-  const q = useApi(`${A}/approvals`);
+  const [status, setStatus] = useState('all'); const [kind, setKind] = useState('all');
+  const q = useApi(`${A}/approvals`, { status });
   const dlg = useDialogs();
   const [run] = useAction();
   const decide = async (path, approve, what) => {
@@ -22,27 +31,30 @@ export function Approvals() {
     if (!approve) { note = await dlg.prompt(`Why is this ${what} being rejected? (the person is told)`, { title: 'Reason', required: true }); if (!note) return; }
     await run(() => post(path, { approve, note }), approve ? 'Approved' : 'Rejected'); q.reload();
   };
-  const buttons = (path, what) => <div className="row"><Button size="sm" variant="primary" onClick={() => decide(path, true, what)}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(path, false, what)}>Reject</Button></div>;
+  const buttons = (path, what, r) => (r && r.status !== 'pending' ? decision(r) : <div className="row"><Button size="sm" variant="primary" onClick={() => decide(path, true, what)}>Approve</Button><Button size="sm" variant="danger" onClick={() => decide(path, false, what)}>Reject</Button></div>);
   return (
     <div className="stack">
-      <PageHeader title="Approvals" subtitle="Things waiting for your decision: expenses and vendors from Finance, period swaps and attendance on days the school is closed" />
+      <PageHeader title="Approvals" subtitle="Expenses and vendors from Finance, period swaps and attendance on days the school is closed: what waits for your decision, and what you decided before" actions={<>
+        <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={APPROVAL_STATUS} />
+        <Select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} options={APPROVAL_KIND} /></>} />
       <Async state={q}>{(d) => (<>
-        {!d.counts.expenses && !d.counts.vendors && !d.counts.swaps && !d.counts.exceptions && <Card><Empty title="Nothing is waiting for you">New requests appear here and in your notifications.</Empty></Card>}
-        {d.counts.expenses > 0 && <Card title={`Expenses (${d.counts.expenses})`} flush><DataTable rows={d.expenses} columns={[
+        {(() => { const shown = ['expenses', 'vendors', 'swaps', 'exceptions'].filter((k) => kind === 'all' || kind === k).reduce((n, k) => n + d.counts[k], 0);
+          return shown === 0 && <Card><Empty title={status === 'pending' ? 'Nothing is waiting for you' : 'Nothing to show'}>{status === 'pending' ? 'New requests appear here and in your notifications.' : 'No request matches these filters yet. Decisions you make are kept here.'}</Empty></Card>; })()}
+        {d.counts.expenses > 0 && (kind === 'all' || kind === 'expenses') && <Card title={`Expenses (${d.counts.expenses})`} flush><DataTable rows={d.expenses} columns={[
           { label: 'Date', render: (e) => fmtDate(e.date) }, { label: 'Expense', render: (e) => <><b>{e.title}</b> {e.nature === 'capital' && <Badge tone="blue">Capital</Badge>}<div className="small muted">{e.department}{e.work ? ` · ${e.work}` : ''}{e.vendor ? ` · ${e.vendor}` : ''}{e.billNo ? ` · bill ${e.billNo}` : ''}</div></> },
           { label: 'Bills', render: (e) => (e.attachments?.length ? <div className="stack" style={{ gap: 2 }}>{e.attachments.map((a) => <Button key={a.fileId} size="sm" onClick={() => run(async () => { await openFile(a.fileId); return true; })} aria-label={`View ${a.name}`}>{a.name.length > 22 ? `${a.name.slice(0, 20)}…` : a.name}</Button>)}</div> : <Badge tone="amber">No bill attached</Badge>) },
-          { label: 'Amount', render: (e) => <b>{fmtMoney(e.amount)}</b> }, { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (e) => buttons(`${A}/approvals/expenses/${e._id}`, 'expense') }]} /></Card>}
-        {d.counts.vendors > 0 && <Card title={`Vendors (${d.counts.vendors})`} action={<Button size="sm" variant="primary" onClick={async () => { if (await dlg.confirm(`Approve all ${d.counts.vendors} vendors waiting? They can then be chosen on expenses.`, { title: 'Approve all vendors' })) { await run(() => post(`${A}/approvals/vendors/decide`, { approve: true }), 'All approved'); q.reload(); } }}>Approve all</Button>} flush><DataTable rows={d.vendors} columns={[
+          { label: 'Amount', render: (e) => <b>{fmtMoney(e.amount)}</b> }, { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (e) => buttons(`${A}/approvals/expenses/${e._id}`, 'expense', e) }]} /></Card>}
+        {d.counts.vendors > 0 && (kind === 'all' || kind === 'vendors') && <Card title={`Vendors (${d.counts.vendors})`} action={d.vendors.some((v) => v.status === 'pending') && <Button size="sm" variant="primary" onClick={async () => { if (await dlg.confirm(`Approve all ${d.vendors.filter((v) => v.status === 'pending').length} vendors waiting? They can then be chosen on expenses.`, { title: 'Approve all vendors' })) { await run(() => post(`${A}/approvals/vendors/decide`, { approve: true }), 'All approved'); q.reload(); } }}>Approve all</Button>} flush><DataTable rows={d.vendors} columns={[
           { label: 'Vendor', render: (v) => <><b>{v.name}</b> <span className="small muted">{v.code}</span><div className="small muted">{v.category || 'No category'}{v.contactPerson ? ` · ${v.contactPerson}` : ''}{v.phone ? ` · ${v.phone}` : ''}</div></> },
           { label: 'GSTIN / PAN', render: (v) => <><span className="small">{v.gstin || '—'}</span><div className="small muted">{v.pan || ''}</div></> },
           { label: 'Bank', render: (v) => (v.bankName || v.accountNo ? <>{v.bankName}<div className="small muted">{v.accountName ? `${v.accountName} · ` : ''}{v.accountNo || ''}{v.ifsc ? ` · ${v.ifsc}` : ''}</div></> : <span className="muted">—</span>) },
-          { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (v) => buttons(`${A}/approvals/vendors/${v._id}`, 'vendor') }]} /></Card>}
-        {d.counts.swaps > 0 && <Card title={`Period swaps agreed by both teachers (${d.counts.swaps})`} flush><DataTable rows={d.swaps} columns={[
+          { label: 'Submitted by', key: 'submittedByName' }, { label: '', render: (v) => buttons(`${A}/approvals/vendors/${v._id}`, 'vendor', v) }]} /></Card>}
+        {d.counts.swaps > 0 && (kind === 'all' || kind === 'swaps') && <Card title={`Period swaps agreed by both teachers (${d.counts.swaps})`} flush><DataTable rows={d.swaps} columns={[
           { label: 'Date', render: (s) => fmtDate(s.date, true) }, { label: 'Teachers', render: (s) => `${s.fromTeacher} → ${s.toTeacher}` },
           { label: 'Period', render: (s) => <>{s.fromPeriod?.period} · {s.fromPeriod?.section} · {s.fromPeriod?.subject}{s.toPeriod && <div className="small muted">in return: {s.toPeriod.period} · {s.toPeriod.section} · {s.toPeriod.subject}</div>}</> },
-          { label: 'Reason', key: 'reason' }, { label: '', render: (s) => buttons(`${A}/approvals/swaps/${s._id}`, 'swap') }]} /></Card>}
-        {d.counts.exceptions > 0 && <Card title={`Attendance on a closed day (${d.counts.exceptions})`} flush><DataTable rows={d.exceptions} columns={[
-          { label: 'Date', render: (e) => fmtDate(e.date, true) }, { label: 'Class', key: 'section' }, { label: 'Asked by', key: 'requestedByName' }, { label: 'Reason', key: 'reason' }, { label: '', render: (e) => buttons(`${A}/approvals/attendance-exceptions/${e._id}`, 'request') }]} /></Card>}
+          { label: 'Reason', key: 'reason' }, { label: '', render: (s) => buttons(`${A}/approvals/swaps/${s._id}`, 'swap', s) }]} /></Card>}
+        {d.counts.exceptions > 0 && (kind === 'all' || kind === 'exceptions') && <Card title={`Attendance on a closed day (${d.counts.exceptions})`} flush><DataTable rows={d.exceptions} columns={[
+          { label: 'Date', render: (e) => fmtDate(e.date, true) }, { label: 'Class', key: 'section' }, { label: 'Asked by', key: 'requestedByName' }, { label: 'Reason', key: 'reason' }, { label: '', render: (e) => buttons(`${A}/approvals/attendance-exceptions/${e._id}`, 'request', e) }]} /></Card>}
       </>)}</Async>
       <p className="small muted">You can also allow attendance on a closed day yourself from <Link to="/admin/classes">Classes and sections</Link>, or add school days on <Link to="/admin/events">Calendar and events</Link>.</p>
     </div>

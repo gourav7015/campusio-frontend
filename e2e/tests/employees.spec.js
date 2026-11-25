@@ -9,22 +9,25 @@ const call = async (token, method, path, body) => {
 
 test.describe.configure({ mode: 'serial' });
 
-test('the admin menu is grouped by people, daily work and administration', async ({ page }) => {
+test('the admin menu is seven areas, each with its own pages', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  const nav = page.getByRole('navigation', { name: 'Main' });
-  for (const l of ['Students', 'Classes and sections', 'Employees', 'Attendance', 'Academic years', 'Desk logins']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
+  const areas = page.getByRole('navigation', { name: 'Areas' });
+  const names = (await areas.getByRole('link').allTextContents()).filter((t) => t.trim());
+  expect(names.map((t) => t.replace(/\d+$/, '').trim()).filter(Boolean)).toEqual(['Home', 'People', 'Academics', 'Money', 'Messages', 'Reports', 'Settings']);
+  const open = async (area) => { await areas.getByRole('link', { name: new RegExp(`^${area}`) }).click(); return page.getByRole('navigation', { name: 'Main' }); };
+  let nav = await open('People');
+  for (const l of ['Students', 'Classes and sections', 'Employees', 'Desk logins']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
   // one Employees entry replaces separate Teachers and Non-teaching staff entries
   await expect(nav.getByRole('link', { name: 'Teachers', exact: true })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'Non-teaching staff', exact: true })).toHaveCount(0);
+  nav = await open('Academics');
+  for (const l of ['Attendance', 'Timetable', 'Examinations', 'Academic years']) await expect(nav.getByRole('link', { name: l, exact: true })).toBeVisible();
   // Past sessions has no menu entry of its own: it opens from "View data" on the Academic years page
   await expect(nav.getByRole('link', { name: 'Past sessions', exact: true })).toHaveCount(0);
-  // Academic years sits in the Administration group, below Daily operations
-  const order = await nav.getByRole('link').allTextContents();
-  expect(order.indexOf('Academic years')).toBeGreaterThan(order.indexOf('Timetable'));
-  expect(order.indexOf('Attendance')).toBeGreaterThan(order.indexOf('Examinations')); // attendance is under Administration, not Daily operations
   await expect(nav.getByRole('link', { name: 'Staff attendance', exact: true })).toHaveCount(0);
-  expect(order.indexOf('Classes and sections')).toBeLessThan(order.indexOf('Timetable'));
+  const order = await nav.getByRole('link').allTextContents();
+  expect(order.indexOf('Attendance')).toBeLessThan(order.indexOf('Timetable'));
   expect(problems).toEqual([]);
 });
 
@@ -72,7 +75,7 @@ test('the Staff portal is the office desk: attendance, leave, employees and quer
     for (const n of ['Attendance', 'Leave', 'Employees', 'Teachers\' queries']) await expect(nav.getByRole('link', { name: new RegExp(`^${n}( \\d+ \\w+)?$`) })).toBeVisible(); // a count badge may be part of the name
     for (const n of ['My attendance', 'Salary and payslips']) await expect(nav.getByRole('link', { name: n })).toHaveCount(0); // not a personal portal
     await expect(sp.getByText("Today's attendance")).toBeVisible();
-    await expect(sp.getByText('Non-teaching leave waiting')).toBeVisible();
+    await expect(sp.getByText('Desk queue')).toBeVisible(); // waiting leave and queries are listed there when there are any
     // employees: no transport crew
     await nav.getByRole('link', { name: 'Employees', exact: true }).click();
     await expect(sp.getByRole('row', { name: /Rajesh Sharma/ })).toBeVisible();

@@ -4,6 +4,8 @@ import { Async, Badge, Card, DataTable, Empty, Stat, fmtDate, label } from './ui
 import { BarsChart, DonutChart } from './Charts.jsx';
 
 const pct = (n) => (n == null ? '—' : `${n}%`);
+const BAR = { green: 'rgb(var(--c-success))', blue: 'rgb(var(--c-primary))', amber: 'rgb(var(--c-warning))', red: 'rgb(var(--c-danger))' };
+const GRADE_COL = ['rgb(var(--c-success))', 'rgb(var(--c-success) / .6)', 'rgb(var(--c-primary))', 'rgb(var(--c-primary) / .6)', 'rgb(var(--c-warning))', 'rgb(var(--c-danger) / .6)', 'rgb(var(--c-danger))'];
 const tone = (n, pass) => (n == null ? '' : n >= 75 ? 'green' : n >= Math.max(pass + 17, 50) ? 'blue' : n >= pass ? 'amber' : 'red');
 
 /** The whole school's published results at a glance, shown before a class is chosen. Click a class to open its own analysis. */
@@ -39,19 +41,35 @@ export default function ExamOverview({ onPickClass, view = 'summary' }) {
               <Card title="Average by subject"><BarsChart data={d.subjects.map((x) => ({ subject: x.subject, Average: x.average }))} x="subject" bars={[{ key: 'Average', color: 'rgb(var(--c-primary))' }]} domain={[0, 100]} unit="%" /></Card>
             </div>
           ) : (<>
-          <div className="grid g2" style={{ alignItems: 'start' }}>
-            <Card title="Examinations held" flush>
-              <DataTable rows={d.exams} columns={[
-                { label: 'Exam', sort: (e) => e.name, render: (e) => <><b>{e.name}</b>{e.type && <div className="small muted">{label(e.type)}</div>}</> }, { label: 'Date', sort: (e) => e.date || '', render: (e) => (e.date ? fmtDate(e.date, true) : '—') },
-                { label: 'Results', sort: (e) => e.results, render: (e) => e.results.toLocaleString('en-IN') }, { label: 'Average', sort: (e) => e.average, render: (e) => pct(e.average) }, { label: 'Pass rate', sort: (e) => e.passRate ?? -1, render: (e) => pct(e.passRate) },
-              ]} />
-            </Card>
-            <Card title="Subject-wise average" flush>
-              <DataTable rows={weakest} rowKey="subject" columns={[
-                { label: 'Subject', sort: (s) => s.subject, render: (s) => <b>{s.subject}</b> }, { label: 'Average', sort: (s) => s.average, render: (s) => <Badge tone={tone(s.average, t.passMark)}>{pct(s.average)}</Badge> },
-                { label: 'Below pass mark', sort: (s) => s.belowPercent ?? 0, render: (s) => `${s.belowPass.toLocaleString('en-IN')} (${pct(s.belowPercent)})` },
-              ]} />
-              <p className="small muted" style={{ padding: '8px 18px 12px' }}>Weakest subject first. Click a heading to sort.</p>
+          <div className="grid g-side" style={{ alignItems: 'start' }}>
+            <div className="stack">
+              <Card title="Examinations held" flush>
+                <DataTable rows={d.exams} columns={[
+                  { label: 'Exam', sort: (e) => e.name, render: (e) => <><b>{e.name}</b><div className="small muted">{[e.type && label(e.type), e.date && fmtDate(e.date, true), `${e.results.toLocaleString('en-IN')} results`].filter(Boolean).join(' · ')}</div></> },
+                  { label: 'Average', sort: (e) => e.average, render: (e) => pct(e.average) }, { label: 'Pass rate', sort: (e) => e.passRate ?? -1, render: (e) => pct(e.passRate) },
+                ]} />
+              </Card>
+              <Card title="Grades">
+                {(() => { const tot = d.grades.reduce((n, g) => n + g.count, 0) || 1; return (<>
+                  <div style={{ display: 'flex', height: 12, borderRadius: 12, overflow: 'hidden', gap: 2 }} role="img" aria-label={d.grades.map((g) => `Grade ${g.grade}: ${g.count}`).join(', ')}>
+                    {d.grades.filter((g) => g.count).map((g, i) => <span key={g.grade} style={{ width: `${(g.count / tot) * 100}%`, background: GRADE_COL[i % GRADE_COL.length] }} />)}
+                  </div>
+                  <ul style={{ listStyle: 'none', margin: '14px 0 0', padding: 0, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px 16px' }}>
+                    {d.grades.map((g, i) => <li key={g.grade} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5 }}><i style={{ width: 9, height: 9, borderRadius: 3, background: GRADE_COL[i % GRADE_COL.length], flex: 'none' }} aria-hidden />Grade {g.grade}<b style={{ marginLeft: 'auto', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{g.count.toLocaleString('en-IN')}</b></li>)}
+                  </ul></>); })()}
+              </Card>
+            </div>
+            <Card title="Subject-wise average">
+              <div role="list" aria-label="Subject-wise average">
+                {weakest.map((x) => (
+                  <div role="listitem" key={x.subject} style={{ display: 'grid', gridTemplateColumns: 'minmax(96px, 160px) minmax(0, 1fr) minmax(88px, auto)', alignItems: 'center', gap: 12, padding: '7px 0' }}>
+                    <b style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={x.subject}>{x.subject}</b>
+                    <div style={{ height: 8, borderRadius: 8, background: 'rgb(var(--c-muted))', overflow: 'hidden' }} aria-hidden><div style={{ width: `${Math.max(2, Math.min(100, x.average))}%`, height: '100%', borderRadius: 8, background: BAR[tone(x.average, t.passMark)] || BAR.blue }} /></div>
+                    <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}><b style={{ fontWeight: 600 }}>{pct(x.average)}</b><span className="small muted"> · {x.belowPass.toLocaleString('en-IN')} below</span></span>
+                  </div>
+                ))}
+              </div>
+              <p className="small muted" style={{ margin: '10px 0 0' }}>Weakest subject first. The number after each average is how many students are below the pass mark ({pct(t.passMark)}).</p>
             </Card>
           </div>
 

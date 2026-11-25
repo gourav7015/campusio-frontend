@@ -18,11 +18,11 @@ export const SCENES: Scene[] = [
 
 const KEY = 'erp.student.wallpaper';
 const listeners = new Set<() => void>();
-const read = () => { try { const v = localStorage.getItem(KEY); if (v && SCENES.some((s) => s.id === v)) return v; } catch { /* storage unavailable */ } return 'minimal'; };
-let current = typeof window === 'undefined' ? 'minimal' : read();
+const read = () => { try { const v = localStorage.getItem(KEY); if (v && SCENES.some((s) => s.id === v)) return v; } catch { /* storage unavailable */ } return 'soft-blue'; };
+let current = typeof window === 'undefined' ? 'soft-blue' : read();
 
 export function useWallpaper() {
-  const id = useSyncExternalStore((cb) => { listeners.add(cb); return () => { listeners.delete(cb); }; }, () => current, () => 'minimal');
+  const id = useSyncExternalStore((cb) => { listeners.add(cb); return () => { listeners.delete(cb); }; }, () => current, () => 'soft-blue');
   const set = useCallback((next: string) => { current = next; try { localStorage.setItem(KEY, next); } catch { /* ignore */ } listeners.forEach((l) => l()); }, []);
   return { scene: SCENES.find((s) => s.id === id) ?? SCENES[0], set };
 }

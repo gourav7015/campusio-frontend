@@ -90,7 +90,7 @@ export function ConfirmButton({ children, message, onConfirm, confirmLabel, ...p
 }
 
 /** Columns with a `key` (or a `sort` function) sort when their header is clicked. */
-export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show yet', rowKey = '_id' }) {
+export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show yet', rowKey = '_id', rowClassName }) {
   const [sort, setSort] = useState(null);
   const sorted = useMemo(() => {
     if (!sort || !rows) return rows;
@@ -120,7 +120,7 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
         );
       })}</tr></thead>
       <tbody>{sorted.map((r, i) => (
-        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={onRowClick ? 'clickable' : ''} onClick={onRowClick ? (e) => { if (e.target.closest?.('button, a, input, select, textarea, label, [role="button"]')) return; onRowClick(r); } : undefined}>
+        <tr key={`${(typeof rowKey === 'function' ? rowKey(r) : r[rowKey]) ?? ''}:${i}`} className={`${onRowClick ? 'clickable' : ''} ${rowClassName?.(r) || ''}`.trim()} onClick={onRowClick ? (e) => { if (e.target.closest?.('button, a, input, select, textarea, label, [role="button"]')) return; onRowClick(r); } : undefined}>
           {columns.map((c, ci) => <td key={`${ci}-${c.label}`} className={c.right ? 'right' : ''}>{c.render ? c.render(r) : r[c.key]}</td>)}
         </tr>))}</tbody>
     </table></div>

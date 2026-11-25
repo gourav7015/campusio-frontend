@@ -30,7 +30,7 @@ test('a past session is read in its own section and nowhere else; classes can ru
     // students are shown where they are now: classes change year on their own dates, so Class 8 (still running in 2026-2027) is listed, tagged with its year
     await expect(page.getByRole('row').filter({ hasText: 'Class 8' }).first()).toContainText('in 2026-2027');
     await page.goto('/admin/classes');
-    await expect(page.getByText('No sections for this year')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/has no sections this year/)).toBeVisible({ timeout: 10000 });
     await expect(page.getByLabel('Academic year')).toHaveCount(0);
     await page.goto('/admin');
     await expect(page.getByText('You are looking at')).toHaveCount(0);

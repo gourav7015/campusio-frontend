@@ -9,6 +9,7 @@ test('the School Admin gets a Receipt on a student\'s paid charges and payments,
   // a student's Fees tab: the one fee table, each paid charge with its Receipt, then the payments
   await page.goto('/admin/students');
   await page.getByRole('row').nth(1).click();
+  await page.getByRole('link', { name: 'Open full profile' }).click();
   await page.getByRole('tab', { name: 'Fees' }).or(page.getByRole('button', { name: 'Fees', exact: true })).first().click();
   const fees = page.locator('.card').filter({ has: page.getByText('Fees', { exact: true }) }).first();
   await expect(fees).toBeVisible();

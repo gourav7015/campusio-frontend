@@ -69,13 +69,16 @@ test.describe('public pages, metadata and accessibility basics', () => {
   test('confirmations are real dialogs: Escape and Cancel change nothing, focus is inside', async ({ page }) => {
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
     await page.goto('/admin/classes');
-    await page.getByRole('row').filter({ hasText: 'Class 6' }).first().getByRole('button', { name: 'Delete' }).click();
+    const list = page.getByRole('navigation', { name: 'Classes' });
+    await list.getByText('Class 6', { exact: true }).first().click();
+    await page.getByRole('button', { name: 'More for Class 6' }).click();
+    await page.getByRole('menuitem', { name: 'Archive class' }).click();
     const dlg = page.getByRole('dialog');
     await expect(dlg).toBeVisible();
-    await expect(dlg.getByRole('button', { name: 'Confirm' })).toBeFocused();
+    await expect(dlg.locator(':focus')).toHaveCount(1); // focus is inside the dialog (it starts on Cancel, the safe choice)
     await page.keyboard.press('Escape');
     await expect(dlg).toHaveCount(0);
-    await expect(page.getByRole('row').filter({ hasText: 'Class 6' }).first()).toBeVisible();
+    await expect(list.getByText('Class 6', { exact: true }).first()).toBeVisible(); // nothing changed
   });
 
   test('the logo returns to the dashboard and there is a way back to the top of a long page', async ({ page }) => {
@@ -92,6 +95,7 @@ test.describe('public pages, metadata and accessibility basics', () => {
   test('public pages have no serious accessibility violations', async ({ page }) => {
     for (const path of ['/', '/student/login', '/privacy', '/cookies']) {
       await page.goto(path);
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})))); // a page that rises into place is checked once it has settled
       const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
       expect(r.violations.map((v) => `${path}: ${v.id} ${v.nodes.length}`)).toEqual([]);
     }

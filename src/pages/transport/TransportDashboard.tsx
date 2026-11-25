@@ -8,6 +8,7 @@ import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMoti
 import { AttentionList, LinkCard } from '../../design/patterns';
 import { Badge, DataTable, ErrorState, PageHeader, PageSkeleton, Segmented, StatCard } from '../../design/ui';
 import { fmtDate } from '../../components/ui.jsx';
+import { RoutesPanel } from './RoutesPanel';
 
 type CertState = 'valid' | 'expiring' | 'expired' | 'missing';
 interface Cert { busId: string; bus: string; doc: string; label: string; date: string | null; daysLeft: number | null; state: CertState }
@@ -66,6 +67,8 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
         <StatCard label="Transport staff" value={x.staff.total} hint={x.staff.byDesignation.filter((s) => s.count).map((s) => `${s.count} ${s.name}`).join(' · ') || 'None added yet'} />
         <StatCard label="Needs attention" value={x.needsCrew.length + x.alerts.length} hint={`${x.needsCrew.length} short of crew · ${x.alerts.length} certificates`} />
       </div>
+
+      <RoutesPanel base={base} buses={buses} />
 
       {x.fullBuses.length > 0 && (
         <ChartCard title="Busiest buses" description="Riders against seats (seats in grey)" height={240}>

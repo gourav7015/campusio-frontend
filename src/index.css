@@ -1,3 +1,70 @@
 @import './design/tokens.css';
 @import './design/tailwind.css';
 @import './design/legacy.css';
+
+/* the sign-in page rises into place once, one piece after another (--n is the piece's turn), then stays still */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--n, 0) * 70ms); }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+
+/* sign-in pages: the portal's own button colour (a shade deeper than the tone where white text needs the contrast); in dark it is the tone itself */
+[data-portal='student'], [data-portal='admin'] { --c-btn: 0 113 227; }
+[data-portal='teacher'] { --c-btn: 0 121 111; }
+[data-portal='staff'] { --c-btn: 90 90 95; }
+[data-portal='finance'] { --c-btn: 31 122 54; }
+[data-portal='library'] { --c-btn: 91 80 200; }
+[data-portal='transport'] { --c-btn: 179 84 0; }
+[data-portal='platform'] { --c-btn: 29 29 31; }
+:root[data-theme='dark'] [data-portal] { --c-btn: var(--c-tone); }
+/* a wrong password shakes the message once */
+@keyframes shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
+.shake { animation: shake .45s cubic-bezier(.36, .07, .19, .97); }
+@media (prefers-reduced-motion: reduce) { .shake { animation: none; } }
+
+/* attendance: one card per section, waiting registers first */
+.sec-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.sec-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid rgb(var(--c-border)); border-radius: 18px; background: rgb(var(--c-surface)); box-shadow: 0 1px 2px rgb(0 0 0 / .04); transition: transform .2s, box-shadow .2s; }
+.sec-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -14px rgb(0 0 0 / .18); }
+.sec-card.wait { border-color: rgb(var(--c-warning) / .55); }
+.sec-name { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.sec-bar { height: 6px; border-radius: 6px; background: rgb(var(--c-muted)); overflow: hidden; }
+.sec-bar i { display: block; height: 100%; border-radius: 6px; background: rgb(var(--c-success)); }
+@media (prefers-reduced-motion: reduce) { .sec-card { transition: none; } }
+
+/* students: the list and a preview beside it */
+.stu-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.stu-split.open { grid-template-columns: minmax(0, 1fr) 340px; }
+.av-chip { display: inline-grid; flex: none; place-items: center; border-radius: 50%; background: rgb(var(--c-tone-soft)); color: rgb(var(--c-tone-ink)); font-weight: 600; }
+.stu-preview { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 16px; padding: 22px; border: 1px solid rgb(var(--c-border)); border-radius: 20px; background: rgb(var(--c-surface)); box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 10px 28px -14px rgb(0 0 0 / .12); animation: stuslide .3s cubic-bezier(.2, .8, .2, 1); }
+.stu-preview-top { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.stu-preview-top h3 { margin: 8px 0 0; font-size: 18px; letter-spacing: -.02em; }
+.stu-facts { display: grid; gap: 0; margin: 0; }
+.stu-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid rgb(var(--c-border)); font-size: 14px; }
+.stu-facts dt { color: rgb(var(--c-fg-2)); }
+.stu-facts dd { margin: 0; text-align: right; font-weight: 500; }
+.stu-open { display: inline-flex; justify-content: center; text-decoration: none; }
+.stu-bulk { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgb(var(--c-primary-soft)); color: rgb(var(--c-primary-ink)); font-size: 14px; }
+tbody tr.sel { background: rgb(var(--c-primary-soft)); }
+.chk { width: 18px; height: 18px; accent-color: rgb(var(--c-primary)); }
+@keyframes stuslide { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@media (max-width: 1100px) { .stu-split.open { grid-template-columns: minmax(0, 1fr); } .stu-preview { position: static; } }
+@media (prefers-reduced-motion: reduce) { .stu-preview { animation: none; } }
+
+.sec-card { cursor: pointer; }
+
+/* the School admin home: rounder cards with a soft shadow, as in the design */
+.dash-look .rounded-lg.border.bg-card { border-radius: 20px; box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 10px 28px -14px rgb(0 0 0 / .12); }
+:root[data-theme='dark'] .dash-look .rounded-lg.border.bg-card { box-shadow: 0 1px 2px rgb(0 0 0 / .5), 0 10px 28px -14px rgb(0 0 0 / .6); }
+
+/* one design language, a personality per portal: the desk portals use their own colour for primary buttons, links and charts (blue stays for School admin and Student) */
+[data-portal='teacher'], [data-portal='staff'], [data-portal='finance'], [data-portal='library'], [data-portal='transport'], [data-portal='platform'] {
+  --c-primary: var(--c-deep); --c-primary-soft: var(--c-tone-soft); --c-primary-ink: var(--c-tone-ink);
+}
+/* the button colour is the deeper shade in both themes (white text on it); only Platform flips, to a light button with dark text */
+[data-portal='teacher'] { --c-deep: 0 121 111; } [data-portal='staff'] { --c-deep: 90 90 95; } [data-portal='finance'] { --c-deep: 31 122 54; }
+[data-portal='library'] { --c-deep: 91 80 200; } [data-portal='transport'] { --c-deep: 179 84 0; } [data-portal='platform'] { --c-deep: 29 29 31; }
+:root[data-theme='dark'] [data-portal='platform'] { --c-primary: 245 245 247; }
+:root[data-theme='dark'] [data-portal='platform'] :is(.bg-primary, .btn.primary, .text-primary-foreground) { color: rgb(18 18 20); }
+/* cards in every portal: rounder, with a soft shadow */
+main .rounded-lg.border.bg-card, main .card { border-radius: 20px; box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 10px 28px -14px rgb(0 0 0 / .12); }
+:root[data-theme='dark'] main .rounded-lg.border.bg-card, :root[data-theme='dark'] main .card { box-shadow: 0 1px 2px rgb(0 0 0 / .5), 0 10px 28px -14px rgb(0 0 0 / .6); }

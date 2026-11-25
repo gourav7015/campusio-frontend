@@ -26,7 +26,7 @@ test.describe('every page of every portal renders against real data', () => {
   test('school admin', async ({ page }) => {
     const problems = watch(page);
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-    await expect(page.getByRole('heading', { name: 'School overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Subjects', exact: true })).toHaveCount(0); // no master subject tab
     for (const p of ADMIN) await visit(page, p, problems, { shot: `admin-${p.replace(/\W+/g, '_')}` });
   });

@@ -13,6 +13,7 @@ import { useSession } from '../types/auth';
 import { Logo } from '../pages/PublicPage';
 import { blockedAdminPage, flatNav, HIDDEN_PAGES, portalFor, PORTALS, type Portal, type PortalKey } from './portals';
 import { NavList } from './NavList';
+import { AreaPanel, AreaRail, SubNav, TopNav, areaOf } from './AreaNav';
 import { Notifications } from './Notifications';
 import { CommandSearch } from './CommandSearch';
 import { UserMenu } from './UserMenu';
@@ -41,12 +42,14 @@ function Brand({ portal, schoolName, collapsed, dark }: { portal: Portal; school
 function useCrumbs(portal: Portal): Crumb[] {
   const { pathname } = useLocation();
   return useMemo(() => {
+    if (portal.variant === 'areas' && pathname === portal.home) return [{ label: 'Home', to: portal.home }, { label: 'Overview' }];
     const hidden = Object.entries(HIDDEN_PAGES).find(([to]) => pathname === to || pathname.startsWith(`${to}/`));
     if (hidden) return [{ label: portal.title, to: portal.home }, { label: hidden[1].parent.label, to: hidden[1].parent.to }, { label: hidden[1].label }];
     const items = flatNav(portal).filter((i) => !i.end);
     const section = items.filter((i) => pathname === i.to || pathname.startsWith(`${i.to}/`)).sort((a, b) => b.to.length - a.to.length)[0];
     if (!section) return [];
-    const crumbs: Crumb[] = [{ label: portal.title, to: portal.home }, { label: section.label, to: section.to }];
+    const area = portal.variant === 'areas' ? areaOf(portal.groups, pathname) : undefined;
+    const crumbs: Crumb[] = [area?.label && area.items[0] ? { label: area.label, to: area.items[0].to } : { label: portal.title, to: portal.home }, { label: section.label, to: section.to }];
     if (pathname.length > section.to.length + 1) crumbs.push({ label: 'Details' });
     return crumbs;
   }, [portal, pathname]);
@@ -65,11 +68,16 @@ export function AppShell({ area }: { area: PortalKey }) {
   useRobots(false);
   const dark = portal.variant === 'control';
   const personal = portal.variant === 'personal';
+  const areas = portal.variant === 'areas';
+  const top = portal.variant === 'top';
   const tabs = portal.tabs?.map((to) => flatNav(portal).find((i) => i.to === to)).filter(Boolean) as ReturnType<typeof flatNav> | undefined;
+  // School admin on a phone: the first four areas along the bottom, everything else behind "More"
+  const currentArea = areas ? areaOf(portal.groups, pathname) : undefined;
+  const areaTabs = areas ? portal.groups.slice(0, 4) : undefined;
 
   const toggle = () => setCollapsed((c) => { try { localStorage.setItem(STORE, c ? '0' : '1'); } catch { /* ignore */ } return !c; });
 
-  const sidebar = (
+  const sidebar = top ? null : areas ? <><AreaRail portal={portal} pathname={pathname} /><AreaPanel portal={portal} pathname={pathname} open={!collapsed} /></> : (
     <m.aside initial={false} animate={{ width: collapsed ? 72 : 264 }} transition={{ duration: 0.2, ease }}
       className={cn('hidden shrink-0 flex-col lg:flex',
         personal ? 'sticky top-3 m-3 mr-0 h-[calc(100dvh-1.5rem)] rounded-2xl border border-border/70 bg-card shadow-sm'
@@ -99,17 +107,20 @@ export function AppShell({ area }: { area: PortalKey }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border/60 bg-background px-3 sm:gap-2 sm:px-5">
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setDrawer(true)}><Menu /></Button>
-            <Button variant="ghost" size="icon" className="hidden lg:inline-flex" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} onClick={toggle}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
-            <Breadcrumbs items={crumbs} className="hidden min-w-0 sm:block" />
-            <div className="flex-1" />
-            {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch base={portal.api} role={area} />}
+            {top && <Link to={portal.home} aria-label={`${portal.title} home`} className="mr-2 hidden items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"><Logo size={30} className="rounded-lg" /><span className="text-[15px] font-semibold tracking-tight">{portal.title}</span></Link>}
+            {top && <TopNav portal={portal} pathname={pathname} />}
+            <Button variant="ghost" size="icon" className={cn('hidden', !top && 'lg:inline-flex')} aria-label={areas ? (collapsed ? 'Show the page list' : 'Hide the page list') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')} onClick={toggle}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
+            {!top && <Breadcrumbs items={crumbs} className="hidden min-w-0 sm:block" />}
+            {!top && <div className="flex-1" />}
+            {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch base={portal.api} role={area} pages={areas ? portal.groups.flatMap((g) => g.items.map((i) => ({ label: i.label, to: i.to, area: g.label || '' }))) : undefined} />}
             {(area === 'admin' || area === 'teacher') ? <YearSwitcher area={area} fallback={school?.academicYear} /> : (school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>)}
             <ThemeToggle />
             {portal.api && <Notifications base={portal.api} role={area} />}
             <UserMenu hasProfile={area === 'teacher' || area === 'student' || area === 'staff'} area={area} />
           </header>
 
-          <main id="main-content" tabIndex={-1} className={cn('mx-auto w-full flex-1 px-4 py-6 focus-visible:outline-none sm:px-6 lg:px-8 lg:py-8', portal.variant === 'teaching' ? 'max-w-[1360px]' : 'max-w-[1480px]', tabs && 'pb-28 lg:pb-8')}>
+          {top && <SubNav portal={portal} pathname={pathname} />}
+          <main id="main-content" tabIndex={-1} className={cn('mx-auto w-full flex-1 px-4 py-6 focus-visible:outline-none sm:px-6 lg:px-8 lg:py-8', (portal.variant === 'teaching' || top) ? 'max-w-[1360px]' : 'max-w-[1480px]', (tabs || areaTabs) && 'pb-28 lg:pb-8')}>
             {acting && area === 'admin' && user.role === 'super_admin' && (
               <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink" role="status">
                 <ShieldAlert className="size-4 shrink-0" aria-hidden />
@@ -127,6 +138,20 @@ export function AppShell({ area }: { area: PortalKey }) {
           <BackToTop />
         </div>
 
+        {areaTabs && (
+          <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background pb-[env(safe-area-inset-bottom)] lg:hidden">
+            <ul className="mx-auto grid max-w-xl grid-cols-5">
+              {areaTabs.map((g) => (
+                <li key={g.label}>
+                  <Link to={g.items[0].to} aria-current={g === currentArea ? 'true' : undefined} className={cn('flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring', g === currentArea ? 'text-tone' : 'text-muted-foreground')}>
+                    {g.icon && <g.icon className="size-5" strokeWidth={1.75} aria-hidden />}<span>{g.label}</span>
+                  </Link>
+                </li>
+              ))}
+              <li><button type="button" onClick={() => setDrawer(true)} className="flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"><Ellipsis className="size-5" strokeWidth={1.75} aria-hidden /><span>More</span></button></li>
+            </ul>
+          </nav>
+        )}
         {tabs && (
           <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background pb-[env(safe-area-inset-bottom)] lg:hidden">
             <ul className="mx-auto grid max-w-xl grid-cols-5">

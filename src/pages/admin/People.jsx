@@ -81,16 +81,19 @@ function AdmitStudent({ L, onClose, onDone }) {
 }
 
 /** One change for every student the current filter shows (up to 200): their house, or a move to another section. */
-function BulkChange({ L, filter, total, onClose, onDone }) {
+function BulkChange({ L, filter, total, ids, onClose, onDone }) {
   const houses = useHouseOptions();
   const [action, setAction] = useState('house'); const [house, setHouse] = useState(''); const [to, setTo] = useState(''); const [reason, setReason] = useState('');
   const [run, busy] = useAction(); const [result, setResult] = useState(null);
-  const n = Math.min(total, 200);
+  const n = ids ? ids.length : Math.min(total, 200);
   const ok = action === 'house' ? house !== '' : to && reason.trim().length >= 3;
   const go = async () => {
-    const all = await run(() => get('/api/school/students', { ...filter, page: 1, limit: 200 }));
-    if (!all) return;
-    const studentIds = all.items.map((s) => s._id);
+    let studentIds = ids;
+    if (!studentIds) {
+      const all = await run(() => get('/api/school/students', { ...filter, page: 1, limit: 200 }));
+      if (!all) return;
+      studentIds = all.items.map((s) => s._id);
+    }
     const body = action === 'house' ? { action, studentIds, house: house === '__none__' ? '' : house } : { action, studentIds, toSectionId: to, reason: reason.trim() };
     const r = await run(() => post('/api/school/students/bulk', body), (x) => `Changed ${x.done} of ${x.requested}`);
     if (r) { setResult(r); onDone(); }
@@ -98,7 +101,7 @@ function BulkChange({ L, filter, total, onClose, onDone }) {
   return (
     <Modal wide title="Change many students at once" onClose={onClose} footer={<><Button onClick={onClose}>{result ? 'Close' : 'Cancel'}</Button>{!result && <Button variant="primary" loading={busy} disabled={!ok} onClick={go}>Apply to {n} student{n === 1 ? '' : 's'}</Button>}</>}>
       <div className="stack">
-        <div className="alert info">This changes the {n} student{n === 1 ? '' : 's'} the list is showing now{total > 200 ? ` (the first 200 of ${total}; narrow the filter to reach the rest)` : ''}. Use the section and status filters first to pick exactly who.</div>
+        <div className="alert info">{ids ? `This changes the ${n} student${n === 1 ? '' : 's'} you ticked.` : <>This changes the {n} student{n === 1 ? '' : 's'} the list is showing now{total > 200 ? ` (the first 200 of ${total}; narrow the filter to reach the rest)` : ''}. Use the section and status filters first to pick exactly who.</>}</div>
         {!result && <><Field label="What to change"><Select value={action} onChange={(e) => setAction(e.target.value)} options={[{ value: 'house', label: 'Set their house' }, { value: 'transfer', label: 'Move them to another section' }]} /></Field>
           {action === 'house' ? <Field label="House" hint="Only the school's own houses (People → Houses)."><Select value={house} onChange={(e) => setHouse(e.target.value)} options={[...houses.options, { value: '__none__', label: 'No house (take them out of their house)' }]} placeholder="Choose a house" /></Field>
             : <div className="form-grid"><Field label="New section"><Select value={to} onChange={(e) => setTo(e.target.value)} options={L.sectionOptions} placeholder="Choose a section" /></Field><Field label="Reason (recorded)"><Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Re-balancing the sections" /></Field></div>}</>}
@@ -108,8 +111,30 @@ function BulkChange({ L, filter, total, onClose, onDone }) {
   );
 }
 
+/** A round badge with the student's initials. */
+const Initials = ({ name, size = 36 }) => <span aria-hidden="true" className="av-chip" style={{ width: size, height: size, fontSize: size > 48 ? 21 : 12.5 }}>{(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>;
+
+/** A student seen without leaving the list: the facts the office needs most, and a way into the full profile. */
+function StudentPreview({ s, year, onClose }) {
+  const g = s.guardians?.[0];
+  const e = s.enrolment;
+  return (
+    <aside className="stu-preview" aria-label={`${s.name}, preview`}>
+      <div className="row" style={{ justifyContent: 'space-between' }}><Badge tone="blue">Preview</Badge><Button size="sm" onClick={onClose} aria-label="Close preview">Close</Button></div>
+      <div className="stu-preview-top"><Initials name={s.name} size={64} /><h3>{s.name}</h3><span className="muted small">{e ? `${e.className} ${e.section}` : 'Not enrolled'} · {s.admissionNo}</span></div>
+      <dl className="stu-facts">
+        <div><dt>Status</dt><dd><Badge tone={statusTone(s.status)}>{label(s.status)}</Badge></dd></div>
+        <div><dt>Roll number</dt><dd>{e?.rollNo ?? '—'}</dd></div>
+        {e?.yearName && year && e.yearName !== year && <div><dt>Year</dt><dd>{e.yearName}</dd></div>}
+        <div><dt>Guardian</dt><dd>{g?.name || '—'}</dd></div>
+        <div><dt>Phone</dt><dd>{g?.phone ? <a href={`tel:${g.phone}`}>{g.phone}</a> : '—'}</dd></div>
+      </dl>
+      <Link to={`/admin/students/${s._id}`} className="btn primary stu-open">Open full profile</Link>
+    </aside>
+  );
+}
+
 export function Students() {
-  const nav = useNavigate();
   const L = useLookups(undefined, { openYears: true });
   const [q, setQ] = useState(''); const [sectionId, setSectionId] = useState(''); const [status, setStatus] = useState('active'); const [page, setPage] = useState(1);
   const dq = useDebounced(q);
@@ -117,22 +142,35 @@ export function Students() {
   const [admit, setAdmit] = useState(false);
   const [creds, setCreds] = useState(null);
   const [bulk, setBulk] = useState(false);
+  const [sel, setSel] = useState(null); // the student shown in the preview panel
+  const [picked, setPicked] = useState({}); // ticked rows
+  const ids = Object.keys(picked).filter((k) => picked[k]);
+  const current = list.data?.items?.find((x) => x._id === sel) || null;
   return (
     <div className="stack">
       <PageHeader title="Students" subtitle="Admissions create the student, the section enrolment and the login together" actions={<><Button onClick={() => setBulk(true)} disabled={!list.data?.total}>Change many at once</Button><Button variant="primary" onClick={() => setAdmit(true)} disabled={!L.sectionOptions.length}>+ Admit student</Button></>} />
-      <ListCard>
-        <FilterBar search={q} onSearch={(v) => { setQ(v); setPage(1); }} searchLabel="Search students" placeholder="Search name, admission no, guardian">
-          <Select value={sectionId} onChange={(e) => { setSectionId(e.target.value); setPage(1); }} options={L.sectionOptions} placeholder="All sections" aria-label="Section" />
-          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={['active', 'withdrawn', 'transferred_out', 'completed', 'archived'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />
-        </FilterBar>
-        <Async state={list}>{(d) => (<>
-          <DataTable rows={d.items} empty="No students match" onRowClick={(s) => nav(`/admin/students/${s._id}`)} columns={[
-            { label: 'Adm. no', key: 'admissionNo' }, { label: 'Name', render: (s) => <b>{s.name}</b> }, { label: 'Class', render: (s) => s.enrolment ? <>{s.enrolment.className} {s.enrolment.section}{s.enrolment.yearName && list.data?.year?.name && s.enrolment.yearName !== list.data.year.name && <div className="small muted">in {s.enrolment.yearName}</div>}</> : <Badge>Not enrolled</Badge> },
-            { label: 'Roll', render: (s) => s.enrolment?.rollNo ?? '—' }, { label: 'Guardian', render: (s) => s.guardians?.[0]?.name }, { label: 'Phone', render: (s) => s.guardians?.[0]?.phone }, { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{label(s.status)}</Badge> },
-          ]} />
-          <ListFooter total={d.total} noun="student" page={page} pageSize={25} onPage={setPage} /></>)}</Async>
-      </ListCard>
-      {bulk && <BulkChange L={L} filter={{ q: dq, sectionId, status }} total={list.data?.total || 0} onClose={() => setBulk(false)} onDone={list.reload} />}
+      <div className={`stu-split${current ? ' open' : ''}`}>
+        <ListCard>
+          <FilterBar search={q} onSearch={(v) => { setQ(v); setPage(1); }} searchLabel="Search students" placeholder="Search name, admission no, guardian">
+            <Select value={sectionId} onChange={(e) => { setSectionId(e.target.value); setPage(1); }} options={L.sectionOptions} placeholder="All sections" aria-label="Section" />
+            <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} options={['active', 'withdrawn', 'transferred_out', 'completed', 'archived'].map((s) => ({ value: s, label: label(s) }))} aria-label="Status" />
+          </FilterBar>
+          {ids.length > 0 && (
+            <div className="stu-bulk" role="status"><b>{ids.length} selected</b><Button size="sm" onClick={() => setBulk(true)}>Change house or section</Button><Button size="sm" onClick={() => setPicked({})} style={{ marginLeft: 'auto' }}>Clear</Button></div>
+          )}
+          <Async state={list}>{(d) => (<>
+            <DataTable rows={d.items} empty="No students match" onRowClick={(s) => setSel((c) => (c === s._id ? null : s._id))} rowClassName={(s) => (s._id === sel ? 'sel' : '')} columns={[
+              { label: '', render: (s) => <input type="checkbox" className="chk" aria-label={`Select ${s.name}`} checked={!!picked[s._id]} onChange={(e) => setPicked((p) => ({ ...p, [s._id]: e.target.checked }))} /> },
+              { label: 'Student', sort: (s) => s.name, render: (s) => <div className="row" style={{ gap: 12 }}><Initials name={s.name} /><div><b>{s.name}</b><div className="small muted">{s.admissionNo}</div></div></div> },
+              { label: 'Class', render: (s) => s.enrolment ? <>{s.enrolment.className} {s.enrolment.section}{s.enrolment.yearName && list.data?.year?.name && s.enrolment.yearName !== list.data.year.name && <div className="small muted">in {s.enrolment.yearName}</div>}</> : <Badge>Not enrolled</Badge> },
+              { label: 'Guardian', render: (s) => <div>{s.guardians?.[0]?.name}<div className="small muted">{s.guardians?.[0]?.phone}</div></div> },
+              { label: 'Status', render: (s) => <Badge tone={statusTone(s.status)}>{label(s.status)}</Badge> },
+            ]} />
+            <ListFooter total={d.total} noun="student" page={page} pageSize={25} onPage={setPage} /></>)}</Async>
+        </ListCard>
+        {current && <StudentPreview s={current} year={list.data?.year?.name} onClose={() => setSel(null)} />}
+      </div>
+      {bulk && <BulkChange L={L} filter={{ q: dq, sectionId, status }} total={list.data?.total || 0} ids={ids.length ? ids : undefined} onClose={() => setBulk(false)} onDone={() => { list.reload(); setPicked({}); }} />}
       {admit && <AdmitStudent L={L} onClose={() => setAdmit(false)} onDone={(o) => { setAdmit(false); list.reload(); setCreds(o.credentials); }} />}
       <CredentialsModal creds={creds} onClose={() => setCreds(null)} title="Student admitted" />
     </div>

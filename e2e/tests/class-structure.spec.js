@@ -5,7 +5,8 @@ test('subjects are listed once for the school, given to classes from a dropdown,
   const problems = watch(page);
   const uid = Date.now().toString().slice(-5);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.getByRole('navigation').first().getByRole('link', { name: 'Subjects and teachers' }).click();
+  await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Academics/ }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Subjects and teachers' }).click();
   await expect(page.getByRole('heading', { name: 'Subjects & teachers by class' })).toBeVisible();
 
   // the school's list of subjects: add one, then give it to a class

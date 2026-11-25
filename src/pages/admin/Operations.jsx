@@ -152,14 +152,14 @@ export function Learning() {
 
 // ───────────── Teacher leave ─────────────
 export function LeaveAdmin({ embedded = false }) {
-  const [status, setStatus] = useState('submitted');
-  const list = useApi('/api/school/leave', { status });
+  const [status, setStatus] = useState('all'); // everything, newest first; the status list narrows it
+  const list = useApi('/api/school/leave', { status: status === 'all' ? undefined : status });
   const L = useLookups();
   const [view, setView] = useState(null); const [editing, setEditing] = useState(null);
   const [run, busy] = useAction();
   return (
     <div className="stack">
-      {(() => { const pick = <Select value={status} onChange={(e) => setStatus(e.target.value)} options={['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: leaveStatus(s) }))} aria-label="Status" />;
+      {(() => { const pick = <Select value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, ...['submitted', 'approved', 'rejected', 'cancelled'].map((s) => ({ value: s, label: leaveStatus(s) }))]} aria-label="Status" />;
         return embedded ? <div className="row between"><p className="muted small" style={{ margin: 0 }}>Approve or reject leave and arrange substitutes for the periods that are missed.</p>{pick}</div>
           : <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={pick} />; })()}
       <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{leaveStatus(l.status)}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>

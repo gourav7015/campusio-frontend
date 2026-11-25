@@ -182,6 +182,23 @@ export function Reports() {
 }
 
 // ───────────── Settings ─────────────
+/** How leave may be applied for. Teaching and non-teaching staff have their own rules (0 means no limit). */
+function LeaveRules({ who, data, set }) {
+  const r = { maxDays: 0, noticeDays: 0, halfDay: true, ...(data.leaveRules?.[who] || {}) };
+  const put = (patch) => set({ leaveRules: { teaching: { maxDays: 0, noticeDays: 0, halfDay: true }, nonTeaching: { maxDays: 0, noticeDays: 0, halfDay: true }, ...(data.leaveRules || {}), [who]: { ...r, ...patch } } });
+  const name = who === 'teaching' ? 'teaching staff' : 'non-teaching staff';
+  return (
+    <div className="stack-sm" style={{ marginTop: 14 }}>
+      <div className="bold">Rules for applying ({name})</div>
+      <div className="form-grid">
+        <Field label="Most days in one application" hint="0 means no limit"><Input type="number" min="0" max="365" aria-label={`Most days in one application, ${name}`} value={r.maxDays} onChange={(e) => put({ maxDays: Number(e.target.value) })} /></Field>
+        <Field label="Days of notice needed" hint="0 means none. Sick leave never needs notice"><Input type="number" min="0" max="60" aria-label={`Days of notice needed, ${name}`} value={r.noticeDays} onChange={(e) => put({ noticeDays: Number(e.target.value) })} /></Field>
+      </div>
+      <label className="row"><input type="checkbox" checked={r.halfDay} onChange={(e) => put({ halfDay: e.target.checked })} /> Half-day leave is allowed for {name}</label>
+    </div>
+  );
+}
+
 export function Settings() {
   const s = useApi('/api/school/settings');
   const [v, setV] = useState(null);
@@ -189,7 +206,7 @@ export function Settings() {
   const data = v || s.data;
   const set = (patch) => setV({ ...data, ...patch });
   const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
+    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
     const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
   };
   if (!data) return <Async state={s}>{() => null}</Async>;
@@ -221,7 +238,7 @@ export function Settings() {
             <td><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: data.grading.scale.filter((_, j) => j !== i) } })} disabled={data.grading.scale.length <= 2}>Remove</Button></td></tr>)}</tbody></table>
           <div><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: [...data.grading.scale, { min: 0, grade: '' }] } })}>+ Add band</Button></div>
         </div></Card>
-        <Card title="Teacher leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.leaveBalances[k]} onChange={(e) => set({ leaveBalances: { ...data.leaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div>
+        <Card title="Teacher leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.leaveBalances[k]} onChange={(e) => set({ leaveBalances: { ...data.leaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><LeaveRules who="teaching" data={data} set={set} />
           <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '14px 0' }} />
           <div className="bold" style={{ marginBottom: 6 }}>Students may edit their own</div><div className="row wrap">{['phone', 'address', 'email'].map((f) => <label key={f} className="chip"><input type="checkbox" checked={data.studentCanEditProfile.includes(f)} onChange={(e) => set({ studentCanEditProfile: e.target.checked ? [...data.studentCanEditProfile, f] : data.studentCanEditProfile.filter((x) => x !== f) })} /> {label(f)}</label>)}</div>
         </Card>
@@ -282,7 +299,7 @@ function StaffPolicies({ data, set }) {
         <Field label="Approved by"><Select value={data.transportLeaveApprover || 'officer'} onChange={(e) => set({ transportLeaveApprover: e.target.value })} options={[{ value: 'officer', label: 'The Transport officer (the admin is told)' }, { value: 'admin', label: 'The School Admin (the officer can only pass applications on)' }]} /></Field>
         <p className="muted small" style={{ margin: 0 }}>Either way, the Transport officer can also send any single leave to you. Those waiting for you are under Staff leave, Transport staff.</p>
       </div></Card>
-      <Card title="Staff leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.staffLeaveBalances[k]} onChange={(e) => set({ staffLeaveBalances: { ...data.staffLeaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><p className="muted small">For non-teaching and transport staff. Unpaid leave has no limit.</p></Card>
+      <Card title="Staff leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.staffLeaveBalances[k]} onChange={(e) => set({ staffLeaveBalances: { ...data.staffLeaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><LeaveRules who="nonTeaching" data={data} set={set} /><p className="muted small">For non-teaching and transport staff. Unpaid leave has no limit.</p></Card>
       <Card title="Statutory deductions (India)"><div className="stack">
         <p className="muted small" style={{ margin: 0 }}>Switch on what applies to your school. These are deducted on every payslip, unless a pay level already has its own line for that deduction (it is then used, never added twice). Employer shares are shown in the monthly statutory report.</p>
         <label className="row"><input type="checkbox" checked={st.pf.enabled} onChange={(e) => setSt('pf', { enabled: e.target.checked })} /> <b>Provident Fund (PF)</b></label>

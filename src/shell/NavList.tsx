@@ -28,7 +28,7 @@ export function NavList({ groups, collapsed, dark, soft, onNavigate }: { groups:
                     collapsed && 'justify-center px-0',
                     dark
                       ? isActive ? 'bg-white/12 text-white' : 'text-white/70 hover:bg-white/6 hover:text-white'
-                      : isActive ? (soft ? 'bg-tone-soft text-foreground' : 'bg-card text-foreground shadow-xs ring-1 ring-border/70') : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground')}>
+                      : isActive ? (soft ? 'bg-tone-soft text-foreground' : 'bg-tone-soft text-tone-ink') : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground')}>
                   {({ isActive }) => (
                     <>
                       <it.icon className={cn('size-4 shrink-0', dark ? (isActive ? 'text-white' : 'text-white/60') : isActive ? 'text-tone' : 'text-subtle group-hover:text-muted-foreground')} strokeWidth={1.75} aria-hidden />

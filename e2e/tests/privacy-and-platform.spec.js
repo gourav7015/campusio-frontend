@@ -8,7 +8,8 @@ test('a student’s Privacy tab: record consent, download everything held, and n
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/students');
   await page.getByLabel(/Search|Find/i).first().fill('Aarav Sharma').catch(() => {});
-  await page.getByRole('row', { name: /Aarav Sharma/ }).first().click();
+  await page.getByRole('row', { name: /Aarav Sharma/ }).first().click(); // a row opens the preview beside the list
+  await page.getByRole('link', { name: 'Open full profile' }).click();
   await page.getByRole('tab', { name: 'Privacy' }).click();
   await expect(page.getByText('Not recorded')).toBeVisible();
   await page.getByLabel("Guardian's name").fill('Rakesh Sharma');

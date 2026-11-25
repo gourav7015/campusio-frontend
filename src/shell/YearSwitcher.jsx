@@ -10,7 +10,8 @@ export default function YearSwitcher({ area, fallback }) {
   const years = useApi(area === 'teacher' ? '/api/teacher/years' : '/api/school/years');
   const list = (years.data || []).map((y) => ({ id: y.id || y._id, name: y.name, isCurrent: y.isDefault ?? y.isCurrent, closed: y.status === 'closed' }));
   const open = list.filter((y) => !y.closed || y.id === getViewYear());
-  if (open.length < 2) return fallback ? <Badge className="hidden xl:inline-flex" title="Current academic year">{fallback}</Badge> : null;
+  const name = fallback || list.find((y) => y.isCurrent)?.name;
+  if (open.length < 2) return name ? <Badge className="hidden xl:inline-flex" title="Current academic year">Academic year {name}</Badge> : null;
   const chosen = getViewYear();
   const current = list.find((y) => y.isCurrent)?.id || '';
   return (

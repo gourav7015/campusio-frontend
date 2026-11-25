@@ -14,7 +14,7 @@ test('every register has the same controls: mark all present / absent, and a hal
   // students: the admin's register window is the same register the class teacher uses
   await page.goto('/admin/attendance');
   await page.getByLabel('Search class or section').fill('Class 8 A');
-  await page.getByRole('table').first().getByRole('row').nth(1).click();
+  await page.locator('.sec-card').first().click();
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByRole('button', { name: 'Mark all present' })).toBeVisible();
   await expect(dlg.getByRole('button', { name: 'Mark all absent' })).toBeVisible();

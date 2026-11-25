@@ -9,6 +9,7 @@ import { AttentionList, LinkCard, Money, ShareList } from '../../design/patterns
 import { Badge, Button, DataTable, ErrorState, Input, PageHeader, PageSkeleton, Select, StatCard } from '../../design/ui';
 import { fmtDate, fmtMoney, label } from '../../components/ui.jsx';
 import InstalmentReport from './InstalmentReport';
+import { CounterSearch } from './CounterSearch';
 
 interface Payment { receiptNo: string; paidOn: string; student: string; amount: number; kind?: string; mode: string; status?: string }
 interface Period { from: string; to: string; days: number; collected: number; receipts: number; perMonth: boolean; byMode: { mode: string; amount: number }[]; series: { label: string; amount: number }[] }
@@ -54,6 +55,8 @@ export default function FinanceDashboard({ readOnly }: { readOnly?: boolean }) {
     <div className="space-y-6">
       <PageHeader title="Fees overview" description={readOnly ? 'View-only for the School Admin. Collections are handled by the Finance desk.' : `Collections and dues · ${fmtDate(x.today, true)}`}
         actions={!readOnly && <Button variant="primary" asChild><Link to="/finance/students"><HandCoins />Collect a payment</Link></Button>} />
+
+      {!readOnly && <CounterSearch />}
 
       <section aria-labelledby="period-h" className="space-y-4 rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-end gap-3">

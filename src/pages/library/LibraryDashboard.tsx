@@ -8,6 +8,7 @@ import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMoti
 import { AttentionList, Facts, LinkCard, ShareList } from '../../design/patterns';
 import { Badge, Button, DataTable, EmptyState, ErrorState, PageHeader, PageSkeleton, StatCard, useToast, type BadgeTone } from '../../design/ui';
 import { fmtDate, fmtMoney, label } from '../../components/ui.jsx';
+import { ScanBox } from './ScanBox';
 
 interface Row { book: string; borrower: string; status: string; dueDate?: string }
 interface Dash { today: string; titles: number; copies: number; available: number; onLoan: number; issuedToday: number; returnedToday: number; overdue: number; finesThisMonth: number; trend: { date: string; issued: number; returned: number }[]; topBooks: { title: string; issues: number }[]; categories: { category: string; titles: number }[]; recent: Row[] }
@@ -35,6 +36,8 @@ export default function LibraryDashboard({ readOnly }: { readOnly?: boolean }) {
     <div className="space-y-6">
       <PageHeader title="Library overview" description={readOnly ? 'View-only for the School Admin. Circulation is handled at the library desk.' : `Circulation today · ${fmtDate(x.today, true)}`}
         actions={!readOnly && <Button variant="primary" asChild><Link to="/library/desk"><ArrowLeftRight />Issue or return</Link></Button>} />
+
+      {!readOnly && <ScanBox />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2"><AttentionList items={[{ label: 'Overdue books to collect', count: x.overdue, to: `${path}${readOnly ? '?tab=loans' : '/loans'}`, icon: Clock, tone: 'danger' }]} /></div>

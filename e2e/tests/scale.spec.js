@@ -19,7 +19,7 @@ const ADMIN = ['/admin', '/admin/classes', '/admin/students', '/admin/teachers',
 test('school admin on a 2,500-student school', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', `admin@${SCHOOL}.school`, 'Admin@12345');
-  await expect(page.getByRole('heading', { name: 'School overview' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
   await expect(page.getByText(/2,?500|2500/).first()).toBeVisible();
   for (const p of ADMIN) await visit(page, p, problems, { shot: `scale-admin-${p.replace(/\W+/g, '_')}` });
   await page.goto('/admin/students');
@@ -27,7 +27,7 @@ test('school admin on a 2,500-student school', async ({ page }) => {
   await page.getByLabel('Search students').fill('Sharma');
   await expect(page.getByText(/\d+ student\(s\)/)).toBeVisible();
   await page.goto('/admin/classes');
-  for (const c of ['LKG', 'UKG', 'Class 1', 'Class 12']) await expect(page.getByRole('cell', { name: c, exact: true }).first()).toBeVisible();
+  for (const c of ['LKG', 'UKG', 'Class 1', 'Class 12']) await expect(page.getByRole('navigation', { name: 'Classes' }).getByText(c, { exact: true }).first()).toBeVisible();
   expect(problems).toEqual([]);
 });
 
