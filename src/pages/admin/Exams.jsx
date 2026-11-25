@@ -85,8 +85,8 @@ function ExamList() {
         { label: 'Marks', render: (e) => Object.entries(e.sheetStatus).map(([k, v]) => <Badge key={k} tone={statusTone(k)}>{v} {label(k)}</Badge>) },
       ]} />}</Async></Card>
       {modal && <FormModal wide title="New examination" fields={[{ name: 'name', label: 'Name', required: true, placeholder: 'Unit Test 2' }, { name: 'type', label: 'Type', type: 'select', options: EXAM_TYPES, default: 'unit_test', required: true },
-        { name: 'classIds', label: 'Class', type: 'select', options: L.classOptions, required: true, hint: 'Add more classes later by editing' }, { name: 'startDate', label: 'Starts', type: 'date' }, { name: 'endDate', label: 'Ends', type: 'date' }, { name: 'marksDeadline', label: 'Marks entry deadline', type: 'date' }]}
-        onClose={() => setModal(false)} onSubmit={async (v) => { const e = await post('/api/school/exams', { ...v, classIds: [v.classIds] }); nav(`/admin/exams/${e._id}`); return true; }} />}
+        { name: 'classIds', label: 'Classes', type: 'multi', options: L.classOptions, required: true, allLabel: 'All classes', hint: 'Choose one class, several, or every class for a school-wide exam' }, { name: 'startDate', label: 'Starts', type: 'date' }, { name: 'endDate', label: 'Ends', type: 'date' }, { name: 'marksDeadline', label: 'Marks entry deadline', type: 'date' }]}
+        onClose={() => setModal(false)} onSubmit={async (v) => { const e = await post('/api/school/exams', v); nav(`/admin/exams/${e._id}`); return true; }} />}
     </div>
   );
 }
@@ -107,13 +107,12 @@ export function ExamDetail() {
     <Async state={ex}>{(e) => (
       <div className="stack">
         <PageHeader title={e.name} subtitle={`${e.status} · marks deadline ${fmtDate(e.marksDeadline, true)}`} actions={<>
-          <Button onClick={async () => { await run(() => post(`/api/school/exams/${id}/subjects/generate`), (r) => `${r.created} subject(s) added from offerings`); ex.reload(); }}>Add subjects from offerings</Button>
           <Button variant="primary" onClick={async () => { await run(() => post(`/api/school/exams/${id}/publish-schedule`), 'Schedule published to students'); ex.reload(); }} disabled={!e.subjects.length}>{e.schedulePublished ? 'Re-notify schedule' : 'Publish schedule'}</Button>
           <ConfirmButton variant="danger" message="Delete this examination? Only possible before marks entry." onConfirm={async () => { const ok = await run(() => del(`/api/school/exams/${id}`), 'Deleted'); if (ok) nav('/admin/exams'); }}>Delete</ConfirmButton></>} />
         <Tabs tabs={[['datesheet', 'Date sheet'], ['subjects', 'All papers'], ['marks', 'Marks review & publish'], ['results', 'Published results']]} value={tab} onChange={setTab} />
         {tab === 'datesheet' && <DateSheet examId={id} exam={e} onChanged={ex.reload} />}
         {tab === 'subjects' && (<Card flush action={<Button size="sm" onClick={() => setModal({})}>+ Add / edit subject</Button>} title="Exam subjects">
-          <DataTable rows={e.subjects} empty="No subjects yet — add them from offerings or manually" columns={[{ label: 'Class', key: 'className' }, { label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Date', render: (s) => fmtDate(s.date) }, { label: 'Time', render: (s) => (s.startTime ? `${s.startTime}–${s.endTime}` : '—') }, { label: 'Room', key: 'room' },
+          <DataTable rows={e.subjects} empty="No papers yet. Fill in the Date sheet: every subject that gets a date becomes a paper." columns={[{ label: 'Class', key: 'className' }, { label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Date', render: (s) => fmtDate(s.date) }, { label: 'Time', render: (s) => (s.startTime ? `${s.startTime}–${s.endTime}` : '—') }, { label: 'Room', key: 'room' },
             { label: 'Marks fields', render: (s) => `${componentsText(s.components)} = ${s.max}` }, { label: 'Pass', key: 'passMarks' },
             { label: '', render: (s) => <div className="row"><Button size="sm" onClick={() => setModal(s)}>Edit</Button><ConfirmButton size="sm" variant="danger" message="Remove this subject?" onConfirm={async () => { await run(() => del(`/api/school/exams/${id}/subjects/${s._id}`), 'Removed'); ex.reload(); }}>Remove</ConfirmButton></div> }]} /></Card>)}
         {tab === 'marks' && (<div className="stack">

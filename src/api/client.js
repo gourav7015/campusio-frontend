@@ -131,14 +131,27 @@ export const del = (p) => api(p, { method: 'DELETE' });
 export const upload = (p, form, method = 'POST') => api(p, { method, form });
 
 /** Authenticated download (CSV / PDF): fetch as a blob, then save. */
-export async function download(path, filename, query) {
-  const res = await send(`${BASE}${path}${qs(query)}`, { headers: headers() });
-  if (!res.ok) throw await parseError(res);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+const downloading = new Map();
+const announce = (phase, filename) => { try { window.dispatchEvent(new CustomEvent('app:download', { detail: { phase, filename } })); } catch { /* no window */ } };
+/**
+ * Fetches a file with the user's login and saves it. It tells the page at once ("Preparing…") so a slow PDF never looks like a dead button,
+ * and a second click on the same file while it is still coming does nothing instead of starting another download.
+ */
+export function download(path, filename, query) {
+  const key = `${path}${qs(query)}`;
+  if (downloading.has(key)) return downloading.get(key);
+  announce('start', filename);
+  const job = (async () => {
+    const res = await send(`${BASE}${path}${qs(query)}`, { headers: headers() });
+    if (!res.ok) throw await parseError(res);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  })().then(() => announce('done', filename), (e) => { announce('error', filename); throw e; }).finally(() => downloading.delete(key));
+  downloading.set(key, job);
+  return job;
 }
 
 /** Open an authenticated PDF in a new tab (a preview), or save it when the browser blocks the new tab. */

@@ -81,10 +81,10 @@ export default function DateSheet({ examId, exam, onChanged }) {
         ) : (
           <div className="empty">
             <p style={{ margin: '0 0 10px' }}>{current?.name} has no subjects for this year yet.</p>
-            <Button variant="primary" onClick={standard}>Add the usual subjects for {current?.name}</Button>
-            <p className="small muted" style={{ margin: '10px 0 0' }}>You can add or remove subjects afterwards. {current?.stream ? 'These are the subjects of the stream.' : ''}</p>
+            <Button variant="primary" onClick={standard}>Set up subjects for {current?.name}</Button>
+            <p className="small muted" style={{ margin: '10px 0 0' }}>Adds the usual subjects for this class{current?.stream ? ' and stream' : ''} to the school's subject list for this year. You can add more with “+ Add a subject”.</p>
           </div>))}</Async>}
-        {list.length > 0 && !sheet.loading && <div className="card-b row between wrap"><span className="small muted">Leave a date empty for a paper that is not held.</span><Button size="sm" onClick={standard}>Add the usual subjects</Button></div>}
+        {list.length > 0 && !sheet.loading && <div className="card-b row between wrap"><span className="small muted">Leave a date empty for a paper that is not held. Every subject you give a date becomes a paper of this exam.</span></div>}
       </Card>
     </div>
   );

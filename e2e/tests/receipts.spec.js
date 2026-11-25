@@ -20,6 +20,7 @@ test('the School Admin gets a Receipt on a student\'s paid charges and payments,
   await expect(payments.getByRole('button', { name: 'Receipt' }).first()).toBeVisible();
   const [file] = await Promise.all([page.waitForEvent('download'), payments.getByRole('button', { name: 'Receipt' }).first().click()]);
   expect(file.suggestedFilename()).toMatch(/^receipt-.*\.pdf$/);
+  await expect(page.getByText(/^receipt-.*\.pdf downloaded\.$/)).toBeVisible(); // the click is acknowledged, not silent
 
   // a teacher's Salary & payslips tab: a Payslip for each month
   await page.goto('/admin/teachers');

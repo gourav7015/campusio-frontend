@@ -7,6 +7,7 @@ const cache = new Map(); // short-lived signed links, so a picture is not re-req
 /** A picture stored as a private file: asks for a signed link, then shows it. Falls back to `fallback` (initials, an icon) while loading or when there is none. */
 export default function FileImage({ fileId, alt, className, style, fallback = null }) {
   const [got, setGot] = useState({ id: null, url: null });
+  const [failed, setFailed] = useState(null); // the picture's file could not be read: show the placeholder, never a broken-image icon
   useEffect(() => {
     if (!fileId) return undefined;
     let live = true;
@@ -17,8 +18,8 @@ export default function FileImage({ fileId, alt, className, style, fallback = nu
     return () => { live = false; };
   }, [fileId]);
   const src = got.id === fileId ? got.url : null;
-  if (!fileId || !src) return fallback;
-  return <img src={src} alt={alt || ''} className={className} style={style} />;
+  if (!fileId || !src || failed === src) return fallback ?? (src && failed === src ? <span role="img" aria-label={alt ? `${alt} (picture not available)` : 'Picture not available'} className={className} style={{ ...style, display: 'grid', placeItems: 'center', minHeight: 96, background: 'rgb(var(--c-primary-soft))', color: 'rgb(var(--c-primary-ink))', fontSize: 13, textAlign: 'center', padding: 8 }}>Picture not available</span> : null);
+  return <img src={src} alt={alt || ''} className={className} style={style} onError={() => setFailed(src)} />;
 }
 
 /** A round photo with initials when there is no picture yet. */

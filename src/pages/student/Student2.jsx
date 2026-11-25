@@ -12,14 +12,13 @@ const S = '/api/student';
 
 export function StudentExams() {
   const sch = useApi(`${S}/exams/schedule`);
-  const [tab, setTab] = useState('upcoming');
   return (
     <div className="stack">
       <PageHeader title="Examinations" subtitle="Dates are shown in your school's time zone" />
-      <Tabs tabs={[['upcoming', 'Upcoming'], ['completed', 'Completed']]} value={tab} onChange={setTab} />
       <Card flush><Async state={sch} empty={<Empty title="No examination schedule has been published" />}>{(rows) => {
-        const f = rows.filter((r) => (tab === 'upcoming' ? r.daysLeft >= 0 : r.daysLeft < 0));
-        return <DataTable rows={f} empty={tab === 'upcoming' ? 'No upcoming exams' : 'No completed exams yet'} columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
+        // one list: what is coming first (soonest at the top), then what is done (latest at the top)
+        const f = [...rows.filter((r) => r.daysLeft >= 0).sort((a, b) => a.daysLeft - b.daysLeft), ...rows.filter((r) => r.daysLeft < 0).sort((a, b) => b.daysLeft - a.daysLeft)];
+        return <DataTable rows={f} empty="No examinations yet" columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
           { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />; }}</Async></Card>
     </div>
   );
@@ -90,6 +89,99 @@ export function ResultDetail() {
         <div className="grid g2"><Card title="Attendance summary"><div>Attendance: <b>{fmtPct(x.attendance.percentage)}</b> · {x.attendance.present} present of {x.attendance.workingDays} days</div></Card>
           <Card title="Remarks"><div><b>Class teacher:</b> {x.teacherRemark || '—'}</div><div style={{ marginTop: 6 }}><b>Principal:</b> {x.principalRemark || '—'}</div></Card></div>
       </div>)}</Async>
+  );
+}
+
+/** Where the student stands in the whole class: rank, spread of marks, subjects against the class, attendance against the class. Classmates are never named. */
+export function StudentClassAnalysis() {
+  const a = useApi(`${S}/class-analysis`);
+  const tone = { top: 'green', leading: 'green', above: 'blue', near: 'amber', below: 'red' };
+  return (
+    <div className="stack">
+      <Async state={a}>{(d) => (
+        <>
+          <PageHeader title="Class analysis" subtitle={`${[d.className, d.section].filter(Boolean).join('-')}${d.classSize ? ` · ${d.classSize} students` : ''} · built from published results and submitted attendance; classmates stay anonymous`} />
+          {!d.ready ? <Empty title="Your class standing will appear here">Once results of a test are published for your class, you will see where you stand.</Empty> : <ClassAnalysisBody d={d} tone={tone} />}
+        </>
+      )}</Async>
+    </div>
+  );
+}
+
+function ClassAnalysisBody({ d, tone }) {
+  const o = d.overall;
+  const maxBand = Math.max(1, ...d.distribution.map((b) => b.count));
+  const weak = d.subjects.filter((x) => x.gap < 0).sort((x, y) => x.gap - y.gap);
+  const strong = d.subjects.filter((x) => x.gap > 0);
+  const watch = [
+    ...weak.slice(0, 3).map((x) => `${x.subject}: ${Math.abs(x.gap)} points below the class average (${x.mine}% against ${x.classAverage}%).`),
+    ...(o.movement === 'down' ? ['Your position in the class dropped in the latest test compared with the one before.'] : []),
+    ...(d.attendance && d.attendance.mine < d.attendance.classAverage ? [`Attendance is ${fmtPct(d.attendance.mine)}, below the class average of ${fmtPct(d.attendance.classAverage)}.`] : []),
+  ];
+  const trend = d.tests.map((t) => ({ test: t.name, you: t.myPercentage, 'Class average': t.average }));
+  return (
+    <>
+      <Card>
+        <div className="row wrap" style={{ gap: 24, alignItems: 'center' }}>
+          <div style={{ flex: '1 1 260px' }}>
+            <Badge tone={tone[d.standing.key]}>{d.standing.label}</Badge>
+            <div style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.15, marginTop: 8 }}>Rank {o.rank} <span className="muted" style={{ fontSize: 20, fontWeight: 500 }}>of {o.of}</span></div>
+            <p className="muted" style={{ marginTop: 6 }}>
+              {o.ahead > 0 ? `You are ahead of ${o.ahead} classmate${o.ahead === 1 ? '' : 's'}` : 'Nobody is behind you yet'} across {o.testsCounted} published test{o.testsCounted === 1 ? '' : 's'}.
+              {o.movement === 'up' && ' You moved up in the latest test.'}{o.movement === 'down' && ' You moved down in the latest test.'}{o.movement === 'steady' && ' Your position is steady.'}
+            </p>
+          </div>
+          <div className="grid g3" style={{ flex: '2 1 420px' }}>
+            <Stat value={fmtPct(o.myAverage)} label="Your average" tone="blue" />
+            <Stat value={fmtPct(o.classAverage)} label="Class average" sub={`${o.gap >= 0 ? '+' : ''}${o.gap} points for you`} />
+            <Stat value={d.attendance ? fmtPct(d.attendance.mine) : '—'} label="Your attendance" sub={d.attendance ? `Class ${fmtPct(d.attendance.classAverage)} · rank ${d.attendance.rank} of ${d.attendance.of}` : 'No register yet'} />
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid g2">
+        <Card title="Where the class stands" subtitle={d.distributionExam ? `${d.distributionExam} · number of students in each marks band` : undefined}>
+          {d.distribution.length ? (
+            <div className="stack" style={{ gap: 10 }}>
+              {d.distribution.map((b) => (
+                <div key={b.label} className="row" style={{ gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 110, fontSize: 13 }}>{b.label}</div>
+                  <div style={{ flex: 1, background: 'var(--muted, #eee)', borderRadius: 6, height: 22, overflow: 'hidden' }}>
+                    <div style={{ width: `${(b.count / maxBand) * 100}%`, minWidth: b.count ? 6 : 0, height: '100%', background: b.mine ? 'rgb(var(--c-primary))' : 'rgb(var(--c-primary) / .35)' }} />
+                  </div>
+                  <div style={{ width: 90, fontSize: 13 }}>{b.count} student{b.count === 1 ? '' : 's'}{b.mine && <b> · you</b>}</div>
+                </div>
+              ))}
+            </div>
+          ) : <Empty title="No spread to show yet" />}
+        </Card>
+        <Card title="You against the class, test by test">
+          <TrendChart data={trend} x="test" lines={[{ key: 'you', name: 'You' }, { key: 'Class average', name: 'Class average', color: 'rgb(var(--c-warning))' }]} />
+        </Card>
+      </div>
+
+      <Card title="Subject by subject" subtitle="Your average, the class average and the highest average in each subject">
+        <BarsChart data={d.subjects} x="subject" bars={[{ key: 'mine', name: 'You', color: 'rgb(var(--c-primary))' }, { key: 'classAverage', name: 'Class average', color: 'rgb(var(--c-warning))' }, { key: 'highest', name: 'Highest', color: 'rgb(var(--c-success))' }]} domain={[0, 100]} unit="%" />
+      </Card>
+
+      <div className="grid g2">
+        <Card title="What to keep an eye on">
+          {watch.length ? <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.7 }}>{watch.map((w) => <li key={w}>{w}</li>)}</ul> : <p className="muted" style={{ margin: 0 }}>Nothing is lagging behind the class right now. Keep it up.</p>}
+        </Card>
+        <Card title="Where you are strongest">
+          {strong.length ? <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.7 }}>{strong.slice(0, 4).map((x) => <li key={x.subject}>{x.subject}: {x.gap} points above the class average ({x.mine}%).</li>)}</ul> : <p className="muted" style={{ margin: 0 }}>No subject is above the class average yet.</p>}
+        </Card>
+      </div>
+
+      <Card title="Every test" flush>
+        <DataTable rows={[...d.tests].reverse()} rowKey="examId" columns={[
+          { label: 'Test', render: (t) => <><b>{t.name}</b> <Badge>{label(t.type)}</Badge></> },
+          { label: 'Your result', render: (t) => (t.myPercentage == null ? <span className="muted">Not attempted</span> : <b>{fmtPct(t.myPercentage)}</b>) },
+          { label: 'Your rank', render: (t) => (t.myRank ? `${t.myRank} of ${t.takers}` : '—') },
+          { label: 'Class average', render: (t) => fmtPct(t.average) }, { label: 'Median', render: (t) => fmtPct(t.median) }, { label: 'Highest', render: (t) => fmtPct(t.highest) }, { label: 'Lowest', render: (t) => fmtPct(t.lowest) },
+        ]} />
+      </Card>
+    </>
   );
 }
 
