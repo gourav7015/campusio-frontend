@@ -99,8 +99,19 @@ export function TopNav({ portal, pathname }: { portal: Portal; pathname: string 
   }
   return (
     <nav aria-label="Areas" className="hidden min-w-0 flex-1 gap-0.5 overflow-x-auto lg:flex">
-      {portal.groups.map((g) => <Link key={g.label} to={g.items[0].to} aria-current={g === current ? 'true' : undefined} className={link(g === current)}>{g.label}</Link>)}
+      {portal.groups.map((g) => <TopArea key={g.label} g={g} active={g === current} cls={link(g === current)} />)}
     </nav>
+  );
+}
+
+/** One area along the top bar, with the number of things waiting inside it (replies to a ticket, leave to decide…), like the side rail shows. */
+function TopArea({ g, active, cls }: { g: NavGroup; active: boolean; cls: string }) {
+  const n = useWaiting(g);
+  return (
+    <Link to={g.items[0].to} aria-current={active ? 'true' : undefined} aria-label={n ? `${g.label}, ${n} waiting` : undefined} className={cls}>
+      {g.label}
+      {n > 0 && <span aria-hidden className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-[11px] font-semibold leading-none text-on-accent tabular-nums">{n > 99 ? '99+' : n}</span>}
+    </Link>
   );
 }
 

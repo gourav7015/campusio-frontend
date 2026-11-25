@@ -480,10 +480,10 @@ test('library: add a book, issue and return it at the desk; student sees it; fin
   expect(problems.filter((p) => !/HTTP 409 POST \/api\/library\/issue/.test(p))).toEqual([]); // the 409 is the deliberate double-issue attempt
 });
 
-test('payroll: admin defines a level, sets a salary, generates, adjusts, approves and pays; the teacher sees the payslip', async ({ page }) => {
+test('payroll: Finance defines a level, sets a salary, generates and adjusts; the admin only views and approves; Finance pays; the teacher sees the payslip', async ({ page }) => {
   const problems = watch(page);
-  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/payroll');
+  await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
+  await page.goto('/finance/payroll');
   await expect(page.getByText('People with a salary')).toBeVisible();
   // a new pay level with a percentage allowance
   await page.getByRole('tab', { name: 'Pay levels' }).click();
@@ -518,10 +518,32 @@ test('payroll: admin defines a level, sets a salary, generates, adjusts, approve
   await page.getByLabel('Amount 1').fill('5000');
   await page.getByRole('button', { name: 'Save adjustments' }).click();
   await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('₹1,17,000');
-  // teachers cannot see a draft
+  // Finance prepares the month but cannot approve it: that is the School Admin's step
+  await expect(page.getByText(/Waiting for the School Admin to approve/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+  await signOut(page);
+  // the School Admin sees everything, has no buttons that change pay, and approves the month
+  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
+  await page.goto('/admin/payroll');
+  await expect(page.getByText(/Run by the Finance department/)).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Generate payroll' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Salaries' }).click();
+  await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Vice Principal');
+  await expect(page.getByRole('button', { name: 'Revise' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Pay levels' }).click();
+  await expect(page.getByRole('button', { name: '+ New level' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Payroll runs' }).click();
+  await page.getByRole('button', { name: 'Open' }).first().click();
+  await expect(page.getByRole('button', { name: /Adjust/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Approve' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Approved').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Mark all paid/ })).toHaveCount(0); // paying is Finance's work
+  await signOut(page);
+  // Finance records the payments
+  await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
+  await page.goto('/finance/payroll');
+  await page.getByRole('button', { name: 'Open' }).first().click();
   await expect(page.getByRole('button', { name: 'Adjust' })).toHaveCount(0); // locked once approved
   // the bank file lists who can be paid by transfer (Kamla has a bank account on record) and who still needs details
   await page.getByRole('button', { name: 'Bank file' }).click();
@@ -545,9 +567,8 @@ test('payroll: admin defines a level, sets a salary, generates, adjusts, approve
   await expect(page.getByRole('cell', { name: '₹1,17,000' }).first()).toBeVisible(); // gross and net are both 1,17,000
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PDF' }).first().click()]);
   expect(dl.suggestedFilename()).toMatch(/^payslip-PAY\d{6}-T002\.pdf$/);
-  // and cannot reach the admin payroll
-  await page.goto('/admin/payroll');
-  await expect(page).not.toHaveURL(/\/admin\/payroll/);
+  // and cannot reach payroll as a manager, from either department
+  for (const path of ['/admin/payroll', '/finance/payroll']) { await page.goto(path); await expect(page).not.toHaveURL(new RegExp(path)); }
   expect(problems.filter((p) => !p.includes('HTTP 40'))).toEqual([]);
 });
 

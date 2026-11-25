@@ -100,6 +100,9 @@ function SectionCard({ s, teacher, onEdit, onAssign, onArchive, onDelete, archiv
   );
 }
 
+/** Opens a confirmation only after the menu that asked for it has closed, so Escape and focus belong to the dialog and not to the closing menu. */
+const later = (fn) => setTimeout(fn, 80);
+
 export function ClassBoard() {
   const L = useLookups();
   const { confirm } = useDialogs();
@@ -203,9 +206,9 @@ export function ClassBoard() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button size="icon" aria-label={`More for ${cur.name}`}><MoreHorizontal /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                        {cur.status === 'active' ? <DropdownMenuItem onSelect={() => archiveClass(cur)}><Archive /> Archive class</DropdownMenuItem> : <DropdownMenuItem onSelect={() => restoreClass(cur)}><RotateCcw /> Restore class</DropdownMenuItem>}
+                        {cur.status === 'active' ? <DropdownMenuItem onSelect={() => later(() => archiveClass(cur))}><Archive /> Archive class</DropdownMenuItem> : <DropdownMenuItem onSelect={() => later(() => restoreClass(cur))}><RotateCcw /> Restore class</DropdownMenuItem>}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem danger disabled={sectionsAll.some((s) => s.classId === cur._id)} onSelect={() => deleteClass(cur)}><Trash2 /> {sectionsAll.some((s) => s.classId === cur._id) ? 'Delete (it has sections)' : 'Delete class'}</DropdownMenuItem>
+                        <DropdownMenuItem danger disabled={sectionsAll.some((s) => s.classId === cur._id)} onSelect={() => later(() => deleteClass(cur))}><Trash2 /> {sectionsAll.some((s) => s.classId === cur._id) ? 'Delete (it has sections)' : 'Delete class'}</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

@@ -37,7 +37,8 @@ test('a new vendor and its expense are approved by the School Admin first; Finan
   const vrow = page.getByRole('row', { name: new RegExp(vendor) });
   await expect(vrow).toBeVisible();
   await vrow.getByRole('button', { name: 'Approve' }).click();
-  await expect(vrow).toHaveCount(0);
+  await expect(vrow.getByRole('button', { name: 'Approve' })).toHaveCount(0); // the decision stays on the page, as history: it can no longer be approved again
+  await expect(vrow).toContainText('Approved');
   await signOut(page);
 
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
@@ -67,7 +68,8 @@ test('a new vendor and its expense are approved by the School Admin first; Finan
   const erow = page.getByRole('row', { name: new RegExp(`Almirah ${uid}`) });
   await expect(erow.getByRole('button', { name: 'View bill.pdf' })).toBeVisible(); // the approver can open the bill
   await erow.getByRole('button', { name: 'Approve' }).click();
-  await expect(erow).toHaveCount(0);
+  await expect(erow.getByRole('button', { name: 'Approve' })).toHaveCount(0); // decided rows stay as history
+  await expect(erow).toContainText('Approved');
   await signOut(page);
 
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');

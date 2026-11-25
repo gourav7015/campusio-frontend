@@ -53,7 +53,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Money', icon: IndianRupee, items: [
         { to: '/admin/fees', label: 'Fees (view)', icon: IndianRupee },
-        { to: '/admin/payroll', label: 'Payroll and salaries', icon: Wallet },
+        { to: '/admin/payroll', label: 'Payroll (view and approve)', icon: Wallet },
         { to: '/admin/documents', label: 'Receipts and payslips', icon: FilePenLine },
       ] },
       { label: 'Messages', icon: Mail, items: [
@@ -139,7 +139,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
     groups: [{ items: [
       dash('/finance'), { to: '/finance/structures', label: 'Fee structures', icon: FileSpreadsheet }, { to: '/finance/policy', label: 'Fee policy', icon: Scale },
       { to: '/finance/students', label: 'Students and dues', icon: Users }, { to: '/finance/payments', label: 'Payments and receipts', icon: CreditCard }, { to: '/finance/online', label: 'Online payments', icon: Smartphone }, { to: '/finance/defaulters', label: 'Defaulters', icon: AlertTriangle }, { to: '/finance/reports', label: 'Reports', icon: BarChart3 },
-      { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/vendors', label: 'Vendors', icon: Store }, { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
+      { to: '/finance/payroll', label: 'Payroll and salaries', icon: Wallet }, { to: '/finance/expenses', label: 'Expenditure', icon: Receipt }, { to: '/finance/budgets', label: 'Budgets', icon: PiggyBank }, { to: '/finance/vendors', label: 'Vendors', icon: Store }, { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School licences', icon: Info },
     ] }],
   },
   library: {

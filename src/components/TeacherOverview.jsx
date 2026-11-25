@@ -57,7 +57,7 @@ export function AttendancePanel({ o }) {
 export function SalaryPanel({ o }) {
   const [run] = useAction();
   const p = o.pay;
-  if (!p.current) return <Empty title="No salary set yet">Set it in Payroll &amp; salaries.</Empty>;
+  if (!p.current) return <Empty title="No salary set yet">Finance sets it in Payroll &amp; salaries.</Empty>;
   return (
     <div className="stack">
       <div className="grid g4"><Stat value={p.current.levelName || 'Custom'} label="Pay level" tone="blue" /><Stat value={fmtMoney(p.current.gross)} label="Gross per month" /><Stat value={fmtMoney(p.current.net)} label="Net per month" tone="green" /><Stat value={fmtMoney(p.paidThisYear)} label="Paid this academic year" /></div>
@@ -67,7 +67,7 @@ export function SalaryPanel({ o }) {
       </div>
       <Card title="Payslips" flush><DataTable rows={p.payslips} empty="No approved payroll yet" columns={[{ label: 'Month', render: (s) => <b>{monthLabel(s.month)}</b> }, { label: 'Days paid', render: (s) => `${s.paidDays} / ${s.workingDays}` }, { label: 'Gross', render: (s) => fmtMoney(s.gross) }, { label: 'Deductions', render: (s) => fmtMoney(s.totalDeductions) }, { label: 'Net', render: (s) => <b>{fmtMoney(s.net)}</b> }, { label: 'Status', render: (s) => <Badge tone={s.status === 'paid' ? 'green' : 'amber'}>{label(s.status)}</Badge> }, { label: '', render: (s) => <Button size="sm" onClick={() => run(() => download(`/api/school/payroll/payslips/${s._id}/pdf`, `payslip-${s.payslipNo}.pdf`))}>Payslip</Button> }]} /></Card>
       <Card title="Salary history" flush><DataTable rows={p.history} rowKey="effectiveFrom" columns={[{ label: 'From', render: (h) => fmtDate(h.effectiveFrom, true) }, { label: 'Level', render: (h) => h.levelName || 'Custom' }, { label: 'Gross', render: (h) => fmtMoney(h.gross) }, { label: 'Net', render: (h) => fmtMoney(h.net) }, { label: 'Reason', key: 'reason' }]} /></Card>
-      <p className="muted small">Salary is changed in <Link to="/admin/payroll?tab=salaries">Payroll &amp; salaries</Link>.</p>
+      <p className="muted small">Salaries are changed by Finance. See them in <Link to="/admin/payroll?tab=salaries">Payroll</Link>.</p>
     </div>
   );
 }

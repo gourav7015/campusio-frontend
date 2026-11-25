@@ -134,7 +134,7 @@ test.describe('help desk', () => {
 
     // the student now has a count, and a notification opens the ticket itself
     await s.page.goto('/student');
-    await expect(s.page.getByRole('navigation', { name: 'Main' }).getByLabel(/\d+ waiting/).first()).toBeVisible();
+    await expect(s.page.getByRole('navigation', { name: 'Areas' }).getByLabel(/\d+ waiting/).first()).toBeVisible(); // the area that holds the Help desk shows the count
     await s.page.getByRole('button', { name: /Notifications/ }).click();
     await s.page.getByText(/Reply on your ticket/).first().click();
     await expect(s.page).toHaveURL(/helpdesk\?open=/);

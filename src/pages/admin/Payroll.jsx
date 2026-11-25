@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { get, post, patch, del, download } from '../../api/client.js';
@@ -7,7 +7,12 @@ import FilterMenu from '../../components/FilterMenu.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import PayItems, { cleanItems } from '../../components/PayItems.jsx';
 
-const P = '/api/school/payroll';
+/**
+ * Payroll is run by the Finance department (it prepares the month, changes salaries, adds bonuses and deductions, records what is paid).
+ * The School Admin sees the same pages without the buttons that change things, and approves each month. The server enforces the same rule.
+ */
+const PayCtx = createContext({ P: '/api/school/payroll', canEdit: false, canApprove: true });
+const usePay = () => useContext(PayCtx);
 const tone = (s) => ({ draft: 'amber', approved: 'blue', paid: 'green', pending: 'amber', partial: 'amber' }[s] || '');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const monthLabel = (m) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -15,13 +20,19 @@ const itemsOf = (l) => (l || []).map((i) => ({ label: i.label, kind: i.kind, val
 const summaryText = (l) => (l?.length ? l.map((i) => `${i.label} ${i.kind === 'percent' ? `${i.value}%` : fmtMoney(i.value)}`).join(', ') : '—');
 
 /** School Admin: pay levels, everyone's salary (teachers, non-teaching and transport staff), and the monthly payroll with payslips. Teachers see only their own. */
-export default function Payroll() {
+export default function Payroll({ base = '/api/school/payroll', role = 'admin' }) {
+  const ctx = useMemo(() => ({ P: base, canEdit: role === 'finance', canApprove: role !== 'finance' }), [base, role]);
+  return <PayCtx.Provider value={ctx}><PayrollPage /></PayCtx.Provider>;
+}
+
+function PayrollPage() {
+  const { P, canEdit } = usePay();
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') || 'runs';
   const sum = useApi(`${P}/summary`);
   return (
     <div className="stack">
-      <PageHeader title="Payroll & salaries" subtitle="Set everyone's pay level and salary, run the month's payroll, approve it and record the payment. Unpaid leave and days marked absent in the staff attendance registers are deducted automatically." />
+      <PageHeader title="Payroll & salaries" subtitle={canEdit ? "Set everyone's pay level and salary, run the month's payroll, add bonuses and deductions, and record the payment. The School Admin approves each month before it is paid. Unpaid leave and days marked absent in the staff attendance registers are deducted automatically." : "Run by the Finance department. You can see every salary, payroll and payslip here, and approve each month's payroll before Finance pays it."} />
       <Async state={sum}>{(s) => (
         <div className="grid g4">
           <Stat value={fmtMoney(s.monthlyNet)} label="Monthly salary bill (net)" sub={`Gross ${fmtMoney(s.monthlyGross)}`} tone="blue" />
@@ -38,19 +49,20 @@ export default function Payroll() {
 
 // ───────────── pay levels ─────────────
 function Levels() {
+  const { P, canEdit } = usePay();
   const list = useApi(`${P}/levels`);
   const [edit, setEdit] = useState(null);
   const [run] = useAction();
   return (
     <>
-      <Card title="Pay levels" action={<Button variant="primary" size="sm" onClick={() => setEdit({})}>+ New level</Button>} flush>
+      <Card title="Pay levels" action={canEdit ? <Button variant="primary" size="sm" onClick={() => setEdit({})}>+ New level</Button> : undefined} flush>
         <Async state={list} empty={<div className="empty">No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal.</div>}>{(rows) => (
           <DataTable rows={rows} empty="No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal." columns={[
             { label: 'Level', render: (l) => <><b>{l.name}</b>{l.status === 'archived' && <> <Badge>archived</Badge></>}<div className="muted">{l.description}</div></> },
             { label: 'Basic', render: (l) => fmtMoney(l.basic) }, { label: 'Allowances', render: (l) => summaryText(l.allowances) }, { label: 'Deductions', render: (l) => summaryText(l.deductions) },
             { label: 'Gross / month', render: (l) => fmtMoney(l.gross) }, { label: 'Net / month', render: (l) => <b>{fmtMoney(l.net)}</b> }, { label: 'For', render: (l) => <Badge tone={l.appliesTo === 'non_teaching' ? 'amber' : 'blue'}>{l.appliesTo === 'non_teaching' ? 'Non-teaching' : 'Teaching'}</Badge> }, { label: 'People', key: 'teachers' },
-            { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setEdit(l)}>Edit</Button>
-              <ConfirmButton size="sm" variant="danger" message={`Delete ${l.name}?`} onConfirm={async () => { await run(() => del(`${P}/levels/${l._id}`), 'Level deleted'); list.reload(); }}>Delete</ConfirmButton></div> },
+            ...(canEdit ? [{ label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setEdit(l)}>Edit</Button>
+              <ConfirmButton size="sm" variant="danger" message={`Delete ${l.name}?`} onConfirm={async () => { await run(() => del(`${P}/levels/${l._id}`), 'Level deleted'); list.reload(); }}>Delete</ConfirmButton></div> }] : []),
           ]} />
         )}</Async>
       </Card>
@@ -61,6 +73,7 @@ function Levels() {
 }
 
 function LevelModal({ level, onClose, onSaved }) {
+  const { P } = usePay();
   const [f, setF] = useState({ name: level?.name || '', appliesTo: level?.appliesTo || 'teaching', description: level?.description || '', basic: level?.basic ?? '', allowances: itemsOf(level?.allowances), deductions: itemsOf(level?.deductions) });
   const [run, busy] = useAction();
   const save = async () => {
@@ -86,6 +99,7 @@ function LevelModal({ level, onClose, onSaved }) {
 
 // ───────────── salaries (teachers and staff) ─────────────
 function Salaries({ onChange }) {
+  const { P, canEdit } = usePay();
   const [q, setQ] = useState(''); const [status, setStatus] = useState('all'); const [type, setType] = useState('all');
   const list = useApi(`${P}/salaries`, { q: q || undefined, status, type });
   const levels = useApi(`${P}/levels`);
@@ -99,8 +113,8 @@ function Salaries({ onChange }) {
           <Field label="Who"><Select aria-label="Who" value={type} onChange={(e) => setType(e.target.value)} options={[{ value: 'all', label: 'Everyone' }, { value: 'teachers', label: 'Teachers' }, { value: 'staff', label: 'Non-teaching & transport staff' }]} /></Field>
           <Field label="Salary"><Select aria-label="Filter" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, { value: 'with', label: 'Salary set' }, { value: 'without', label: 'No salary yet' }]} /></Field>
         </FilterMenu>
-        <Button size="sm" onClick={() => setBulk('teachers')} disabled={!forGroup('teachers').length}>Apply level to teachers…</Button>
-        <Button size="sm" onClick={() => setBulk('staff')} disabled={!forGroup('staff').length}>Apply level to staff…</Button></div>} flush>
+        {canEdit && <><Button size="sm" onClick={() => setBulk('teachers')} disabled={!forGroup('teachers').length}>Apply level to teachers…</Button>
+        <Button size="sm" onClick={() => setBulk('staff')} disabled={!forGroup('staff').length}>Apply level to staff…</Button></>}</div>} flush>
         <Async state={list}>{(d) => (
           <DataTable rows={d.items} rowKey="personId" empty="Nobody found" columns={[
             { label: 'Name', render: (t) => <><b>{t.name}</b><div className="muted">{t.code}{t.designation ? ` · ${t.designation}` : ''}</div></> },
@@ -108,7 +122,7 @@ function Salaries({ onChange }) {
             { label: 'Level', render: (t) => (t.revision ? (t.revision.levelName || 'Custom') : <Badge tone="amber">No salary</Badge>) },
             { label: 'Basic', render: (t) => (t.revision ? fmtMoney(t.revision.basic) : '—') }, { label: 'Gross', render: (t) => (t.revision ? fmtMoney(t.revision.gross) : '—') },
             { label: 'Net / month', render: (t) => (t.revision ? <b>{fmtMoney(t.revision.net)}</b> : '—') }, { label: 'Since', render: (t) => (t.revision ? fmtDate(t.revision.effectiveFrom, true) : '—') },
-            { label: '', render: (t) => <div className="row"><Button size="sm" onClick={() => setEdit(t)}>{t.revision ? 'Revise' : 'Set salary'}</Button>{t.revision && <Button size="sm" onClick={() => setHist(t)}>History</Button>}</div> },
+            { label: '', render: (t) => <div className="row">{canEdit && <Button size="sm" onClick={() => setEdit(t)}>{t.revision ? 'Revise' : 'Set salary'}</Button>}{t.revision && <Button size="sm" onClick={() => setHist(t)}>History</Button>}</div> },
           ]} />
         )}</Async>
       </Card>
@@ -131,6 +145,7 @@ function Salaries({ onChange }) {
 }
 
 function SalaryModal({ teacher, levels, onClose, onSaved }) {
+  const { P } = usePay();
   const cur = teacher.revision;
   const [f, setF] = useState({ levelId: cur?.levelId || '', basic: cur?.basic ?? '', allowances: itemsOf(cur?.allowances), deductions: itemsOf(cur?.deductions), effectiveFrom: todayStr(), reason: '' });
   const [run, busy] = useAction();
@@ -166,6 +181,7 @@ function SalaryModal({ teacher, levels, onClose, onSaved }) {
 }
 
 function HistoryModal({ teacher, onClose }) {
+  const { P } = usePay();
   const h = useApi(`${P}/salaries/${teacher.personId}`);
   return (
     <Modal wide title={`Salary history — ${teacher.name}`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
@@ -181,14 +197,15 @@ function HistoryModal({ teacher, onClose }) {
 
 // ───────────── payroll runs ─────────────
 function Runs({ onChange }) {
+  const { P, canEdit } = usePay();
   const list = useApi(`${P}/runs`);
   const [open, setOpen] = useState(null); const [gen, setGen] = useState(false);
   if (open) return <RunDetail id={open} onBack={() => { setOpen(null); list.reload(); onChange?.(); }} />;
   return (
     <>
-      <Card title="Payroll runs" action={<Button variant="primary" size="sm" onClick={() => setGen(true)}>+ Generate payroll</Button>} flush>
+      <Card title="Payroll runs" action={canEdit ? <Button variant="primary" size="sm" onClick={() => setGen(true)}>+ Generate payroll</Button> : undefined} flush>
         <Async state={list}>{(rows) => (
-          <DataTable rows={rows} empty="No payroll yet. Generate the first month." onRowClick={(r) => setOpen(r._id)} columns={[
+          <DataTable rows={rows} empty={canEdit ? 'No payroll yet. Generate the first month.' : 'Finance has not prepared any payroll yet.'} onRowClick={(r) => setOpen(r._id)} columns={[
             { label: 'Month', render: (r) => <b>{monthLabel(r.month)}</b> }, { label: 'Status', render: (r) => <Badge tone={tone(r.status)}>{label(r.status)}</Badge> }, { label: 'Payslips', render: (r) => r.totals?.count },
             { label: 'Gross', render: (r) => fmtMoney(r.totals?.gross) }, { label: 'Deductions', render: (r) => fmtMoney(r.totals?.deductions) }, { label: 'Net payable', render: (r) => <b>{fmtMoney(r.totals?.net)}</b> }, { label: 'Paid', render: (r) => fmtMoney(r.totals?.paid) },
             { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r._id)}>Open</Button> },
@@ -202,6 +219,7 @@ function Runs({ onChange }) {
 }
 
 function RunDetail({ id, onBack }) {
+  const { P, canEdit, canApprove } = usePay();
   const d = useApi(`${P}/runs/${id}`);
   const [run] = useAction();
   const [adj, setAdj] = useState(null); const [pay, setPay] = useState(null); const [part, setPart] = useState(null); const [report, setReport] = useState(null);
@@ -217,13 +235,14 @@ function RunDetail({ id, onBack }) {
               <Button onClick={() => run(() => download(`${P}/runs/${id}/export.csv`, `payroll-${r.month}.csv`))}>Export CSV</Button>
               <Button onClick={() => setReport('statutory')}>PF / ESI / PT</Button>{r.status !== 'draft' && <Button onClick={() => setReport('bank')}>Bank file</Button>}
               {r.status === 'draft' && <>
-                <Button onClick={act(() => post(`${P}/runs/${id}/recalculate`), 'Recalculated')}>Recalculate</Button>
-                <ConfirmButton variant="danger" message="Delete this draft payroll?" onConfirm={async () => { await run(() => del(`${P}/runs/${id}`), 'Draft deleted'); onBack(); }}>Delete draft</ConfirmButton>
-                <ConfirmButton variant="primary" message={`Approve payroll for ${monthLabel(r.month)}? Teachers can then see their payslips, and the figures will be locked.`} onConfirm={act(() => post(`${P}/runs/${id}/approve`), 'Payroll approved')}>Approve</ConfirmButton></>}
-              {r.status !== 'draft' && pending.length > 0 && <Button variant="primary" onClick={() => setPay({ ids: null })}>Mark all paid ({pending.length})</Button>}
+                {canEdit && <Button onClick={act(() => post(`${P}/runs/${id}/recalculate`), 'Recalculated')}>Recalculate</Button>}
+                {canEdit && <ConfirmButton variant="danger" message="Delete this draft payroll?" onConfirm={async () => { await run(() => del(`${P}/runs/${id}`), 'Draft deleted'); onBack(); }}>Delete draft</ConfirmButton>}
+                {canApprove && <ConfirmButton variant="primary" message={`Approve payroll for ${monthLabel(r.month)}? Teachers can then see their payslips, and the figures will be locked.`} onConfirm={act(() => post(`${P}/runs/${id}/approve`), 'Payroll approved')}>Approve</ConfirmButton>}</>}
+              {canEdit && r.status !== 'draft' && pending.length > 0 && <Button variant="primary" onClick={() => setPay({ ids: null })}>Mark all paid ({pending.length})</Button>}
             </div>
           </div>
           <div className="grid g4"><Stat value={r.totals.count} label="Payslips" sub={`${r.workingDays} working days`} /><Stat value={fmtMoney(r.totals.gross)} label="Gross" /><Stat value={fmtMoney(r.totals.deductions)} label="Deductions" tone="amber" /><Stat value={fmtMoney(r.totals.net)} label="Net payable" sub={`Paid ${fmtMoney(r.totals.paid)}`} tone="green" /></div>
+          {r.status === 'draft' && <div className="alert info">{canApprove ? 'Prepared by Finance. Review it, then approve: the figures are locked and Finance can record the payments.' : 'Waiting for the School Admin to approve this month. Until then you can still adjust payslips and recalculate.'}</div>}
           {r.skipped?.length > 0 && <div className="alert">Not included: {r.skipped.map((s) => `${s.name} (${s.reason})`).join(', ')}. {r.status === 'draft' && 'Set their salary, then Recalculate.'}</div>}
           <Card flush>
             <DataTable rows={payslips} empty="No payslips" columns={[
@@ -232,8 +251,8 @@ function RunDetail({ id, onBack }) {
               { label: 'Loss of pay', render: (p) => (p.lossOfPay ? fmtMoney(p.lossOfPay) : '—') }, { label: 'Deductions', render: (p) => fmtMoney(p.totalDeductions) }, { label: 'Net pay', render: (p) => <b>{fmtMoney(p.net)}</b> },
               { label: 'Status', render: (p) => <><Badge tone={tone(p.status)}>{label(p.status)}</Badge>{p.paidOn && p.status === 'paid' && <div className="muted">{fmtDate(p.paidOn, true)} · {label(p.mode)}</div>}{p.status === 'partial' && <div className="muted">{fmtMoney(p.paidAmount)} paid · {fmtMoney(p.net - p.paidAmount)} left</div>}</> },
               { label: '', render: (p) => <div className="row">
-                {r.status === 'draft' && <Button size="sm" onClick={() => setAdj(p)}>Adjust{p.adjustments?.length ? ` (${p.adjustments.length})` : ''}</Button>}
-                {r.status !== 'draft' && ['pending', 'partial'].includes(p.status) && <><Button size="sm" variant="primary" onClick={() => setPay({ ids: [p._id], name: p.personName, net: p.net - (p.paidAmount || 0) })}>{p.status === 'partial' ? 'Pay the rest' : 'Pay'}</Button><Button size="sm" onClick={() => setPart({ slip: p })}>Pay part</Button></>}
+                {canEdit && r.status === 'draft' && <Button size="sm" onClick={() => setAdj(p)}>Adjust{p.adjustments?.length ? ` (${p.adjustments.length})` : ''}</Button>}
+                {canEdit && r.status !== 'draft' && ['pending', 'partial'].includes(p.status) && <><Button size="sm" variant="primary" onClick={() => setPay({ ids: [p._id], name: p.personName, net: p.net - (p.paidAmount || 0) })}>{p.status === 'partial' ? 'Pay the rest' : 'Pay'}</Button><Button size="sm" onClick={() => setPart({ slip: p })}>Pay part</Button></>}
                 <Button size="sm" onClick={() => run(() => download(`${P}/payslips/${p._id}/pdf`, `payslip-${p.payslipNo}.pdf`))}>PDF</Button></div> },
             ]} />
           </Card>
@@ -253,6 +272,7 @@ function RunDetail({ id, onBack }) {
 }
 
 function AdjustModal({ slip, onClose, onSaved }) {
+  const { P } = usePay();
   const [rows, setRows] = useState((slip.adjustments || []).map((a) => ({ ...a, reason: a.reason || '' })));
   const [run, busy] = useAction();
   const set = (i, p) => setRows(rows.map((x, j) => (j === i ? { ...x, ...p } : x)));
@@ -282,6 +302,7 @@ function AdjustModal({ slip, onClose, onSaved }) {
 
 // ───────────── bank transfer file ─────────────
 function BankFileModal({ id, month, onClose }) {
+  const { P } = usePay();
   const f = useApi(`${P}/runs/${id}/bank-file`);
   const [run] = useAction();
   return (
@@ -300,6 +321,7 @@ function BankFileModal({ id, month, onClose }) {
 
 // ───────────── PF / ESI / Professional Tax ─────────────
 function StatutoryModal({ id, month, onClose }) {
+  const { P } = usePay();
   const q = useApi(`${P}/runs/${id}/statutory`);
   const [run] = useAction();
   return (

@@ -168,7 +168,7 @@ export default function App() {
 
         <Route path="/finance" element={<Guard roles={['finance']}><AppShell area="finance" /></Guard>}>
           <Route index element={<FinanceDashboard />} /><Route path="structures" element={<FeeStructures />} /><Route path="policy" element={<FeePolicy />} /><Route path="students" element={<StudentsDues />} /><Route path="students/:id" element={<StudentAccount />} /><Route path="payments" element={<Payments />} /><Route path="reports" element={<FinanceReports />} /><Route path="defaulters" element={<FinanceDefaulters />} />
-          <Route path="online" element={<OnlinePayments />} /><Route path="expenses" element={<Expenses />} /><Route path="budgets" element={<Budgets />} /><Route path="vendors" element={<Vendors />} /><Route path="profile" element={<TaxBankProfile />} /><Route path="school-info" element={<SchoolInfoPage base="/api/finance" />} /><Route path="helpdesk" element={askAtKaksha('/api/finance/tickets')} /><Route path="calendar" element={deskCalendar('/api/finance')} />
+          <Route path="online" element={<OnlinePayments />} /><Route path="payroll" element={<Payroll base="/api/finance/payroll" role="finance" />} /><Route path="expenses" element={<Expenses />} /><Route path="budgets" element={<Budgets />} /><Route path="vendors" element={<Vendors />} /><Route path="profile" element={<TaxBankProfile />} /><Route path="school-info" element={<SchoolInfoPage base="/api/finance" />} /><Route path="helpdesk" element={askAtKaksha('/api/finance/tickets')} /><Route path="calendar" element={deskCalendar('/api/finance')} />
         </Route>
 
         <Route path="/transport" element={<Guard roles={['transport']}><AppShell area="transport" /></Guard>}>
