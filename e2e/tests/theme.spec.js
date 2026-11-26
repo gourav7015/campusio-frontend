@@ -72,7 +72,7 @@ test.describe('light and dark theme', () => {
         await page.emulateMedia({ colorScheme: scheme });
         for (const path of ['/', '/student/login', '/privacy', '/terms', '/cookies', '/refunds', '/no-such-page']) {
           await page.goto(path); await page.waitForLoadState('networkidle'); await page.waitForTimeout(200);
-          await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null)))); // a page that is still fading in reads as low contrast
+          await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => null)))); // a page that is still fading in reads as low contrast; an animation that never ends (a looping glow) is not waited for
           const r = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
           for (const v of r.violations) for (const n of v.nodes) out.push({ scheme, path, target: n.target.join(' '), summary: (n.any[0]?.message || '').slice(0, 140) });
         }
@@ -91,7 +91,7 @@ test.describe('light and dark theme', () => {
             await page.waitForLoadState('networkidle');
             await page.waitForTimeout(300);
             expect(await theme(page)).toBe(scheme);
-            await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null)))); // a page that is still fading in reads as low contrast
+            await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => null)))); // a page that is still fading in reads as low contrast
           const r = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
             for (const v of r.violations) for (const n of v.nodes) out.push({ portal, scheme, path, target: n.target.join(' '), summary: (n.any[0]?.message || '').replace(/Element has insufficient color contrast of /, '').slice(0, 160) });
           }

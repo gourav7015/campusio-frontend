@@ -16,7 +16,7 @@ export default function ExamOverview({ onPickClass, view = 'summary' }) {
     <Async state={q}>{(d) => {
       const t = d.totals;
       if (!t.results) {
-        return <Card><Empty title="No results have been published yet">{t.examsScheduled ? `${t.examsScheduled} exam(s) are set up. School-wide statistics appear here once marks are approved and results are published.` : 'Create an examination under “Examinations & marks”. Statistics appear here once results are published.'}</Empty></Card>;
+        return <Card><Empty title="No results have been published yet">{t.examsScheduled ? `${t.examsScheduled} exam(s) are set up. School-wide statistics appear here once marks are approved and results are published.` : 'Create an examination under “Examinations and marks”. Statistics appear here once results are published.'}</Empty></Card>;
       }
       const weakest = [...d.subjects].sort((a, b) => a.average - b.average);
       return (

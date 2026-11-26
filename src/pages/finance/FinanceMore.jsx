@@ -261,14 +261,14 @@ export function SpendingReceipts({ readOnly }) {
   const d0 = list.data;
   return (
     <div className="stack">
-      <PageHeader title="Receipts of spending" subtitle="Every payment the school has made, with its voucher number. Narrow it by date, vendor, department, type or how it was paid, and print any voucher."
-        actions={<Button onClick={() => run(() => download(`${base}/export/expense-receipts.csv`, 'spending-receipts.csv', query))}>Export CSV</Button>} />
+      <PageHeader title="Payment vouchers" subtitle="Every payment the school has made, with its voucher number. Narrow it by date, vendor, department, type or how it was paid, and print any voucher."
+        actions={<Button onClick={() => run(() => download(`${base}/export/expense-receipts.csv`, 'payment-vouchers.csv', query))}>Export CSV</Button>} />
       <div className="grid g4">
-        <Stat value={fmtMoney(d0?.totals.amount)} label="Paid out" sub={on ? 'In this view' : 'In all'} tone="green" /><Stat value={d0?.totals.count ?? '—'} label="Receipts" />
+        <Stat value={fmtMoney(d0?.totals.amount)} label="Paid out" sub={on ? 'In this view' : 'In all'} tone="green" /><Stat value={d0?.totals.count ?? '—'} label="Vouchers" />
         <Stat value={fmtMoney(d0?.totals.revenue)} label="Running costs" tone="blue" /><Stat value={fmtMoney(d0?.totals.capital)} label="Assets bought" tone="amber" />
       </div>
       <ListCard>
-        <FilterBar search={f.q} onSearch={(v) => set({ q: v })} searchLabel="Search receipts" placeholder="Search voucher, reference, bill or vendor">
+        <FilterBar search={f.q} onSearch={(v) => set({ q: v })} searchLabel="Search vouchers" placeholder="Search voucher, reference, bill or vendor">
           <Select aria-label="Vendor" value={f.vendorId} onChange={(e) => set({ vendorId: e.target.value })} placeholder="All vendors" options={(vend.data?.items || []).map((v) => ({ value: v._id, label: v.name }))} />
           <Select aria-label="Department" value={f.department} onChange={(e) => set({ department: e.target.value })} placeholder="All departments" options={d0?.departments || []} />
           <Select aria-label="Type of spending" value={f.nature} onChange={(e) => set({ nature: e.target.value })} placeholder="Running and assets" options={NATURE.map((n) => ({ value: n.value, label: natureName[n.value] }))} />
@@ -278,7 +278,7 @@ export function SpendingReceipts({ readOnly }) {
         </FilterBar>
         {on && <div className="flex justify-end border-b border-border/70 px-4 py-2 text-[13.5px]"><button type="button" className="rounded-md font-medium text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setF({ q: '', vendorId: '', department: '', mode: '', nature: '', period: 'all', from: '', to: '', page: 1 })}>Clear filters</button></div>}
         <Async state={list}>{(d) => (<>
-          <DataTable rows={d.items.map((x) => ({ ...x, key: `${x.expenseId}-${x.paymentId}-${x.index}` }))} rowKey="key" empty="No receipts match" columns={[
+          <DataTable rows={d.items.map((x) => ({ ...x, key: `${x.expenseId}-${x.paymentId}-${x.index}` }))} rowKey="key" empty="No vouchers match" columns={[
             { label: 'Voucher', render: (x) => <b>{x.voucherNo || '—'}</b> }, { label: 'Date paid', render: (x) => <span className="whitespace-nowrap">{fmtDate(x.paidOn, true)}</span> },
             { label: 'Paid to', render: (x) => x.vendor || <span className="muted">—</span> },
             { label: 'For', render: (x) => <>{x.title}{x.billNo && <div className="small muted">Bill {x.billNo}</div>}</> },
@@ -287,7 +287,7 @@ export function SpendingReceipts({ readOnly }) {
             { label: 'Amount', right: true, render: (x) => <b>{fmtMoney(x.amount)}</b> },
             { label: '', render: (x) => <Button size="sm" onClick={() => run(() => download(`${base}/expenses/${x.expenseId}/payments/${x.paymentId}/voucher.pdf`, `voucher-${x.voucherNo || 'older'}.pdf`))}>Voucher</Button> },
           ]} />
-          <ListFooter total={d.total} noun="receipt" page={f.page} pageSize={25} onPage={(p) => setF({ ...f, page: p })} /></>)}</Async>
+          <ListFooter total={d.total} noun="voucher" page={f.page} pageSize={25} onPage={(p) => setF({ ...f, page: p })} /></>)}</Async>
       </ListCard>
     </div>
   );
@@ -300,7 +300,7 @@ export function VendorsHub({ readOnly }) {
   const go = (t) => setSp((p) => { const n = new URLSearchParams(p); if (t === 'list') n.delete('sub'); else n.set('sub', t); return n; }, { replace: true });
   return (
     <div className="stack">
-      <Tabs tabs={[['list', 'Vendors'], ['payments', 'Payments']]} value={sub} onChange={go} />
+      <Tabs tabs={[['list', 'Vendors'], ['payments', 'Payments made']]} value={sub} onChange={go} />
       {sub === 'list' ? <Vendors readOnly={readOnly} /> : <VendorPayments readOnly={readOnly} />}
     </div>
   );

@@ -4,7 +4,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, patch, del, download } from '../../api/client.js';
 import { Download } from 'lucide-react';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, statusTone, fmtDate, dayName, label } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useToast, statusTone, fmtDate, dayName, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import RegisterEditor from '../../components/Register.jsx';
 
@@ -22,7 +22,7 @@ export function Timetable() {
   const unresolved = useApi('/api/school/timetable/unresolved');
   const subs = useApi('/api/school/substitutions');
   const [modal, setModal] = useState(null); const [save2, setSave2] = useState(false);
-  const [run] = useAction();
+  const [run] = useAction(); const toast = useToast();
   const section = L.sections.find((s) => s._id === sid);
   const lessons = (periods.data || []).filter((p) => p.type === 'lesson');
   const byKey = useMemo(() => new Map((entries.data || []).map((e) => [`${e.day}-${e.periodId}`, e])), [entries.data]);
@@ -30,7 +30,7 @@ export function Timetable() {
   const reloadAll = () => { entries.reload(); unresolved.reload(); };
   const save = async (v) => {
     const r = await post('/api/school/timetable/entries', { sectionId: sid, day: modal.day, periodId: modal.periodId, assignmentId: v.assignmentId, room: v.room });
-    reloadAll(); return r.warnings?.length ? alert(r.warnings.join('\n')) || true : true;
+    reloadAll(); if (r.warnings?.length) toast(r.warnings.join(' '), 'error'); return true;
   };
   return (
     <div className="stack">
@@ -55,7 +55,7 @@ export function Timetable() {
           { label: '', render: (s) => <ConfirmButton size="sm" message="Remove this substitution?" onConfirm={async () => { await run(() => del(`/api/school/substitutions/${s._id}`), 'Removed'); subs.reload(); }}>Remove</ConfirmButton> }]} />}</Async></Card></div>)}
       {modal?.periodId && <FormModal title={`${dayName(modal.day)} · ${(periods.data || []).find((p) => p._id === modal.periodId)?.name}${section ? ` · ${L.sectionName(sid)}` : ''}`}
         initial={{ assignmentId: modal.entry?.assignmentId, room: modal.entry?.room }} submitLabel="Save period"
-        fields={[{ name: 'assignmentId', label: 'Subject & teacher', type: 'select', required: true, options: (asg.data || []).map((a) => ({ value: a._id, label: `${a.subjectId?.name} — ${a.teacherId?.name}` })) }, { name: 'room', label: 'Room', hint: 'Defaults to the section room' }]}
+        fields={[{ name: 'assignmentId', label: 'Subject and teacher', type: 'select', required: true, options: (asg.data || []).map((a) => ({ value: a._id, label: `${a.subjectId?.name} — ${a.teacherId?.name}` })) }, { name: 'room', label: 'Room', hint: 'Defaults to the section room' }]}
         onClose={() => setModal(null)} onSubmit={save}>
         {modal.entry && <div style={{ marginTop: 12 }}><ConfirmButton variant="danger" size="sm" message="Remove this period?" onConfirm={async () => { await run(() => del(`/api/school/timetable/entries/${modal.entry._id}`), 'Removed'); setModal(null); reloadAll(); }}>Remove period</ConfirmButton></div>}</FormModal>}
       {modal?.sub && <SubstituteModal L={L} onClose={() => setModal(null)} onDone={() => { setModal(null); subs.reload(); }} />}
@@ -132,7 +132,7 @@ export function RegisterModal({ sectionId, title, date, onClose }) {
   );
 }
 
-// ───────────── Homework & materials (read + moderation) ─────────────
+// ───────────── Homework and materials (read + moderation) ─────────────
 export function Learning() {
   const [tab, setTab] = useState('homework');
   const hw = useApi('/api/school/homework');
@@ -140,7 +140,7 @@ export function Learning() {
   const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Homework & study materials" subtitle="Teachers publish these for their own classes. You can review, edit or archive anything." />
+      <PageHeader title="Homework and study materials" subtitle="Teachers publish these for their own classes. You can review, edit or archive anything." />
       <Tabs tabs={[['homework', 'Homework'], ['materials', 'Study materials']]} value={tab} onChange={setTab} />
       {tab === 'homework' ? <Card flush><Async state={hw} empty={<div className="empty">No homework yet</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Teacher', key: 'teacher' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{label(h.effectiveStatus)}</Badge> },
         { label: '', render: (h) => h.effectiveStatus !== 'archived' && <ConfirmButton size="sm" message="Archive this homework?" onConfirm={async () => { await run(() => post(`/api/school/homework/${h._id}/archive`), 'Archived'); hw.reload(); }}>Archive</ConfirmButton> }]} />}</Async></Card>

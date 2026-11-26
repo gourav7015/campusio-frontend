@@ -20,7 +20,7 @@ export function AdminFees() {
   const tab = sp.get('tab') || 'overview';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students & dues'], ['payments', 'Payments'], ['defaulters', 'Defaulters'], ['reports', 'Reports'], ['expenses', 'Expenditure'], ['vendors', 'Vendors'], ['spending-receipts', 'Spending receipts'], ['budgets', 'Budgets']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      <Tabs tabs={[['overview', 'Overview'], ['structures', 'Fee structures'], ['policy', 'Fee policy'], ['students', 'Students and dues'], ['payments', 'Payments and receipts'], ['defaulters', 'Defaulters'], ['reports', 'Reports'], ['expenses', 'Expenditure'], ['vendors', 'Vendors'], ['spending-receipts', 'Payment vouchers'], ['budgets', 'Budgets']]} value={tab} onChange={(t) => setSp({ tab: t })} />
       {tab === 'overview' && <FinanceDashboard readOnly />}{tab === 'structures' && <FeeStructures readOnly />}{tab === 'policy' && <FeePolicy readOnly />}{tab === 'students' && <StudentsDues readOnly />}{tab === 'payments' && <Payments readOnly />}{tab === 'expenses' && <Expenses readOnly />}{tab === 'budgets' && <Budgets readOnly />}{tab === 'vendors' && <VendorsHub readOnly />}{tab === 'spending-receipts' && <SpendingReceipts readOnly />}{tab === 'defaulters' && <FinanceDefaulters readOnly />}{tab === 'reports' && <FinanceReports readOnly />}
     </div>
   );
@@ -31,7 +31,7 @@ export function AdminLibrary() {
   const tab = sp.get('tab') || 'overview';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['books', 'Catalogue'], ['loans', 'Loans and Overdue'], ['classes', 'By class']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      <Tabs tabs={[['overview', 'Overview'], ['books', 'Catalogue'], ['loans', 'Loans and overdue'], ['classes', 'By class']]} value={tab} onChange={(t) => setSp({ tab: t })} />
       {tab === 'overview' && <LibraryDashboard readOnly />}{tab === 'books' && <Books readOnly />}{tab === 'loans' && <Loans readOnly />}{tab === 'classes' && <ClassBorrowers base="/api/school/library" />}
     </div>
   );
@@ -44,13 +44,13 @@ export function AdminTransport() {
   const base = '/api/school/transport';
   return (
     <div className="stack">
-      <Tabs tabs={[['overview', 'Overview'], ['buses', 'Buses & riders'], ['staff', 'Drivers & staff'], ['attendance', 'Staff attendance'], ['leave', 'Staff leave']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+      <Tabs tabs={[['overview', 'Overview'], ['buses', 'Buses and riders'], ['staff', 'Drivers and staff'], ['attendance', 'Staff attendance'], ['leave', 'Staff leave']]} value={tab} onChange={(t) => setSp({ tab: t })} />
       {tab === 'overview' && <TransportDashboard base={base} />}{tab === 'buses' && <Buses base={base} readOnly />}{tab === 'staff' && <TransportStaff base={base} readOnly />}{tab === 'attendance' && <TransportAttendance base={base} readOnly />}{tab === 'leave' && <TransportLeave base={base} readOnly />}
     </div>
   );
 }
 
-const DESKS = [{ value: 'finance', label: 'Finance (fees & receipts)' }, { value: 'library', label: 'Library (books & loans)' }, { value: 'transport', label: 'Transport (buses, drivers & riders)' }, { value: 'staff', label: 'Office desk (Staff portal: attendance, leave, employee list, teachers\' queries)' }];
+const DESKS = [{ value: 'finance', label: 'Finance (fees and receipts)' }, { value: 'library', label: 'Library (books and loans)' }, { value: 'transport', label: 'Transport (buses, drivers and riders)' }, { value: 'staff', label: 'Office desk (Staff portal: attendance, leave, employee list, teachers\' queries)' }];
 
 /** A new desk login: choose the desk, and (if you like) the employee who works it. Its login id is made for it and shown before anything is saved. */
 function AddLoginModal({ onClose, onCreated, initialRole = '' }) {

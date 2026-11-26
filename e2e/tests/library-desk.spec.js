@@ -5,7 +5,7 @@ test('the library desk suggests books while typing (issue and return), finds bor
   const problems = watch(page);
   await signIn(page, 'library', 'library@gps.test', 'Library@12345');
   await page.goto('/library/desk');
-  await expect(page.getByRole('heading', { name: 'Issue and Return' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Issue and return' })).toBeVisible();
 
   // the book box works before anyone is chosen
   await page.getByLabel('Accession number, title or author').fill('malgudi');
@@ -17,7 +17,7 @@ test('the library desk suggests books while typing (issue and return), finds bor
   await expect(page.getByLabel('Class')).toBeVisible();
   await expect(page.getByLabel('Section')).toBeVisible();
   await page.getByLabel('Show').selectOption('canBorrow');
-  const first = page.locator('button.period').first();
+  const first = page.getByRole('list', { name: 'Borrowers' }).getByRole('button').first();
   await expect(first).toBeVisible();
   await first.click();
   await expect(page.getByText(/books out/)).toBeVisible();

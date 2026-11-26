@@ -47,7 +47,7 @@ export function Schools() {
   const [creds, setCreds] = useState(null);
   return (
     <div className="stack">
-      <PageHeader title="Schools" subtitle="Create schools, their administrators and subscriptions" actions={<Button variant="primary" onClick={() => setShow(true)}>+ New school</Button>} />
+      <PageHeader title="Schools" subtitle="Create schools, their administrators and subscriptions" actions={<Button variant="primary" onClick={() => setShow(true)}>+ Add school</Button>} />
       <ListCard>
         <FilterBar search={q} onSearch={setQ} searchLabel="Search schools" placeholder="Search by name or code" />
         <Async state={schools} empty={<div className="empty">No schools found</div>}>{(rows) => (

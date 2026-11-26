@@ -7,12 +7,12 @@ const call = (token, method, path, body) => fetch(`${API}${path}`, { method, hea
 
 test.describe.configure({ mode: 'serial' });
 
-test('Classes & sections no longer has an Attendance tab; attendance is one page under Administration', async ({ page }) => {
+test('Classes and sections no longer has an Attendance tab; attendance is one page under Administration', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/classes');
-  for (const t of ['Classes & sections', 'Homework by day']) await expect(page.getByRole('tab', { name: t, exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Subjects & teachers', exact: true })).toHaveCount(0); // they have their own page under Academics
+  for (const t of ['Classes and sections', 'Homework by day']) await expect(page.getByRole('tab', { name: t, exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Subjects and teachers', exact: true })).toHaveCount(0); // they have their own page under Academics
   await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toHaveCount(0);
   await page.goto('/admin/classes?tab=attendance'); // old links still work
   await expect(page).toHaveURL(/\/admin\/attendance/);

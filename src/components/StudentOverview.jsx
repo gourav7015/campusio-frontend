@@ -68,7 +68,7 @@ export function FeesPanel({ studentId }) {
         <div className="grid g4"><Stat value={fmtMoney(x.totals.assigned)} label="Billed" /><Stat value={fmtMoney(x.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(x.totals.pending)} label="Pending" tone="amber" /><Stat value={fmtMoney(x.totals.overdue)} label="Overdue" tone={x.totals.overdue ? 'red' : 'green'} /></div>
         <FeeSchedule installments={x.installments} charges={x.charges.map((c) => ({ id: c._id, label: c.label, kind: c.kind, dueDate: c.dueDate, period: c.period, amount: c.amount, concession: c.concession, paid: c.paidAmount, outstanding: c.outstanding, status: c.status, overdue: c.overdue, notes: c.concessions?.map((k) => `Concession ${fmtMoney(k.amount)} — ${k.reason}`) }))}
           payments={x.payments.map((p) => ({ id: p._id, receiptNo: p.receiptNo, kind: p.kind, status: p.status, paidOn: p.paidOn, chargeIds: p.allocations.map((al) => String(al.chargeId)) }))} onReceipt={receipt} />
-        <Card title="Payments & receipts" flush><DataTable rows={x.payments} empty="No payments yet" columns={[
+        <Card title="Payments and receipts" flush><DataTable rows={x.payments} empty="No payments yet" columns={[
           { label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) },
           { label: 'Type', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : <Badge tone="green">Payment</Badge>) },
           { label: 'Amount', render: (p) => fmtMoney(p.amount) }, { label: 'Mode', render: (p) => label(p.mode) }, { label: 'For', render: (p) => p.allocations.map((al) => al.label).join(', ') },
@@ -92,7 +92,7 @@ export function BusCard({ bus }) {
     <div className="grid g2">
       <Card title={`Bus ${bus.busNo}`}><dl className="kv"><dt>Route</dt><dd>{bus.routeName || '—'}</dd><dt>Registration</dt><dd>{bus.registrationNo || '—'}</dd><dt>Boarding stop</dt><dd><b>{bus.stop || '—'}</b></dd>
         <dt>Pick-up time</dt><dd>{bus.pickupTime || '—'}</dd><dt>Drop time</dt><dd>{bus.dropTime || '—'}</dd><dt>Since</dt><dd>{fmtDate(bus.since, true)}</dd></dl></Card>
-      <Card title="Driver & conductor"><dl className="kv"><dt>Driver</dt><dd><b>{bus.driver?.name || '—'}</b></dd><dt>Driver phone</dt><dd>{bus.driver?.phone || '—'}</dd><dt>Conductor</dt><dd><b>{bus.conductor?.name || '—'}</b></dd><dt>Conductor phone</dt><dd>{bus.conductor?.phone || '—'}</dd></dl></Card>
+      <Card title="Driver and conductor"><dl className="kv"><dt>Driver</dt><dd><b>{bus.driver?.name || '—'}</b></dd><dt>Driver phone</dt><dd>{bus.driver?.phone || '—'}</dd><dt>Conductor</dt><dd><b>{bus.conductor?.name || '—'}</b></dd><dt>Conductor phone</dt><dd>{bus.conductor?.phone || '—'}</dd></dl></Card>
       {bus.stops?.length > 0 && <Card title="Route stops" flush><DataTable rows={bus.stops} rowKey="name" columns={[{ label: 'Stop', render: (s) => <b>{s.name}</b> }, { label: 'Pick-up', key: 'pickupTime' }, { label: 'Drop', key: 'dropTime' }]} /></Card>}
     </div>
   );

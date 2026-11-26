@@ -33,11 +33,11 @@ test('the Buses page can be narrowed, opens already narrowed from the dashboard 
     await expect(page.getByRole('dialog')).toHaveCount(0);
   };
   await setStatus('maintenance');
-  await page.getByRole('navigation').first().getByRole('link', { name: 'Dashboard' }).click();
+  await page.getByRole('navigation').first().getByRole('link', { name: 'Home', exact: true }).click();
   await expect(page.getByText(/in maintenance/).first()).toBeVisible();
   await page.getByRole('navigation').first().getByRole('link', { name: 'Buses' }).click();
   await setStatus('active');
-  await page.getByRole('navigation').first().getByRole('link', { name: 'Dashboard' }).click();
+  await page.getByRole('navigation').first().getByRole('link', { name: 'Home', exact: true }).click();
   await expect(page.getByText(/in maintenance/)).toHaveCount(0);
   expect(problems.filter((p) => !/HTTP 4\d\d/.test(p))).toEqual([]);
 });

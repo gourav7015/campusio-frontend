@@ -7,7 +7,7 @@ import { Avatar, Badge, Button, DropdownMenu, DropdownMenuContent, DropdownMenuI
 import { cn } from '../../design/lib/cn';
 
 /**
- * One class of the "Subjects & teachers" page: a header that opens into a section switcher and a quiet list of subjects.
+ * One class of the "Subjects and teachers" page: a header that opens into a section switcher and a quiet list of subjects.
  * Tap a subject to choose its teacher in a small picker (search, "use for all sections", remove). A second view shows every section at once.
  */
 

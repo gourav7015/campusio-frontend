@@ -32,7 +32,7 @@ function File() {
           <PageHeader title={st.name} subtitle={`Admission no ${st.admissionNo} · ${active ? `${active.className} ${active.section}, roll ${active.rollNo}` : 'No active enrolment'}`}
             actions={<Link className="btn primary" to={`/teacher/students/${id}`}>Remarks, contact details and message the family</Link>} />
           <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
-          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams and marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history']]} value={tab} onChange={(t) => setSp({ tab: t })} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
             tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel studentId={id} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
           {tab === 'profile' && (

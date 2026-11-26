@@ -46,11 +46,11 @@ function SectionPanel({ cls, section, current, choices, yearId, defaultCapacity,
   return createPortal(
     <>
       <button type="button" aria-label="Close panel" onClick={onClose} className="fixed inset-0 z-[55] bg-navy/30 lg:hidden" />
-      <m.aside initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }} role="dialog" aria-label={isNew ? `New section in ${cls.name}` : `Edit ${cls.name} section ${section.name}`}
+      <m.aside initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }} role="dialog" aria-label={isNew ? `Add section in ${cls.name}` : `Edit ${cls.name} section ${section.name}`}
         className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-[420px] flex-col border-l border-border bg-card shadow-lg">
         <form onSubmit={save} className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
-            <div><h2 className="text-lg font-semibold tracking-tight">{isNew ? `New section in ${cls.name}` : `${cls.name} · Section ${section.name}`}</h2><p className="text-[13px] text-muted-foreground">{isNew ? 'It appears on the page straight away.' : `${plural(section.studentCount, 'student', 'students')} in this section`}</p></div>
+            <div><h2 className="text-lg font-semibold tracking-tight">{isNew ? `Add section in ${cls.name}` : `${cls.name} · Section ${section.name}`}</h2><p className="text-[13px] text-muted-foreground">{isNew ? 'It appears on the page straight away.' : `${plural(section.studentCount, 'student', 'students')} in this section`}</p></div>
             <Button type="button" variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X /></Button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
@@ -160,7 +160,7 @@ export function ClassBoard() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Classes & sections" description={`${plural(active.length, 'section', 'sections')} across ${plural(classes.filter((c) => c.status === 'active').length, 'class', 'classes')} · academic year ${L.currentYear?.name || 'not set yet'}`}
+      <PageHeader title="Classes and sections" description={`${plural(active.length, 'section', 'sections')} across ${plural(classes.filter((c) => c.status === 'active').length, 'class', 'classes')} · academic year ${L.currentYear?.name || 'not set yet'}`}
         actions={<><Button onClick={() => setModal(true)} disabled={!available.length}>+ Class</Button><Button variant="primary" onClick={() => cur && setPanel({ isNew: true })} disabled={!cur || !yid}>+ Section</Button></>} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -185,7 +185,7 @@ export function ClassBoard() {
             <nav aria-label="Classes" className="max-h-72 overflow-y-auto rounded-2xl border border-border bg-card p-2.5 shadow-sm lg:sticky lg:top-20 lg:max-h-[calc(100dvh-9rem)]">
               {STAGES.map((sg) => { const cs = visible.filter((c) => stageOf(c.name) === sg); return cs.length ? (
                 <div key={sg}>
-                  <h3 className="px-2.5 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-subtle">{sg}</h3>
+                  <h3 className="px-2.5 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{sg}</h3>
                   {cs.map((c) => { const ss = secsOf(c), t = ss.reduce((a, s) => a + s.studentCount, 0), cp = ss.reduce((a, s) => a + s.capacity, 0), pc = cp ? Math.round((t / cp) * 100) : 0; const on = cur && c._id === cur._id; return (
                     <button key={c._id} type="button" onClick={() => setSel(c._id)} aria-current={on ? 'true' : undefined} className={cn('block w-full rounded-xl px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', on ? 'bg-tone-soft' : 'hover:bg-muted')}>
                       <span className="flex items-center justify-between gap-2"><span className={cn('font-medium', on && 'text-tone-ink')}>{c.name}</span>{c.status === 'archived' ? <Badge>Archived</Badge> : <span className="text-[12.5px] tabular-nums text-muted-foreground">{plural(ss.length, 'section', 'sections')}</span>}</span>
@@ -220,7 +220,7 @@ export function ClassBoard() {
                   {secs.map((s) => <SectionCard key={s._id} s={s} archived={s.status === 'archived'} teacher={teacherOf.get(String(s._id))} onEdit={() => setPanel({ sectionId: s._id })} onAssign={() => setPanel({ sectionId: s._id })} onArchive={() => archiveSection(cur, s)} onDelete={() => deleteSection(cur, s)} />)}
                   {cur.status === 'active' && (
                     <button type="button" onClick={() => setPanel({ isNew: true })} className="grid min-h-[150px] place-items-center gap-1 rounded-2xl border-[1.5px] border-dashed border-border-strong p-4 text-center text-muted-foreground transition-colors hover:border-primary hover:bg-primary-soft hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <Plus className="mx-auto size-6" aria-hidden /><span className="font-medium">{secs.length ? `Add section ${nextLetter}` : 'Add the first section'}</span><span className="text-[12.5px] text-subtle">Capacity {secs[secs.length - 1]?.capacity || 40} by default</span>
+                      <Plus className="mx-auto size-6" aria-hidden /><span className="font-medium">{secs.length ? `Add section ${nextLetter}` : 'Add the first section'}</span><span className="text-[12.5px] text-muted-foreground">Capacity {secs[secs.length - 1]?.capacity || 40} by default</span>
                     </button>
                   )}
                 </div>

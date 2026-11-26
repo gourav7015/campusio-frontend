@@ -34,7 +34,7 @@ function PayrollPage() {
   const sum = useApi(`${P}/summary`);
   return (
     <div className="stack">
-      <PageHeader title="Payroll & salaries" subtitle={canEdit ? "Each month's payroll prepares itself on the payroll day. Check what each person will get, adjust it, approve the amounts, then record the payments. Unpaid leave and days marked absent in the staff attendance registers are deducted automatically." : "Run by the Finance department. You can see every salary, the month's payroll and what has been paid, but cannot change anything here."} />
+      <PageHeader title="Payroll and salaries" subtitle={canEdit ? "Each month's payroll prepares itself on the payroll day. Check what each person will get, adjust it, approve the amounts, then record the payments. Unpaid leave and days marked absent in the staff attendance registers are deducted automatically." : "Run by the Finance department. You can see every salary, the month's payroll and what has been paid, but cannot change anything here."} />
       <Async state={sum}>{(s) => (
         <div className="grid g4">
           <Stat value={fmtMoney(s.monthlyNet)} label="Monthly salary bill (net)" sub={`Gross ${fmtMoney(s.monthlyGross)}`} tone="blue" />
@@ -90,7 +90,7 @@ function Levels() {
   const [run] = useAction();
   return (
     <>
-      <Card title="Pay levels" action={canEdit ? <Button variant="primary" size="sm" onClick={() => setEdit({})}>+ New level</Button> : undefined} flush>
+      <Card title="Pay levels" action={canEdit ? <Button variant="primary" size="sm" onClick={() => setEdit({})}>+ Add pay level</Button> : undefined} flush>
         <Async state={list} empty={<div className="empty">No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal.</div>}>{(rows) => (
           <DataTable rows={rows} empty="No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal." columns={[
             { label: 'Level', render: (l) => <><b>{l.name}</b>{l.status === 'archived' && <> <Badge>archived</Badge></>}<div className="muted">{l.description}</div></> },
@@ -122,7 +122,7 @@ function LevelModal({ level, onClose, onSaved }) {
         <div className="form-grid">
           <Field label="Level name"><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="PRT, TGT, PGT, Vice Principal…" /></Field>
           <Field label="Basic salary per month (₹)"><Input type="number" min="0" value={f.basic} onChange={(e) => setF({ ...f, basic: e.target.value })} /></Field>
-          <Field label="This level is for" hint={level ? 'A level keeps the group it was created for' : undefined}><Select disabled={!!level} value={f.appliesTo} onChange={(e) => setF({ ...f, appliesTo: e.target.value })} options={[{ value: 'teaching', label: 'Teachers' }, { value: 'non_teaching', label: 'Non-teaching & transport staff' }]} /></Field>
+          <Field label="This level is for" hint={level ? 'A level keeps the group it was created for' : undefined}><Select disabled={!!level} value={f.appliesTo} onChange={(e) => setF({ ...f, appliesTo: e.target.value })} options={[{ value: 'teaching', label: 'Teachers' }, { value: 'non_teaching', label: 'Non-teaching and transport staff' }]} /></Field>
           <Field label="Description" full><Input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Primary Teacher, classes 1-5" /></Field>
         </div>
         <PayItems title="Allowances" basic={f.basic} items={f.allowances} onChange={(allowances) => setF({ ...f, allowances })} />

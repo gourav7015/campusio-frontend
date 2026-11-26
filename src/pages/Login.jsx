@@ -11,7 +11,7 @@ import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 
 /** One sign-in page per role. The server also refuses a login that comes through the wrong portal. */
 export const PORTALS = {
-  student: { title: 'Student & Parent', icon: GraduationCap, role: 'student', home: '/student', blurb: 'One login for the student and the family: timetable, homework, attendance, results, fees and messages to teachers', hint: 'Parents sign in with the student\'s login id. It is on the slip from the school office.' },
+  student: { title: 'Student and parent', icon: GraduationCap, role: 'student', home: '/student', blurb: 'One login for the student and the family: timetable, homework, attendance, results, fees and messages to teachers', hint: 'Parents sign in with the student\'s login id. It is on the slip from the school office.' },
   teacher: { title: 'Teacher', icon: Presentation, role: 'teacher', home: '/teacher', blurb: 'Classes, attendance, homework, marks and leave', hint: 'Use the login id given by the school administrator.' },
   finance: { title: 'Finance', icon: IndianRupee, role: 'finance', home: '/finance', blurb: 'Fee structures, collections, receipts and dues', hint: 'For accounts staff of the school.' },
   library: { title: 'Library', icon: BookMarked, role: 'library', home: '/library', blurb: 'Catalogue, issue and return, fines', hint: 'For the school librarian.' },

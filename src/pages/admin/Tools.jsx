@@ -169,7 +169,7 @@ export function Reports() {
   const merged = useMemo(() => (rep.data ? rep.data.strength.map((s, i) => ({ name: `${s.className?.replace('Class ', '')}-${s.section}`, students: s.students, attendance: rep.data.attendance[i]?.percentage })) : []), [rep.data]);
   return (
     <div className="stack">
-      <PageHeader title="Reports & exports" subtitle="Take any list out of the school as a spreadsheet, narrowed to the class, people and dates you need. Exports contain exactly what you are allowed to see on screen." />
+      <PageHeader title="Reports and exports" subtitle="Take any list out of the school as a spreadsheet, narrowed to the class, people and dates you need. Exports contain exactly what you are allowed to see on screen." />
       <ExportCentre />
       <Async state={rep}>{(r) => (<>
         <div className="grid g2">
@@ -275,7 +275,7 @@ function StaffPolicies({ data, set }) {
   const num = (v) => (v === '' ? '' : Number(v));
   return (
     <div className="grid g2">
-      <Card title="Staff working hours & check-in"><div className="stack">
+      <Card title="Staff working hours and check-in"><div className="stack">
         <div className="form-grid">
           <Field label="Shift starts"><Input type="time" value={sa.shiftStart} onChange={(e) => setSa({ shiftStart: e.target.value })} /></Field>
           <Field label="Shift ends"><Input type="time" value={sa.shiftEnd} onChange={(e) => setSa({ shiftEnd: e.target.value })} /></Field>

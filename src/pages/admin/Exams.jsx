@@ -20,7 +20,7 @@ export function Exams() {
   const setTab = (t) => setSp(t === 'analysis' ? {} : { tab: t });
   return (
     <div className="stack">
-      <Tabs tabs={[['analysis', 'Class analysis'], ['list', 'Examinations & marks']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['analysis', 'Class analysis'], ['list', 'Examinations and marks']]} value={tab} onChange={setTab} />
       {tab === 'analysis' ? <ClassAnalysis /> : <ExamList />}
     </div>
   );
@@ -78,13 +78,13 @@ function ExamList() {
     <div className="stack">
       <PageHeader title="Examinations" subtitle="The standard examinations of the year, each with a date sheet for every class. Then review teachers' marks and publish results." actions={<>
         {STANDARD_EXAMS.some((n) => !(list.data || []).some((e) => e.name === n)) && <Button loading={busy} onClick={async () => { await run(() => post('/api/school/exams/standard'), (r) => `${r.created} examination(s) added`); list.reload(); }}>Add the standard exams</Button>}
-        <Button variant="primary" onClick={() => setModal(true)}>+ New examination</Button></>} />
+        <Button variant="primary" onClick={() => setModal(true)}>+ Add examination</Button></>} />
       <Card flush><Async state={list} empty={<Empty title="No examinations yet">Use “Add the standard exams” for Unit Test 1 to 4, Half-Yearly and the Final Exam, then fill each class's date sheet.</Empty>}>{(rows) => <DataTable rows={rows} onRowClick={(e) => nav(`/admin/exams/${e._id}`)} columns={[
         { label: 'Examination', render: (e) => <><b>{e.name}</b> <Badge>{label(e.type)}</Badge>{e.createdByName && <div className="small muted">Added by {e.createdByName}</div>}</> }, { label: 'Classes', render: (e) => e.classNames.join(', ') }, { label: 'Dates', render: (e) => (e.startDate ? `${fmtDate(e.startDate)} – ${fmtDate(e.endDate)}` : '—') }, { label: 'Subjects', key: 'subjectCount' },
         { label: 'Schedule', render: (e) => <Badge tone={e.schedulePublished ? 'green' : 'amber'}>{e.schedulePublished ? 'Published' : 'Draft'}</Badge> },
         { label: 'Marks', render: (e) => Object.entries(e.sheetStatus).map(([k, v]) => <Badge key={k} tone={statusTone(k)}>{v} {label(k)}</Badge>) },
       ]} />}</Async></Card>
-      {modal && <FormModal wide title="New examination" fields={[{ name: 'name', label: 'Name', required: true, placeholder: 'Unit Test 2' }, { name: 'type', label: 'Type', type: 'select', options: EXAM_TYPES, default: 'unit_test', required: true },
+      {modal && <FormModal wide title="Add examination" fields={[{ name: 'name', label: 'Name', required: true, placeholder: 'Unit Test 2' }, { name: 'type', label: 'Type', type: 'select', options: EXAM_TYPES, default: 'unit_test', required: true },
         { name: 'classIds', label: 'Classes', type: 'multi', options: L.classOptions, required: true, allLabel: 'All classes', hint: 'Choose one class, several, or every class for a school-wide exam' }, { name: 'startDate', label: 'Starts', type: 'date' }, { name: 'endDate', label: 'Ends', type: 'date' }, { name: 'marksDeadline', label: 'Marks entry deadline', type: 'date' }]}
         onClose={() => setModal(false)} onSubmit={async (v) => { const e = await post('/api/school/exams', v); nav(`/admin/exams/${e._id}`); return true; }} />}
     </div>
@@ -109,7 +109,7 @@ export function ExamDetail() {
         <PageHeader title={e.name} subtitle={`${e.status} · marks deadline ${fmtDate(e.marksDeadline, true)}`} actions={<>
           <Button variant="primary" onClick={async () => { await run(() => post(`/api/school/exams/${id}/publish-schedule`), 'Schedule published to students'); ex.reload(); }} disabled={!e.subjects.length}>{e.schedulePublished ? 'Re-notify schedule' : 'Publish schedule'}</Button>
           <ConfirmButton variant="danger" message="Delete this examination? Only possible before marks entry." onConfirm={async () => { const ok = await run(() => del(`/api/school/exams/${id}`), 'Deleted'); if (ok) nav('/admin/exams'); }}>Delete</ConfirmButton></>} />
-        <Tabs tabs={[['datesheet', 'Date sheet'], ['subjects', 'All papers'], ['marks', 'Marks review & publish'], ['results', 'Published results']]} value={tab} onChange={setTab} />
+        <Tabs tabs={[['datesheet', 'Date sheet'], ['subjects', 'All papers'], ['marks', 'Marks review and publish'], ['results', 'Published results']]} value={tab} onChange={setTab} />
         {tab === 'datesheet' && <DateSheet examId={id} exam={e} onChanged={ex.reload} />}
         {tab === 'subjects' && (<Card flush action={<Button size="sm" onClick={() => setModal({})}>+ Add / edit subject</Button>} title="Exam subjects">
           <DataTable rows={e.subjects} empty="No papers yet. Fill in the Date sheet: every subject that gets a date becomes a paper." columns={[{ label: 'Class', key: 'className' }, { label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Date', render: (s) => fmtDate(s.date) }, { label: 'Time', render: (s) => (s.startTime ? `${s.startTime}–${s.endTime}` : '—') }, { label: 'Room', key: 'room' },

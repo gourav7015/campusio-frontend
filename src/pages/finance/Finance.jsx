@@ -33,7 +33,7 @@ function StructureModal({ lookups, onClose, onDone, base }) {
     if (r) onDone();
   };
   return (
-    <Modal wide title="New fee structure" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!ok} onClick={save}>Create structure</Button></>}>
+    <Modal wide title="Add fee structure" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!ok} onClick={save}>Create structure</Button></>}>
       <div className="stack">
         <div className="form-grid">
           <Field label="Name"><Input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="Class 8 Fee" /></Field>
@@ -69,7 +69,7 @@ export function FeeStructures({ readOnly }) {
   const L = lookups.data || { classes: [], sections: [] };
   return (
     <div className="stack">
-      <PageHeader title="Fee structures" subtitle="An admission fee once, then tuition every month. Define what a class pays, then bill students — or let new admissions be billed automatically." actions={!readOnly && <Button variant="primary" onClick={() => setModal({ t: 'new' })}>+ New fee structure</Button>} />
+      <PageHeader title="Fee structures" subtitle="An admission fee once, then tuition every month. Define what a class pays, then bill students — or let new admissions be billed automatically." actions={!readOnly && <Button variant="primary" onClick={() => setModal({ t: 'new' })}>+ Add fee structure</Button>} />
       <Card flush><Async state={list} empty={<Empty title="No fee structures yet" />}>{(rows) => <DataTable rows={rows} columns={[
         { label: 'Structure', render: (s) => <><b>{s.name}</b><div className="small muted">{s.monthlyFee ? `${s.admissionFee ? `Admission ${fmtMoney(s.admissionFee)} · ` : ''}Tuition ${fmtMoney(s.monthlyFee)} / month${(s.extras || []).map((e) => ` · ${e.head} ${fmtMoney(e.amount)}${e.frequency === 'monthly' ? ' / month' : ''}`).join('')}` : (s.items || []).map((i) => `${i.head} ${fmtMoney(i.amount)}`).join(' · ')}</div></> },
         { label: 'Class', key: 'className' }, { label: 'Per student, per year', render: (s) => fmtMoney(s.total) }, { label: 'Due', render: (s) => (s.monthlyFee ? `${s.dueDay || 'policy'}${s.dueDay ? 'th' : ''} of each month` : (s.installments || []).map((i) => `${i.label} ${i.percent}%`).join(', ')) },
@@ -103,7 +103,7 @@ function AssignModal({ base, s, L, onClose, onDone }) {
   );
 }
 
-// ───────────── students & dues ─────────────
+// ───────────── students and dues ─────────────
 /** An extra charge (a special teacher, a trip, an activity) for every student of a section or a class. Previewed first; anyone who already has it is left out. */
 function ExtraChargeModal({ base, L, section, onClose, onDone }) {
   const [f, setF] = useState({ target: 'section', sectionId: section || '', classId: '', label: '', amount: '', dueDate: '' });
@@ -162,7 +162,7 @@ export function StudentsDues({ readOnly }) {
   const [extra, setExtra] = useState(false);
   return (
     <div className="stack">
-      <PageHeader title="Students & dues" subtitle="Open a student to collect a payment, add a charge or give a concession" actions={readOnly ? undefined : <Button onClick={() => setExtra(true)} disabled={!L.sections.length}>+ Charge a section or class</Button>} />
+      <PageHeader title="Students and dues" subtitle="Open a student to collect a payment, add a charge or give a concession" actions={readOnly ? undefined : <Button onClick={() => setExtra(true)} disabled={!L.sections.length}>+ Charge a section or class</Button>} />
       <ListCard>
         <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v, page: 1 })} searchLabel="Search students" placeholder="Search name, admission no, guardian">
           <Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value, page: 1 })} placeholder="All sections" options={L.sections.map((s) => ({ value: s._id, label: `${L.classes.find((c) => c._id === s.classId)?.name} ${s.name}` }))} aria-label="Section" />
@@ -211,7 +211,7 @@ export function StudentAccount({ readOnly }) {
           payments={x.payments.map((p) => ({ id: p._id, receiptNo: p.receiptNo, kind: p.kind, status: p.status, paidOn: p.paidOn, chargeIds: p.allocations.map((al) => String(al.chargeId)) }))}
           onReceipt={(p) => run(() => download(`${base}/payments/${p.id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`))}
           action={readOnly ? undefined : (c) => c.status === 'open' && <Button size="sm" onClick={() => setModal({ t: 'conc', c: c.raw })}>Concession</Button>} />
-        <Card title="Payments & receipts" flush><DataTable rows={x.payments} empty="No payments yet" columns={[
+        <Card title="Payments and receipts" flush><DataTable rows={x.payments} empty="No payments yet" columns={[
           { label: 'Receipt', render: (p) => <b>{p.receiptNo}</b> }, { label: 'Date', render: (p) => fmtDate(p.paidOn, true) }, { label: 'Type', render: (p) => (p.kind === 'reversal' ? <Badge tone="red">Reversal</Badge> : p.status === 'reversed' ? <Badge tone="red">Reversed</Badge> : <Badge tone="green">Payment</Badge>) },
           { label: 'Amount', render: (p) => fmtMoney(p.amount) }, { label: 'Mode', render: (p) => <>{label(p.mode)}{p.reference && <div className="small muted">{p.reference}</div>}</> }, { label: 'Allocated to', render: (p) => p.allocations.map((al) => al.label).join(', ') }, { label: 'By', key: 'receivedByName' },
           { label: '', render: (p) => <div className="row"><Button size="sm" onClick={() => run(() => download(`${base}/payments/${p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`))}>Receipt</Button>
@@ -298,7 +298,7 @@ export function Payments({ readOnly }) {
   const [rev, setRev] = useState(null);
   return (
     <div className="stack">
-      <PageHeader title="Payments & receipts" subtitle="Every receipt ever issued. Receipts are never edited or deleted — mistakes are reversed." actions={<Button onClick={() => run(() => download(`${base}/export/payments.csv`, 'payments.csv', { ...f }))}>Export CSV</Button>} />
+      <PageHeader title="Payments and receipts" subtitle="Every receipt ever issued. Receipts are never edited or deleted — mistakes are reversed." actions={<Button onClick={() => run(() => download(`${base}/export/payments.csv`, 'payments.csv', { ...f }))}>Export CSV</Button>} />
       <ListCard>
         <FilterBar search={f.q} onSearch={(v) => setF({ ...f, q: v })} searchLabel="Search payments" placeholder="Search receipt, reference, student">
           <Select value={f.mode} onChange={(e) => setF({ ...f, mode: e.target.value })} options={[...MODES, { value: 'online', label: 'Online' }]} placeholder="All modes" aria-label="Mode" /><Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value })} placeholder="All classes" options={L.sections.map((x) => ({ value: x._id, label: `${L.classes.find((c) => c._id === x.classId)?.name} ${x.name}` }))} aria-label="Class" /><Input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} aria-label="From" style={{ width: 150 }} /><Input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} aria-label="To" /></FilterBar>
@@ -321,7 +321,7 @@ export function OnlinePayments({ readOnly }) {
   const list = useApi(`${base}/online-payments`, { status });
   return (
     <div className="stack">
-      <PageHeader title="Online payments" subtitle="Fees paid by students and parents from the portal. Each paid one already has a normal receipt in Payments & receipts." />
+      <PageHeader title="Online payments" subtitle="Fees paid by students and parents from the portal. Each paid one already has a normal receipt in Payments and receipts." />
       {list.data?.counts?.needs_review > 0 && <div className="alert">{list.data.counts.needs_review} payment(s) need your attention: the money was received online but could not be matched to the dues (for example, the dues were also paid at the desk). Check the receipts, then refund the extra amount from the payment gateway or adjust the account.</div>}
       <Card><div className="row"><Field label="Show"><Select value={status} onChange={(e) => setStatus(e.target.value)} options={Object.entries(ORDER_TEXT).map(([value, l]) => ({ value, label: l }))} placeholder="All" aria-label="Status" /></Field></div></Card>
       <ListCard>
@@ -335,7 +335,7 @@ export function OnlinePayments({ readOnly }) {
   );
 }
 
-// ───────────── reports & defaulters ─────────────
+// ───────────── reports and defaulters ─────────────
 export function FinanceReports({ readOnly }) {
   const { base } = ctxOf(readOnly);
   const [tab, setTab] = useState('collection');

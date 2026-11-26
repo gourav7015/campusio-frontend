@@ -7,7 +7,7 @@ test('teacher assignments are in school order and can be filtered; choosing a fi
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/assignments');
-  await expect(page.getByRole('heading', { name: 'Subjects & teacher assignments' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Subjects and teacher assignments' })).toBeVisible();
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').nth(1)).toBeVisible();
   const classes = await table.getByRole('row').evaluateAll((rows) => rows.slice(1).map((r) => r.querySelector('td')?.textContent?.trim()));

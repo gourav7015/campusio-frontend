@@ -3,7 +3,7 @@ import { signIn, watch } from './helpers.js';
 
 test.describe.configure({ mode: 'serial' });
 
-test('finance: Payments & receipts can be narrowed to one class', async ({ page }) => {
+test('finance: Payments and receipts can be narrowed to one class', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   // make sure Aarav (Class 8 A) has a receipt

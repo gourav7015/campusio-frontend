@@ -33,7 +33,7 @@ export function Homework() {
   const fileRef = useRef(); const target = useRef(null);
   // Kept simple: a homework is saved and the students of that class see it on their dashboard. No drafts, no marks, no hand-in.
   const fields = (edit) => [
-    ...(edit ? [] : [{ name: 'pair', label: 'Class & subject', type: 'select', required: true, options: pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label })) }]),
+    ...(edit ? [] : [{ name: 'pair', label: 'Class and subject', type: 'select', required: true, options: pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label })) }]),
     { name: 'title', label: 'Title', required: true, full: true },
     { name: 'description', label: 'What to do', type: 'textarea', full: true },
     { name: 'dueDate', label: 'Due date', type: 'date', required: true },
@@ -99,7 +99,7 @@ function MaterialForm({ pairs, onClose, onDone }) {
     <Modal wide title="Upload study material" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!v.title || !v.pair || (!file && !v.externalUrl)} onClick={save}>Save</Button></>}>
       <div className="form-grid">
         <Field label="Title" full><Input value={v.title} onChange={(e) => set('title', e.target.value)} /></Field>
-        <Field label="Class & subject"><Select value={v.pair} onChange={(e) => set('pair', e.target.value)} placeholder="Select" options={pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label }))} /></Field>
+        <Field label="Class and subject"><Select value={v.pair} onChange={(e) => set('pair', e.target.value)} placeholder="Select" options={pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label }))} /></Field>
         <Field label="Chapter"><Input value={v.chapter} onChange={(e) => set('chapter', e.target.value)} placeholder="Chapter 4 – Algebra" /></Field>
         <Field label="Type"><Select value={v.materialType} onChange={(e) => set('materialType', e.target.value)} options={['pdf', 'image', 'document', 'presentation', 'video', 'worksheet'].map((t) => ({ value: t, label: label(t) }))} /></Field>
         <Field label="Visibility"><Select value={v.status} onChange={(e) => set('status', e.target.value)} options={[{ value: 'draft', label: 'Draft' }, { value: 'published', label: 'Publish now' }]} /></Field>
@@ -112,7 +112,7 @@ function MaterialForm({ pairs, onClose, onDone }) {
   );
 }
 
-// ───────────── Examinations & marks (one screen) ─────────────
+// ───────────── Examinations and marks (one screen) ─────────────
 const TYPES = [['unit_test', 'Unit test'], ['class_test', 'Class test'], ['surprise_test', 'Surprise test'], ['other', 'Other']].map(([value, l]) => ({ value, label: l }));
 const EDITABLE = ['not_started', 'draft', 'returned'];
 
@@ -139,7 +139,7 @@ function ExamForm({ pairs, initial, onClose, onDone }) {
       <div className="form-grid">
         {!edit && <Field label="Type"><Select value={v.type} onChange={(e) => { set('type', e.target.value); if (!v.name || Object.values({ a: 'Unit Test 1', b: 'Class Test 1', c: 'Surprise Test' }).includes(v.name)) set('name', suggest(e.target.value)); set('notify', e.target.value !== 'surprise_test'); }} options={TYPES} /></Field>}
         <Field label="Name" hint="e.g. Unit Test 1, Class Test 3, Surprise quiz"><Input value={v.name} onChange={(e) => set('name', e.target.value)} placeholder={suggest(v.type)} /></Field>
-        {!edit && <Field label="Class & subject" full><Select value={v.pair} onChange={(e) => set('pair', e.target.value)} placeholder="Select" options={pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label }))} /></Field>}
+        {!edit && <Field label="Class and subject" full><Select value={v.pair} onChange={(e) => set('pair', e.target.value)} placeholder="Select" options={pairs.map((p) => ({ value: `${p.sectionId}|${p.subjectId}`, label: p.label }))} /></Field>}
         <Field label="Date"><Input type="date" value={v.date} onChange={(e) => set('date', e.target.value)} /></Field><Field label="Marks entry deadline"><Input type="date" value={v.marksDeadline} onChange={(e) => set('marksDeadline', e.target.value)} /></Field>
         {!edit && <><Field label="Starts"><Input type="time" value={v.startTime} onChange={(e) => set('startTime', e.target.value)} /></Field><Field label="Ends"><Input type="time" value={v.endTime} onChange={(e) => set('endTime', e.target.value)} /></Field></>}
         <Field label="Pass marks (optional)" hint={`Defaults to the school's pass percentage of ${total}`}><Input type="number" value={v.passMarks} onChange={(e) => set('passMarks', e.target.value)} /></Field>
@@ -166,7 +166,7 @@ export function Exams() {
   const filtered = (rows) => rows.filter((r) => (!fClass || classOf(r) === fClass) && (!fSubject || r.subject === fSubject)).filter((r) => tab === 'all' || (tab === 'todo' ? EDITABLE.includes(r.status) : tab === 'mine' ? r.createdByMe : ['submitted', 'under_review', 'approved', 'published'].includes(r.status)));
   return (
     <div className="stack">
-      <PageHeader title="Examinations & marks" subtitle="Exams for your classes and subjects — add your own tests, enter marks, and follow them through approval" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add exam</Button>} />
+      <PageHeader title="Examinations and marks" subtitle="Exams for your classes and subjects — add your own tests, enter marks, and follow them through approval" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add exam</Button>} />
       <div className="row between" style={{ alignItems: 'center' }}>
         <Tabs tabs={[['all', 'All'], ['todo', 'Marks to enter'], ['done', 'Submitted / done'], ['mine', 'Tests I added']]} value={tab} onChange={setTab} />
         <div className="row" style={{ alignItems: 'center', gap: 10 }}>
@@ -275,7 +275,7 @@ export function Performance({ sectionId: fixed, embedded } = {}) {
   return (
     <div className="stack">
       {!embedded && <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />}
-      <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts & insights']]} value={tab} onChange={setTab} />
+      <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts and insights']]} value={tab} onChange={setTab} />
       {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
         <Card title={`${mine?.className || ''} ${mine?.section || ''} — ${m.scope === 'overall' ? 'overall results (you are the class teacher)' : 'your subject only'}`} flush>
           <div className="card-b row wrap">

@@ -7,6 +7,8 @@ import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { Overview, SectionStudents, HomeworkDay } from '../admin/ClassHub.jsx';
 import { OfficeProvider, CLASS_OFFICE } from '../../context/ClassOffice.jsx';
 import { Attendance } from './Teacher1.jsx';
+import { ClassPeriods } from './Teacher3.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
 import { Performance } from './Teacher2.jsx';
 
 const T = '/api/teacher';
@@ -18,6 +20,7 @@ const EDITABLE = [undefined, 'draft', 'returned', 'not_started'];
  */
 export default function MyClass() {
   const classes = useApi(`${T}/classes`);
+  const { user } = useAuth();
   const mine = (classes.data || []).filter((c) => c.isClassTeacher);
   const [sp, setSp] = useSearchParams();
   const sid = mine.find((c) => c.sectionId === sp.get('section'))?.sectionId || mine[0]?.sectionId || '';
@@ -35,7 +38,9 @@ export default function MyClass() {
             <Tabs tabs={TABS} value={tab} onChange={(t) => go(t)} />
             {tab === 'overview' && <OfficeOverview sid={sid} go={go} />}
             {tab === 'students' && <SectionStudents sectionId={sid} />}
-            {tab === 'attendance' && <Attendance sectionId={sid} embedded />}
+            {tab === 'attendance' && (user?.periodWise
+              ? <ClassPeriods sectionId={sid} className={cur?.className} section={cur?.section}><Attendance sectionId={sid} embedded /></ClassPeriods>
+              : <Attendance sectionId={sid} embedded />)}
             {tab === 'homework' && <HomeworkDay sectionId={sid} />}
             {tab === 'exams' && <ExamAnalysis sectionId={sid} />}
             {tab === 'marks' && <ClassMarks sid={sid} />}

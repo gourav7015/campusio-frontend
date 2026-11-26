@@ -75,16 +75,16 @@ test('a vendor is paid in two parts from its account; paid and upcoming money sh
   await page.getByRole('tab', { name: 'Yearly' }).click();
   await expect(stat('Paid in this range')).toContainText('₹4,000');
 
-  // the receipts of spending: every payment, with its voucher, narrowed by filters
+  // the payment vouchers: every payment, with its voucher, narrowed by filters
   await page.goto('/finance/spending-receipts');
   await page.getByLabel('Vendor', { exact: true }).selectOption({ label: vendor });
   const rrow = page.getByRole('row', { name: /UTR-PART-1/ });
   await expect(rrow).toContainText(/PV\d{9}/);
   await expect(rrow).toContainText('₹4,000');
   await page.getByLabel('Paid by', { exact: true }).selectOption('cash');
-  await expect(page.getByText('No receipts match')).toBeVisible();
+  await expect(page.getByText('No vouchers match')).toBeVisible();
   await page.getByLabel('Paid by', { exact: true }).selectOption('');
-  await page.getByLabel('Search receipts').fill('UTR-PART-1');
+  await page.getByLabel('Search vouchers').fill('UTR-PART-1');
   await expect(rrow).toBeVisible();
   const [voucher] = await Promise.all([page.waitForEvent('download'), rrow.getByRole('button', { name: 'Voucher' }).click()]);
   expect(voucher.suggestedFilename()).toMatch(/^voucher-PV\d{9}\.pdf$/);
@@ -108,7 +108,7 @@ test('a vendor is paid in two parts from its account; paid and upcoming money sh
   await expect(dlg.getByRole('button', { name: /^Pay/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.goto('/admin/fees?tab=spending-receipts');
-  await expect(page.getByText('Receipts of spending')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Payment vouchers' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Voucher' }).first()).toBeVisible();
   await page.goto('/admin/fees?tab=vendors&sub=payments');
   await expect(page.getByText('Paid in this range')).toBeVisible();

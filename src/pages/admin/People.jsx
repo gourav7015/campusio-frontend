@@ -6,7 +6,7 @@ import { useLookups } from '../../hooks/useLookups.js';
 import { useHouseOptions, useRankOptions } from '../../hooks/useRegistry.js';
 import { get, post, put, patch, del, upload, openFile } from '../../api/client.js';
 import {
-  Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useDebounced, statusTone, fmtDate, fmtMoney, label, Empty,
+  Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useToast, useDebounced, statusTone, fmtDate, fmtMoney, label, Empty,
 } from '../../components/ui.jsx';
 import { TeacherSummary, ClassesPanel as TeacherClasses, AttendancePanel as TeacherAttendance, SalaryPanel as TeacherSalary, LibraryPanel as TeacherLibrary } from '../../components/TeacherOverview.jsx';
 import { SummaryStrip, AttendancePanel, ExamsPanel, HomeworkPanel, FeesPanel, LibraryPanel, BusCard } from '../../components/StudentOverview.jsx';
@@ -43,7 +43,7 @@ function AdmitStudent({ L, onClose, onDone }) {
       <Button variant="primary" loading={busy} disabled={!v.name || !v.dob || !v.sectionId || !v.gName || !v.gPhone || !/\S+@\S+\.\S+/.test(v.gEmail) || dBad} onClick={() => submit(false)}>Admit student</Button></>}>
       <div className="form-grid">
         <Field label="Full name"><Input {...f.bind('name')} /></Field><Field label="Date of birth"><Input type="date" {...f.bind('dob')} /></Field>
-        <Field label="Class & section" hint="A student appears on a register only once enrolled in a section"><Select {...f.bind('sectionId')} options={L.sectionOptions} placeholder="Select section" /></Field>
+        <Field label="Class and section" hint="A student appears on a register only once enrolled in a section"><Select {...f.bind('sectionId')} options={L.sectionOptions} placeholder="Select section" /></Field>
         <Field label="Gender"><Select {...f.bind('gender')} options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'other', label: 'Other' }]} placeholder="—" /></Field>
         <Field label="Admission number" hint="Leave blank to auto-generate from the school format"><Input {...f.bind('admissionNo')} /></Field><Field label="Roll number" hint="Blank = next available"><Input type="number" min="1" {...f.bind('rollNo')} /></Field>
         <Field label="Phone"><Input {...f.bind('phone')} /></Field><Field label="House" hint={houses.options.length ? undefined : 'Add the school\'s houses first (People → Houses)'}><Select {...f.bind('house')} options={houses.options} placeholder="No house" /></Field><Field label="Address" full><Input {...f.bind('address')} /></Field>
@@ -204,13 +204,13 @@ export function StudentDetail() {
             {st.status !== 'active' && st.status !== 'archived' && <Button onClick={async () => { await run(() => post(`/api/school/students/${id}/reactivate`), 'Reactivated'); s.reload(); }}>Reactivate</Button>}
             <ResetPasswordButton size="md" url={`/api/school/students/${id}/reset-password`} name={st.name} onDone={setCreds} /></>} />
           <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
-          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams & marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
+          <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams and marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
             tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel studentId={id} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
           {tab === 'profile' && (
             <div className="grid g2">
               <Card title="Personal"><dl className="kv"><dt>Date of birth</dt><dd>{fmtDate(st.dob, true)}</dd><dt>Gender</dt><dd>{label(st.gender) || '—'}</dd><dt>Phone</dt><dd>{st.phone || '—'}</dd><dt>Address</dt><dd>{st.address || '—'}</dd><dt>House</dt><dd>{st.house || '—'}</dd><dt>Status</dt><dd><Badge tone={statusTone(st.status)}>{label(st.status)}</Badge></dd></dl></Card>
-              <Card title="Guardians & account">
+              <Card title="Guardians and account">
                 {st.guardians.map((g, i) => <div key={i} className="stack-sm" style={{ marginBottom: 8 }}><b>{g.name}</b> <span className="muted">({g.relationship})</span><div className="small">{g.phone} {g.email && `· ${g.email}`}</div></div>)}
                 <hr style={{ border: 0, borderTop: '1px solid var(--border)' }} />
                 <dl className="kv"><dt>Login id</dt><dd>{st.account?.loginId}</dd><dt>Last sign-in</dt><dd>{st.account?.lastLoginAt ? new Date(st.account.lastLoginAt).toLocaleString() : 'Never'}</dd></dl>
@@ -293,7 +293,7 @@ export function TeacherDetail() {
   const tt = useApi('/api/school/timetable/entries', { teacherId: id });
   const ov = useApi(`/api/school/teachers/${id}/overview`);
   const [tab, setTab] = useState('profile');
-  const [run] = useAction();
+  const [run] = useAction(); const toast = useToast();
   const [modal, setModal] = useState(false); const [creds, setCreds] = useState(null);
   return (
     <Async state={t}>{(x) => (
@@ -308,11 +308,11 @@ export function TeacherDetail() {
               if (e.details?.code === 'CLEARANCE_REQUIRED' && (await dlg.confirm(`${e.message}\n\nBooks still out: ${e.details.openLoans.map((l) => l.book).join(', ')}\n\nDeactivate anyway?`))) r = await run(() => post(`/api/school/teachers/${id}/deactivate`, { overrideClearance: true }));
               else { await run(async () => { throw e; }); return; }
             }
-            if (r) { alert(r.unresolvedPeriods ? `Teacher deactivated. ${r.unresolvedPeriods} timetable period(s) now need a new teacher.` : 'Teacher deactivated'); t.reload(); }
+            if (r) { toast(r.unresolvedPeriods ? `Teacher deactivated. ${r.unresolvedPeriods} timetable period(s) now need a new teacher.` : 'Teacher deactivated'); t.reload(); }
           }}>Deactivate</ConfirmButton>
             : <Button onClick={async () => { await run(() => post(`/api/school/teachers/${id}/reactivate`), 'Reactivated'); t.reload(); }}>Reactivate</Button>}</>} />
         <Async state={ov}>{(o) => <TeacherSummary o={o} />}</Async>
-        <Tabs tabs={[['profile', 'Profile'], ['classes', 'Classes & results'], ['attendance', 'Attendance & leave'], ['salary', 'Salary & payslips'], ['library', 'Library']]} value={tab} onChange={setTab} />
+        <Tabs tabs={[['profile', 'Profile'], ['classes', 'Classes and results'], ['attendance', 'Attendance and leave'], ['salary', 'Salary and payslips'], ['library', 'Library']]} value={tab} onChange={setTab} />
         {['classes', 'attendance', 'salary', 'library'].includes(tab) && <Async state={ov}>{(o) => (tab === 'classes' ? <TeacherClasses o={o} /> : tab === 'attendance' ? <TeacherAttendance o={o} /> : tab === 'salary' ? <TeacherSalary o={o} /> : <TeacherLibrary o={o} />)}</Async>}
         {tab === 'profile' && <>
         <div className="grid g2">
@@ -337,7 +337,7 @@ export function Assignments() {
   const asg = useApi(yid ? '/api/school/teaching-assignments' : null, { yearId: yid, open: 'true' });
   const cts = useApi(yid ? '/api/school/class-teachers' : null, { yearId: yid });
   const [modal, setModal] = useState(null);
-  const [run] = useAction();
+  const [run] = useAction(); const toast = useToast();
   const ctBySection = new Map((cts.data || []).filter((c) => c.open).map((c) => [c.sectionId?._id, c]));
   // filters: the choices always come from the whole list, so choosing one never hides the others
   const [fl, setFl] = useState({ q: '', classId: '', sectionId: '', subjectId: '', teacherId: '' });
@@ -355,7 +355,7 @@ export function Assignments() {
   const subjectNames = L.subjects.filter((x) => x.status === 'active').map((x) => x.name);
   return (
     <div className="stack">
-      <PageHeader title="Subjects & teacher assignments" subtitle="Who teaches which subject in which section. Subjects are created here, through the teacher — there is no separate subject list to maintain." actions={<>
+      <PageHeader title="Subjects and teacher assignments" subtitle="Who teaches which subject in which section. Subjects are created here, through the teacher — there is no separate subject list to maintain." actions={<>
         <Button variant="primary" onClick={() => setModal('asg')}>+ Assign teacher to a subject</Button></>} />
       <Card>
         <div className="row" style={{ flexWrap: 'wrap', gap: 12, alignItems: 'end' }}>
@@ -370,7 +370,7 @@ export function Assignments() {
       </Card>
       <Card title={`Subject teachers${asg.data ? ` (${rows.length}${filtered ? ` of ${everything.length}` : ''})` : ''}`} flush><Async state={asg} empty={<div className="empty">No assignments yet. Assign a teacher to a subject in a section to begin.</div>}>{() => rows.length ? <DataTable rows={rows} columns={[
         { label: 'Class', sort: (a) => gradeRank(a.classId?.name) * 1000 + String(a.sectionId?.name).charCodeAt(0), render: (a) => `${a.classId?.name} ${a.sectionId?.name}` }, { label: 'Subject', sort: (a) => a.subjectId?.name, render: (a) => <b>{a.subjectId?.name}</b> }, { label: 'Teacher', sort: (a) => a.teacherId?.name, render: (a) => a.teacherId?.name }, { label: 'Periods / week', sort: (a) => a.offeringId?.weeklyPeriods ?? 0, render: (a) => a.offeringId?.weeklyPeriods ?? '—' }, { label: 'Since', sort: (a) => a.effectiveFrom || '', render: (a) => fmtDate(a.effectiveFrom, true) },
-        { label: '', render: (a) => <div className="row"><Button size="sm" onClick={() => setModal({ periods: a })}>Periods</Button><ConfirmButton size="sm" message="End this assignment today? Future timetable periods will need a new teacher." onConfirm={async () => { const r = await run(() => post(`/api/school/teaching-assignments/${a._id}/end`), 'Assignment ended'); if (r?.unresolvedPeriods) alert(`${r.unresolvedPeriods} timetable period(s) are now unresolved.`); asg.reload(); }}>End</ConfirmButton></div> },
+        { label: '', render: (a) => <div className="row"><Button size="sm" onClick={() => setModal({ periods: a })}>Periods</Button><ConfirmButton size="sm" message="End this assignment today? Future timetable periods will need a new teacher." onConfirm={async () => { const r = await run(() => post(`/api/school/teaching-assignments/${a._id}/end`), 'Assignment ended'); if (r?.unresolvedPeriods) toast(`${r.unresolvedPeriods} timetable period(s) are now unresolved.`, 'error'); asg.reload(); }}>End</ConfirmButton></div> },
       ]} /> : <Empty title="No assignments match">Try clearing a filter.</Empty>}</Async></Card>
       <Card title="Class teachers (the only teachers who take a section's attendance)" flush><DataTable rows={sectionRows} empty="No sections" columns={[
         { label: 'Section', render: (s) => <b>{L.sectionName(s._id)}</b> }, { label: 'Class teacher', render: (s) => ctBySection.get(s._id)?.teacherId?.name || <span className="muted">Not assigned — nobody can take attendance</span> },

@@ -69,7 +69,7 @@ export function Years() {
   const fields = [{ name: 'name', label: 'Name', required: true, placeholder: '2026-2027' }, { name: 'startDate', label: 'Starts', type: 'date', required: true }, { name: 'endDate', label: 'Ends', type: 'date', required: true }];
   return (
     <div className="stack">
-      <PageHeader title="Academic years" subtitle="Classes, sections, timetables, enrolments and exams all belong to an academic year" actions={<><Button onClick={() => setNext(true)} disabled={!latest}>+ Create next year</Button><Button variant="primary" onClick={() => setEdit({})}>+ New academic year</Button></>} />
+      <PageHeader title="Academic years" subtitle="Classes, sections, timetables, enrolments and exams all belong to an academic year" actions={<><Button onClick={() => setNext(true)} disabled={!latest}>+ Create next year</Button><Button variant="primary" onClick={() => setEdit({})}>+ Add academic year</Button></>} />
       <Card flush><Async state={years} empty={<div className="empty">Create the first academic year to begin setting up the school.</div>}>{(rows) => (
         <DataTable rows={rows} columns={[
           { label: 'Year', render: (y) => <b>{y.name}</b> }, { label: 'Starts', render: (y) => fmtDate(y.startDate, true) }, { label: 'Ends', render: (y) => fmtDate(y.endDate, true) },
@@ -85,7 +85,7 @@ export function Years() {
       {progress && <ClassProgressModal year={progress} onClose={() => setProgress(null)} />}
       {dates && <ClassDatesModal year={dates} onClose={() => setDates(null)} onSaved={() => years.reload()} />}
       {next && latest && <NextYearModal from={latest} onClose={() => setNext(false)} onCreated={() => years.reload()} />}
-      {edit && <FormModal title={edit._id ? 'Edit academic year' : 'New academic year'} fields={fields} initial={edit} onClose={() => setEdit(null)} onSubmit={async (v) => { await (edit._id ? patch(`/api/school/years/${edit._id}`, v) : post('/api/school/years', v)); years.reload(); return true; }} />}
+      {edit && <FormModal title={edit._id ? 'Edit academic year' : 'Add academic year'} fields={fields} initial={edit} onClose={() => setEdit(null)} onSubmit={async (v) => { await (edit._id ? patch(`/api/school/years/${edit._id}`, v) : post('/api/school/years', v)); years.reload(); return true; }} />}
     </div>
   );
 }

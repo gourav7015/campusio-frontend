@@ -38,7 +38,7 @@ export default function TeacherDashboard() {
       <PageHeader title="Today" description={`${date} · ${x.greeting.working ? `${periods} ${periods === 1 ? 'period' : 'periods'}` : 'Not a working day'}${x.greeting.firstUpcoming ? ` · Next at ${x.greeting.firstUpcoming.startTime}` : ''}`}
         actions={<>
           {x.permissions.takeAttendance && <Button variant="primary" asChild><Link to="/teacher/attendance"><ClipboardCheck />Mark attendance</Link></Button>}
-          <Button asChild><Link to="/teacher/homework?new=1"><NotebookPen />New homework</Link></Button>
+          <Button asChild><Link to="/teacher/homework?new=1"><NotebookPen />Add homework</Link></Button>
           <Button asChild><Link to="/teacher/exams"><FilePenLine />Marks</Link></Button>
         </>} />
 

@@ -24,7 +24,7 @@ export default function Account() {
   };
   return (
     <div className="stack" style={{ maxWidth: 720, margin: '0 auto' }}>
-      <PageHeader title="Password & sessions" subtitle={forced ? 'You signed in with a temporary password. Choose your own to continue.' : 'Keep your account secure'} />
+      <PageHeader title="Password and sessions" subtitle={forced ? 'You signed in with a temporary password. Choose your own to continue.' : 'Keep your account secure'} />
       <Card title="Change password">
         <form className="stack" method="post" onSubmit={save}>
           {/* tells the browser which account this password belongs to, so it can offer to update the saved one */}

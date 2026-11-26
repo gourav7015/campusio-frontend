@@ -11,7 +11,7 @@ export default function Salary({ base = '/api/teacher' }) {
   const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Salary & payslips" subtitle="Your pay is set by the school office. Contact the administrator if something looks wrong." />
+      <PageHeader title="Salary and payslips" subtitle="Your pay is set by the school office. Contact the administrator if something looks wrong." />
       <Async state={sal}>{(s) => (
         <>
           <div className="grid g4">

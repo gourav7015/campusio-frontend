@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signIn, watch } from './helpers.js';
 
-test('finance: collect a payment straight from the Students & dues list; the School Admin has no such button', async ({ page }) => {
+test('finance: collect a payment straight from the Students and dues list; the School Admin has no such button', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   await page.goto('/finance/students');

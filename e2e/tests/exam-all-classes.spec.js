@@ -5,7 +5,7 @@ test('a new examination can be made for one class, several, or all classes at on
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/exams?tab=list');
-  await page.getByRole('button', { name: '+ New examination' }).click();
+  await page.getByRole('button', { name: '+ Add examination' }).click();
   const dlg = page.getByRole('dialog');
   await dlg.getByLabel('Name').fill('School-wide Test');
   const save = dlg.getByRole('button', { name: 'Save' });

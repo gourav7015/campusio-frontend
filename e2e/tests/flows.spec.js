@@ -121,7 +121,7 @@ test('teacher adds homework → student sees it on the dashboard, with a notific
   await page.goto('/teacher/homework');
   await page.getByRole('button', { name: '+ Add homework' }).click();
   await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Class & subject').selectOption({ label: 'Class 8 A · Mathematics' });
+  await page.getByLabel('Class and subject').selectOption({ label: 'Class 8 A · Mathematics' });
   await page.getByLabel('Due date').fill(plusDays(4));
   await page.getByLabel('What to do').fill('Questions 1 to 20');
   await page.getByRole('button', { name: 'Save' }).click();
@@ -147,7 +147,7 @@ test('teacher adds a class test with their own mark fields, enters marks field b
   await page.getByRole('button', { name: '+ Add exam' }).click();
   await page.getByLabel('Type').selectOption('class_test');
   await page.getByLabel('Name', { exact: true }).fill(`Class Test ${uid}`);
-  await page.getByLabel('Class & subject').selectOption({ label: 'Class 8 A · Mathematics' });
+  await page.getByLabel('Class and subject').selectOption({ label: 'Class 8 A · Mathematics' });
   await page.getByLabel('Field 1 name').fill('Written');
   await page.getByLabel('Field 1 maximum').fill('15');
   await page.getByRole('button', { name: '+ Add field' }).click();
@@ -184,7 +184,7 @@ test('teacher adds a class test with their own mark fields, enters marks field b
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/exams?tab=list');
   await page.getByRole('row').filter({ hasText: `Class Test ${uid}` }).click();
-  await page.getByRole('tab', { name: 'Marks review & publish' }).click();
+  await page.getByRole('tab', { name: 'Marks review and publish' }).click();
   await page.getByRole('row').filter({ hasText: 'Submitted' }).getByRole('button', { name: 'Open' }).click();
   await expect(page.getByRole('dialog')).toContainText('Written /15');
   await page.getByRole('button', { name: 'Approve' }).click();
@@ -269,7 +269,7 @@ test('a wrongly sent class notice can be deleted: it disappears for students', a
   await signOut(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/announcements');
-  await page.getByRole('button', { name: '+ New announcement' }).click();
+  await page.getByRole('button', { name: '+ Add announcement' }).click();
   await page.getByLabel('Title').fill(`Admin mistake ${uid}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: `Admin mistake ${uid}` })).toBeVisible();
@@ -376,7 +376,7 @@ test('fees the Indian way: monthly structure, the school\'s policy, and a month 
   await expect(page.getByText('Class 8 Fee')).toBeVisible();
   await expect(page.getByText(/Tuition .* \/ month/).first()).toBeVisible();
   await expect(page.getByText(/Activities/)).toHaveCount(0);
-  await page.getByRole('button', { name: '+ New fee structure' }).click();
+  await page.getByRole('button', { name: '+ Add fee structure' }).click();
   await page.getByLabel('Name', { exact: true }).fill(`Class 5 Fee ${uid}`);
   await page.getByLabel(/Admission fee/).fill('2500');
   await page.getByLabel(/Tuition fee per month/).fill('1200');
@@ -490,7 +490,7 @@ test('payroll: Finance defines a level, sets a salary, prepares the month, adds 
   // a new pay level with a percentage allowance
   await page.getByRole('tab', { name: 'Pay levels' }).click();
   await expect(page.getByRole('cell', { name: /^PRT/ })).toBeVisible();
-  await page.getByRole('button', { name: '+ New level' }).click();
+  await page.getByRole('button', { name: '+ Add pay level' }).click();
   await page.getByLabel('Level name').fill('Vice Principal');
   await page.getByLabel('Basic salary per month (₹)').fill('80000');
   await page.getByRole('button', { name: '+ Add' }).first().click();
@@ -553,7 +553,7 @@ test('payroll: Finance defines a level, sets a salary, prepares the month, adds 
   await expect(page.getByRole('row', { name: /Meera Gupta/ })).toContainText('Vice Principal');
   for (const name of ['Revise', 'Give an increment…']) await expect(page.getByRole('button', { name })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Pay levels' }).click();
-  await expect(page.getByRole('button', { name: '+ New level' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '+ Add pay level' })).toHaveCount(0);
   await signOut(page);
   // Finance records the payments
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
@@ -598,11 +598,11 @@ test('payroll: Finance defines a level, sets a salary, prepares the month, adds 
 test('admin: everything hangs off the class — students, attendance, homework, subject teachers, exams, library — and one student shows it all', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  // the old stand-alone tabs live inside Classes & sections now
-  for (const name of ['Subjects & assignments', 'Homework & materials']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
+  // the old stand-alone tabs live inside Classes and sections now
+  for (const name of ['Subjects and assignments', 'Homework and materials']) await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
   await page.goto('/admin/classes');
   await expect(page.getByRole('tab', { name: 'Homework by day' })).toBeVisible();
-  await expect(page.getByRole('tab', { name: 'Subjects & teachers' })).toHaveCount(0); // subjects and teachers have their own page
+  await expect(page.getByRole('tab', { name: 'Subjects and teachers' })).toHaveCount(0); // subjects and teachers have their own page
   await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toHaveCount(0); // attendance is one page under Administration now
   await page.getByRole('navigation', { name: 'Classes' }).getByText('Class 8', { exact: true }).first().click();
   await page.getByRole('link', { name: 'Open' }).first().click();
@@ -610,7 +610,7 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   const sectionUrl = page.url();
   await expect(page.getByText('Attendance today')).toBeVisible();
   await expect(page.getByText('Subject teachers').first()).toBeVisible();
-  await page.getByRole('tab', { name: 'Exams & performance' }).click();
+  await page.getByRole('tab', { name: 'Exams and performance' }).click();
   await expect(page.getByText('Exams held').first()).toBeVisible();
   await expect(page.getByRole('columnheader', { name: /Unit Test 1/ }).first()).toBeVisible();
   await page.getByRole('tab', { name: 'Homework', exact: true }).click();
@@ -635,7 +635,7 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   await page.getByRole('row', { name: /Aarav Sharma/ }).click();
   await expect(page).toHaveURL(/\/admin\/students\//);
   await expect(page.getByText('Attendance this year')).toBeVisible();
-  await page.getByRole('tab', { name: 'Exams & marks' }).click();
+  await page.getByRole('tab', { name: 'Exams and marks' }).click();
   await expect(page.getByText('Unit Test 1').first()).toBeVisible();
   await page.getByRole('tab', { name: 'Library' }).click();
   await expect(page.getByRole('cell', { name: /Issued|issued/ }).first().or(page.getByText('has not borrowed')).first()).toBeVisible();
@@ -715,7 +715,7 @@ test('staff attendance: admin marks teachers and staff, the officer marks the cr
   await expect(page.getByRole('button', { name: 'Submit register' })).toHaveCount(0);
   await page.goto('/admin/teachers');
   await page.getByRole('row').filter({ hasText: 'Rajesh Sharma' }).first().click();
-  await page.getByRole('tab', { name: 'Attendance & leave' }).click();
+  await page.getByRole('tab', { name: 'Attendance and leave' }).click();
   await expect(page.getByText(/From the daily staff attendance register/)).toBeVisible();
   await signOut(page);
   // the teacher sees the absence the office recorded
@@ -760,14 +760,14 @@ test('admin: a teacher\'s whole picture — classes, class teacher of, results, 
   await expect(page.getByText('Classes taught')).toBeVisible();
   await expect(page.getByText('Salary per month (net)')).toBeVisible();
   await expect(page.getByRole('link', { name: /Class 8 A/ }).first()).toBeVisible(); // class teacher of 8-A, shown with its class name
-  await page.getByRole('tab', { name: 'Classes & results' }).click();
+  await page.getByRole('tab', { name: 'Classes and results' }).click();
   await expect(page.getByText('Classes and subjects taught — and how those classes did')).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Mathematics' }).first()).toBeVisible();
-  await page.getByRole('tab', { name: 'Attendance & leave' }).click();
+  await page.getByRole('tab', { name: 'Attendance and leave' }).click();
   await expect(page.getByText('Attendance heat map — this academic year')).toBeVisible();
   await expect(page.getByText(/daily staff (attendance )?register/).first()).toBeVisible(); // where the numbers come from is stated on the page
   await expect(page.getByText('Leave balance (this year)')).toBeVisible();
-  await page.getByRole('tab', { name: 'Salary & payslips' }).click();
+  await page.getByRole('tab', { name: 'Salary and payslips' }).click();
   await expect(page.getByText('Pay level').first()).toBeVisible();
   await expect(page.getByText('Payslips', { exact: true }).first()).toBeVisible();
   await page.getByRole('tab', { name: 'Library' }).click();
@@ -870,7 +870,7 @@ test('admin admits a student: auto-billed, must change password, honest empty st
   await page.getByRole('button', { name: '+ Admit student' }).click();
   await page.getByLabel('Full name').fill(name);
   await page.getByLabel('Date of birth').fill('2014-06-15');
-  await page.getByLabel(/Class & section/).selectOption({ label: 'Class 6 A · 4/40' });
+  await page.getByLabel(/Class and section/).selectOption({ label: 'Class 6 A · 4/40' });
   await page.getByLabel('Guardian name').fill('Mr Guardian');
   await page.getByLabel('Guardian mobile number').fill('9876501234');
   await page.getByLabel('Guardian email').fill('parent.admit@gps.test');
@@ -936,7 +936,7 @@ test('super admin creates a school, acts inside it for data setup, and exits', a
   const school = `Riverdale ${uid}`;
   await signIn(page, 'platform', 'superadmin@erp.local', 'Super@12345');
   await page.goto('/platform/schools');
-  await page.getByRole('button', { name: '+ New school' }).click();
+  await page.getByRole('button', { name: '+ Add school' }).click();
   await page.getByLabel('School name').fill(school);
   await page.getByLabel('School code').fill(`rv${uid}`);
   await page.getByLabel('Admin name').fill('Riya Admin');

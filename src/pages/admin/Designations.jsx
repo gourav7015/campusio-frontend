@@ -24,7 +24,7 @@ export default function Designations() {
         { label: 'Designation', render: (d) => <b>{d.name}</b> }, { label: 'Held by', render: (d) => `${d.staff} ${k.who}${d.staff === 1 ? '' : 's'}` },
         { label: 'Status', render: (d) => <Badge tone={d.status === 'active' ? 'green' : 'amber'}>{d.status === 'active' ? 'In use' : 'Archived'}</Badge> },
         { label: '', render: (d) => <div className="row" style={{ gap: 8 }}><Button size="sm" onClick={() => setEdit(d)}>Rename</Button>
-          <Button size="sm" onClick={async () => { await run(() => patch(`${k.base}/${d._id}`, { status: d.status === 'active' ? 'archived' : 'active' }), d.status === 'active' ? 'Archived' : 'Back in use'); list.reload(); }}>{d.status === 'active' ? 'Archive' : 'Use again'}</Button>
+          <Button size="sm" onClick={async () => { await run(() => patch(`${k.base}/${d._id}`, { status: d.status === 'active' ? 'archived' : 'active' }), d.status === 'active' ? 'Archived' : 'Restored'); list.reload(); }}>{d.status === 'active' ? 'Archive' : 'Use again'}</Button>
           <ConfirmButton size="sm" variant="danger" message={`Delete ${d.name}? Only possible when no one holds it.`} onConfirm={async () => { const r = await run(() => del(`${k.base}/${d._id}`), 'Deleted'); if (r) list.reload(); }}>Delete</ConfirmButton></div> },
       ]} />}</Async></Card>
       {edit && <FormModal title={edit._id ? 'Rename designation' : 'Add a designation'} initial={edit} fields={[{ name: 'name', label: 'Name', required: true, full: true, placeholder: tab === 'teaching' ? 'e.g. Sports Coordinator' : 'e.g. PT Teacher' }]} onClose={() => setEdit(null)}

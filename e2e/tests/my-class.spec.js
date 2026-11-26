@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { signIn, watch } from './helpers.js';
 
+const API = process.env.API_URL || 'http://localhost:4010';
+const adminToken = async () => (await (await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginId: 'admin@gps.test', password: 'Admin@12345', portal: 'admin' }) })).json()).token;
+const setPeriodWise = async (on) => fetch(`${API}/api/school/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await adminToken()}` }, body: JSON.stringify({ attendance: { periodWise: on } }) });
+
 async function signOut(page) {
   await page.getByRole('button', { name: 'Profile menu' }).click();
   await page.getByText('Sign out').click();
@@ -32,10 +36,10 @@ test('a class teacher gets a My class tab with the register, students and monito
   await expect(page).toHaveURL(/\/teacher\/my-class\/students\//);
   await expect(page.getByText('Personal', { exact: true })).toBeVisible();
   await expect(page.getByText('Family', { exact: true })).toBeVisible();
-  for (const t of ['Attendance', 'Exams & marks', 'Homework', 'Fees', 'Library', 'Bus', 'Enrolment history']) await expect(page.getByRole('tab', { name: t })).toBeVisible();
+  for (const t of ['Attendance', 'Exams and marks', 'Homework', 'Fees', 'Library', 'Bus', 'Enrolment history']) await expect(page.getByRole('tab', { name: t })).toBeVisible();
   await page.getByRole('tab', { name: 'Fees' }).click();
   await expect(page.getByText('Billed', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Exams & marks' }).click();
+  await page.getByRole('tab', { name: 'Exams and marks' }).click();
   await page.getByRole('tab', { name: 'Bus' }).click();
   await page.getByRole('tab', { name: 'Enrolment history' }).click();
   await expect(page.getByText('Academic enrolments')).toBeVisible();
@@ -82,4 +86,26 @@ test('a class teacher gets a My class tab with the register, students and monito
   await page.goto('/teacher/my-class');
   await expect(page.getByText('You are not a class teacher')).toBeVisible();
   expect(problems.filter((p) => !/HTTP 40/.test(p))).toEqual([]);
+});
+
+test('in a school that takes attendance period by period, My class opens on the periods and keeps the daily register one switch away', async ({ page }) => {
+  const problems = watch(page);
+  expect((await setPeriodWise(true)).status).toBe(200);
+  try {
+    await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
+    await page.goto('/teacher/my-class?tab=attendance');
+    // the period view first, not the whole-day register
+    const view = page.getByRole('radiogroup', { name: 'Attendance view' });
+    await expect(view.getByRole('radio', { name: 'By period' })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('columnheader', { name: 'Teacher' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mark all present' })).toHaveCount(0);
+    // the daily register is still there, one switch away
+    await view.getByRole('radio', { name: 'Daily register' }).click();
+    await expect(page.getByRole('button', { name: 'Mark all present' })).toBeVisible();
+    // and the menu names the two things differently
+    await page.goto('/teacher/classes');
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Daily register', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Period attendance', exact: true }).first()).toBeVisible();
+  } finally { await setPeriodWise(false); }
+  expect(problems, problems.join('\n')).toEqual([]);
 });

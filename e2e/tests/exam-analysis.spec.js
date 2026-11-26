@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { signIn, watch, openFilters } from './helpers.js';
+import { signIn, watch } from './helpers.js';
 
 test('class analysis has Tables and Graphs, a student finder, and a marks-only student page', async ({ page }) => {
   const problems = watch(page);
@@ -60,10 +60,8 @@ test('inside a class: find a student by name or admission number, filter, and se
   await expect(page.getByRole('table').last()).toContainText('Aarav');
   await page.getByLabel('Find a student').fill('');
   await expect.poll(async () => (await rows().count()) - 1).toBe(total);
-  await openFilters(page);
   await page.getByLabel('Result filter').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Clear filters' }).click();
-  await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: 'Graphs' }).click();
   await expect(page.getByText('Average and pass rate by exam')).toBeVisible();
   await expect(page.getByText('How marks are spread')).toBeVisible();

@@ -17,7 +17,7 @@ const shiftDay = (d, n) => { const x = new Date(`${d}T00:00:00Z`); x.setUTCDate(
 const mondayOf = (d) => shiftDay(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));
 const validDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2000-01-01' && d <= today(); // a half-typed date (year 0002…) is ignored
 
-/** Classes & sections: the structure of classes and sections, and the homework of a day. (Subjects and teachers have their own page; attendance is under Academics.) */
+/** Classes and sections: the structure of classes and sections, and the homework of a day. (Subjects and teachers have their own page; attendance is under Academics.) */
 export function ClassHub() {
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') || 'structure';
@@ -25,7 +25,7 @@ export function ClassHub() {
   if (tab === 'attendance') return <Navigate to="/admin/attendance" replace />; // attendance of students and staff is one page now, under Administration
   return (
     <div className="stack">
-      <Tabs tabs={[['structure', 'Classes & sections'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
+      <Tabs tabs={[['structure', 'Classes and sections'], ['homework', 'Homework by day']]} value={tab} onChange={(t) => setSp(t === 'structure' ? {} : { tab: t })} />
       {tab === 'structure' && <Structure />}{tab === 'homework' && <HomeworkByDay />}
     </div>
   );
@@ -72,7 +72,7 @@ export function HomeworkDay({ sectionId }) {
         {d.subjectsWithout.length > 0 && <div className="alert info">No homework was set on {fmtDate(date, true)} for: {d.subjectsWithout.join(', ')}.</div>}
         <Card title={`Homework on ${fmtDate(date, true)}`} flush><DataTable rows={d.items} empty="No homework was given or due on this day" columns={[
           { label: 'Subject', render: (h) => <b>{h.subject}</b> }, { label: 'Homework', render: (h) => <>{h.title}{h.description && <div className="small muted">{h.description}</div>}</> }, { label: 'Teacher', key: 'teacher' }, { label: 'Type', render: (h) => label(h.type) },
-          { label: 'Given', render: (h) => fmtDate(h.assignedDate) }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: '', render: (h) => <Badge tone={h.kind === 'due' ? 'amber' : 'green'}>{h.kind === 'due' ? 'Due today' : h.kind === 'both' ? 'Given & due' : 'Given today'}</Badge> },
+          { label: 'Given', render: (h) => fmtDate(h.assignedDate) }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: '', render: (h) => <Badge tone={h.kind === 'due' ? 'amber' : 'green'}>{h.kind === 'due' ? 'Due today' : h.kind === 'both' ? 'Given and due' : 'Given today'}</Badge> },
         ]} /></Card>
       </div>
     )}</Async>
@@ -89,7 +89,7 @@ export function ClassDetail() {
     <Async state={ov}>{(o) => (
       <div className="stack">
         <PageHeader title={`${o.className} ${o.section}`} subtitle={`Class teacher: ${o.classTeacher || 'not assigned'}${o.room ? ` · Room ${o.room}` : ''} · ${o.students} of ${o.capacity} students`} actions={<Link className="btn" to="/admin/classes">← All classes</Link>} />
-        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ...(o.periodWise ? [['periods', 'By period']] : []), ['homework', 'Homework'], ['subjects', 'Subjects & teachers'], ['exams', 'Exams & performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ...(o.periodWise ? [['periods', 'By period']] : []), ['homework', 'Homework'], ['subjects', 'Subjects and teachers'], ['exams', 'Exams and performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
         {tab === 'overview' && <Overview o={o} go={(t) => setSp({ tab: t })} />}
         {tab === 'students' && <SectionStudents sectionId={sectionId} />}
         {tab === 'periods' && o.periodWise && <SectionPeriods sectionId={sectionId} />}
@@ -116,7 +116,7 @@ export function Overview({ o, go }) {
       </div>
       <div className="grid g4">
         <Stat value={o.students} label="Students" sub={`capacity ${o.capacity}`} /><Stat value={o.onBus} label="Ride the school bus" /><Stat value={o.booksOnLoan} label="Library books out" />
-        <Stat value={o.subjectTeachers.length} label="Subjects with a teacher" sub={o.subjectTeachers.length ? undefined : 'Assign teachers in Subjects & teachers'} tone={o.subjectTeachers.length ? undefined : 'amber'} />
+        <Stat value={o.subjectTeachers.length} label="Subjects with a teacher" sub={o.subjectTeachers.length ? undefined : 'Assign teachers in Subjects and teachers'} tone={o.subjectTeachers.length ? undefined : 'amber'} />
       </div>
       <Card title="Subject teachers" action={readOnly ? undefined : <Button size="sm" onClick={() => go('subjects')}>Manage</Button>} flush><DataTable rows={o.subjectTeachers} rowKey="id" empty="No teachers assigned yet" columns={[{ label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Teacher', key: 'teacher' }, { label: 'Periods / week', key: 'periodsPerWeek' }]} /></Card>
     </div>

@@ -80,7 +80,7 @@ export default function ClassStructure() {
   const yearObj = L.years.find((y) => y._id === yid);
   return (
     <div className="stack">
-      <PageHeader title="Subjects & teachers by class" subtitle="Each class's subjects, and who teaches each one in each section. A new year brings over the sections and subjects; you assign the teachers here. Anything with nobody assigned is marked." />
+      <PageHeader title="Subjects and teachers by class" subtitle="Each class's subjects, and who teaches each one in each section. A new year brings over the sections and subjects; you assign the teachers here. Anything with nobody assigned is marked." />
       <Card><div className="row wrap" style={{ alignItems: 'end' }}>
         <Field label="Academic year"><Select aria-label="Academic year" value={yid || ''} onChange={(e) => setPicked(e.target.value)} options={L.yearOptions} /></Field>
         {q.data && (q.data.summary.sectionsWithoutClassTeacher + q.data.summary.subjectsWithoutTeacher + q.data.summary.classesWithoutSubjects > 0

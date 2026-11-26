@@ -53,12 +53,12 @@ export const Callout = ({ tone = 'info', children, className }: { tone?: 'info' 
 const onlineNow = () => (typeof navigator === 'undefined' ? true : navigator.onLine);
 const watchOnline = (cb: () => void) => { window.addEventListener('online', cb); window.addEventListener('offline', cb); return () => { window.removeEventListener('online', cb); window.removeEventListener('offline', cb); }; };
 
-/** A bar across the top while the device has no internet connection, so a failure to save or load is understood as the connection, not the app. */
+/** A notice at the bottom while the device has no internet connection, so a failure to save or load is understood as the connection, not the app. It sits clear of the top menu, which must stay usable. */
 export function OfflineBanner() {
   const online = useSyncExternalStore(watchOnline, onlineNow, () => true);
   if (online) return null;
   return (
-    <div role="status" className="fixed inset-x-0 top-0 z-[80] flex items-center justify-center gap-2 border-b border-warning/40 bg-warning-soft px-4 py-2 text-center text-sm font-medium text-warning-ink">
+    <div role="status" className="fixed inset-x-3 bottom-20 z-[80] mx-auto flex max-w-lg items-center justify-center gap-2 rounded-xl border border-warning/40 bg-warning-soft px-4 py-2.5 text-center text-sm font-medium text-warning-ink shadow-md lg:bottom-5">
       <WifiOff className="size-4 shrink-0" aria-hidden />
       No internet connection. Changes cannot be saved until you are back online.
     </div>

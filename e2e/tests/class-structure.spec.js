@@ -7,7 +7,7 @@ test('subjects are listed once for the school, given to classes from a dropdown,
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Academics/ }).click();
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Subjects and teachers' }).click();
-  await expect(page.getByRole('heading', { name: 'Subjects & teachers by class' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Subjects and teachers by class' })).toBeVisible();
 
   // the school's list of subjects: add one, then give it to a class
   const subject = `Robotics ${uid}`;

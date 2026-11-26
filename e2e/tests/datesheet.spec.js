@@ -8,7 +8,7 @@ test('the standard exams are added in one click, and the date sheet is filled cl
   const problems = watch(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/exams');
-  await page.getByRole('tab', { name: 'Examinations & marks' }).click();
+  await page.getByRole('tab', { name: 'Examinations and marks' }).click();
   await expect(page.getByRole('cell', { name: /Unit Test 1/ }).first()).toBeVisible(); // the list has loaded
   const add = page.getByRole('button', { name: 'Add the standard exams' });
   await expect(add.or(page.getByRole('cell', { name: /Final Exam/ }).first())).toBeVisible(); // either the button, or everything is there already

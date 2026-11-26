@@ -161,7 +161,7 @@ function ImportModal({ base, group, onClose, onDone }) {
   const toRows = () => rows.map((r) => ({ code: r[cols.code], date: String(r[cols.date] || '').slice(0, 10), time: String(r[cols.time] || '').slice(0, 5) })).filter((r) => r.code && r.date && r.time);
   const send = async () => { const r = await run(() => post(`${base}/punches/import`, { group, rows: toRows() }), (x) => `${x.imported} day(s) imported for ${x.people} people`); if (r) { setResult(r); onDone(); } };
   return (
-    <Modal wide title="Import from the attendance machine" onClose={onClose} footer={<><Button onClick={onClose}>Close</Button><Button variant="primary" loading={busy} disabled={!rows || !cols.code || !cols.date || !cols.time} onClick={send}>Import {rows ? `${toRows().length} punches` : ''}</Button></>}>
+    <Modal wide title="Import from the attendance machine" onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!rows || !cols.code || !cols.date || !cols.time} onClick={send}>Import {rows ? `${toRows().length} punches` : ''}</Button></>}>
       <div className="stack">
         <p className="muted small" style={{ margin: 0 }}>Upload the CSV your machine exports: one row per punch, with the person's code (their employee or staff id), the date (YYYY-MM-DD) and the time (HH:MM). The earliest time of the day becomes the check-in and the latest becomes the check-out.</p>
         <input type="file" accept=".csv,text/csv" aria-label="Machine export file" onChange={onFile} />

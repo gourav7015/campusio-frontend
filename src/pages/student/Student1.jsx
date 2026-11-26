@@ -108,7 +108,7 @@ export function StudentHomework() {
   const [run] = useAction();
   return (
     <div className="stack">
-      <PageHeader title="Homework & assignments" />
+      <PageHeader title="Homework and assignments" />
       <Tabs tabs={[['all', 'All assignments'], ['pending', 'Pending'], ['due_soon', 'Due soon'], ['overdue', 'Overdue']]} value={tab} onChange={setTab} />
       <Card flush><Async state={list} empty={<Empty title="Nothing here" />}>{(rows) => <DataTable rows={rows} onRowClick={setOpen} columns={[{ label: 'Subject', render: (h) => <b>{h.subject}</b> }, { label: 'Homework', key: 'title' }, { label: 'Teacher', key: 'teacher' }, { label: 'Due date', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.state)}>{h.state === 'overdue' ? 'Overdue' : h.state === 'due_soon' ? `Due in ${h.daysLeft}d` : 'Pending'}</Badge> }, { label: 'Files', render: (h) => (h.attachmentFiles.length ? `${h.attachmentFiles.length}` : '') }]} />}</Async></Card>
       {open && <Modal wide title={open.title} onClose={() => setOpen(null)}><dl className="kv"><dt>Subject</dt><dd>{open.subject}</dd><dt>Teacher</dt><dd>{open.teacher}</dd><dt>Assigned</dt><dd>{fmtDate(open.assignedDate, true)}</dd><dt>Due</dt><dd>{fmtDate(open.dueDate, true)} <Badge tone={statusTone(open.state)}>{label(open.state)}</Badge></dd><dt>Description</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{open.description || '—'}</dd><dt>Instructions</dt><dd style={{ whiteSpace: 'pre-wrap' }}>{open.instructions || '—'}</dd>

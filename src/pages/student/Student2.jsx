@@ -28,7 +28,7 @@ export function StudentResults() {
   const [tab, setTab] = useState('mine');
   return (
     <div className="stack">
-      <PageHeader title="Results, report cards & class ranks" subtitle="Only published results are shown" />
+      <PageHeader title="Results, report cards and class ranks" subtitle="Only published results are shown" />
       <Tabs tabs={[['mine', 'My results'], ['class', 'All tests of my class']]} value={tab} onChange={setTab} />
       {tab === 'mine' ? <MyResults /> : <ClassResults />}
     </div>
@@ -257,7 +257,7 @@ export function StudentSettings() {
       <PageHeader title="Settings" />
       <Card title="Language"><Select value={user.language || 'en'} onChange={async (e) => { await run(() => patch('/api/auth/preferences', { language: e.target.value }), 'Saved'); refresh(); }} options={[{ value: 'en', label: 'English' }, { value: 'hi', label: 'हिन्दी' }]} aria-label="Language" /></Card>
       <Card title="Notification preferences"><div className="stack-sm">{cats.map((c) => <label key={c} className="row between"><span>{label(c)}</span><input type="checkbox" checked={prefs[c] !== false} disabled={busy} onChange={async (e) => { await run(() => patch('/api/auth/preferences', { notificationPrefs: { [c]: e.target.checked } }), 'Saved'); refresh(); }} /></label>)}</div></Card>
-      <Card title="Account"><p className="muted">Your role and school are set by the school office and cannot be changed here.</p><div className="row"><Link className="btn" to="/account">Change password & manage devices</Link></div></Card>
+      <Card title="Account"><p className="muted">Your role and school are set by the school office and cannot be changed here.</p><div className="row"><Link className="btn" to="/account">Change password and manage devices</Link></div></Card>
     </div>
   );
 }
