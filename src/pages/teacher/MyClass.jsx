@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { Async, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Tabs, fmtDate, label, statusTone } from '../../components/ui.jsx';
+import { Async, Spinner, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Tabs, fmtDate, label, statusTone } from '../../components/ui.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { Overview, SectionStudents, HomeworkDay } from '../admin/ClassHub.jsx';
@@ -33,7 +33,7 @@ export default function MyClass() {
       <div className="stack">
         <PageHeader title="My class" subtitle={cur ? `${cur.className} ${cur.section} · ${cur.students} students · you are the class teacher, so you see this class as the school office does and can open any student's full file` : 'The class you are the class teacher of'}
           actions={mine.length > 1 && <Select aria-label="Class and section" value={sid} onChange={(e) => go(tab, e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} />} />
-        {classes.loading ? null : !mine.length ? <Empty title="You are not a class teacher">When the school makes you the class teacher of a section, it appears here with its register, students, results and marks.</Empty> : (
+        {classes.loading && !classes.data ? <Spinner /> : !mine.length ? <Empty title="You are not a class teacher">When the school makes you the class teacher of a section, it appears here with its register, students, results and marks.</Empty> : (
           <>
             <Tabs tabs={TABS} value={tab} onChange={(t) => go(t)} />
             {tab === 'overview' && <OfficeOverview sid={sid} go={go} />}

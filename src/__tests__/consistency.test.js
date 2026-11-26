@@ -40,6 +40,12 @@ describe('wording', () => {
     expect(hits, hits.join('\n')).toEqual([]);
   });
 
+  it('shows shapes while loading, never a line of "Loading…" text', () => {
+    const hits = [];
+    for (const f of files) text(f).split('\n').forEach((line, i) => { if (/>Loading (the|your|…)|Loading the [a-z ]+…/.test(line)) hits.push(`${rel(f)}:${i + 1}`); });
+    expect(hits, hits.join('\n')).toEqual([]);
+  });
+
   it('the Library says Delete for a book, never Archive (archiving is for things that can be brought back)', () => {
     const hits = files.filter((f) => /pages[\\/]library[\\/]/.test(f) && /archiv/i.test(text(f))).map(rel);
     expect(hits).toEqual([]);

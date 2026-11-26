@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StaffManager from '../components/StaffManager.jsx';
 import { ToastProvider } from '../components/ui.jsx';
+import { Q } from './helpers/Q.jsx';
 
 const DESIGNATIONS = [
   { _id: 'd1', name: 'Driver', group: 'transport', busRole: 'driver', status: 'active', staff: 1 },
@@ -19,7 +20,7 @@ beforeEach(() => {
     return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body, text: async () => JSON.stringify(body) };
   });
 });
-const mount = (props) => render(<MemoryRouter><ToastProvider><StaffManager staffBase="/api/school/support-staff" designationBase="/api/school/designations" {...props} /></ToastProvider></MemoryRouter>);
+const mount = (props) => render(<MemoryRouter><Q><ToastProvider><StaffManager staffBase="/api/school/support-staff" designationBase="/api/school/designations" {...props} /></ToastProvider></Q></MemoryRouter>);
 
 describe('StaffManager', () => {
   it('lists non-teaching staff with their designation, bus and licence', async () => {

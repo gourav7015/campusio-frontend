@@ -3,7 +3,8 @@ import { flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search, SearchX } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { Button } from './button';
-import { EmptyState, ErrorState, Skeleton } from './feedback';
+import { EmptyState, ErrorState } from './feedback';
+import { Sk } from './skeleton';
 
 /** Column `meta`: `align: 'right'` for numbers, `hideBelow` to drop a column on small screens, `className` for the cell. */
 declare module '@tanstack/react-table' {
@@ -73,7 +74,8 @@ export function DataTable<T>({ columns, data, loading, error, onRetry, searchPla
         </div>
       )}
       {error ? <ErrorState error={error} onRetry={onRetry} /> : loading ? (
-        <div className="space-y-px p-3" role="status" aria-label="Loading">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-11 rounded" />)}</div>
+        <div className="sk-scene" role="status" aria-label="Loading">{Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 border-b border-border/60 px-4 py-3 last:border-0"><Sk kind="line" w={`${[34, 26, 40, 30][i % 4]}%`} d={i} /><span className="flex-1" /><Sk kind="line" w="14%" d={i} /><Sk kind="pill" w={52} h={18} d={i} /></div>))}</div>
       ) : rows.length === 0 ? <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />
         : filtered ? <EmptyState icon={SearchX} title="No matches" description={`Nothing matches “${filter}”.`} action={<Button size="sm" onClick={() => setFilter('')}>Clear search</Button>} />
         : (

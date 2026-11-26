@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { useGet } from '../../api/query';
-import { Button, Input } from '../../design/ui';
+import { Button, Input, SkeletonScene } from '../../design/ui';
 import { fmtMoney, useDebounced } from '../../components/ui.jsx';
 import { PayModal } from './Finance.jsx';
 
@@ -16,7 +16,7 @@ interface Account { student: { id: string; name: string }; charges: Charge[]; to
 function Picked({ id, base, onClear }: { id: string; base: string; onClear: () => void }) {
   const { data: x, refetch } = useGet<Account>(`/api/finance/students/${id}/account`);
   const [pay, setPay] = useState(false);
-  if (!x) return <p className="mt-3 text-sm text-muted-foreground">Loading the account…</p>;
+  if (!x) return <div className="mt-3"><SkeletonScene kind="list" /></div>;
   const open = x.charges.filter((c) => c.status === 'open');
   return (
     <div className="mt-3 rounded-2xl border border-border p-4">

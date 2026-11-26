@@ -6,7 +6,7 @@ import { useLookups } from '../../hooks/useLookups.js';
 import { useHouseOptions, useRankOptions } from '../../hooks/useRegistry.js';
 import { get, post, put, patch, del, upload, openFile } from '../../api/client.js';
 import {
-  Async, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useToast, useDebounced, statusTone, fmtDate, fmtMoney, label, Empty,
+  Async, Spinner, Badge, Button, Card, ConfirmButton, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Tabs, useAction, useToast, useDebounced, statusTone, fmtDate, fmtMoney, label, Empty,
 } from '../../components/ui.jsx';
 import { TeacherSummary, ClassesPanel as TeacherClasses, AttendancePanel as TeacherAttendance, SalaryPanel as TeacherSalary, LibraryPanel as TeacherLibrary } from '../../components/TeacherOverview.jsx';
 import { SummaryStrip, AttendancePanel, ExamsPanel, HomeworkPanel, FeesPanel, LibraryPanel, BusCard } from '../../components/StudentOverview.jsx';
@@ -53,7 +53,7 @@ function AdmitStudent({ L, onClose, onDone }) {
         {v.sectionId && (
           <div className="full stack-sm">
             <h3>Fees</h3>
-            {!fee && <p className="muted small" style={{ margin: 0 }}>Loading the fee structure…</p>}
+            {!fee && <Spinner />}
             {fee && !fee.structures.length && <p className="muted small" style={{ margin: 0 }}>This class has no fee structure yet, so the student will not be billed and no discount can be given. Ask Finance to set one up first. Fees are collected at the Finance desk.</p>}
             {fee && fee.structures.length > 0 && (<>
               <dl className="kv">

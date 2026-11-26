@@ -4,9 +4,9 @@ import { api as rawApi, get } from './client.js';
 type ApiFn = (path: string, o?: { method?: string; body?: unknown; query?: Record<string, unknown>; form?: FormData }) => Promise<unknown>;
 const api = rawApi as unknown as ApiFn;
 
-/** One cache for the whole app. Data is fresh for 30 seconds; failed reads retry once, never a 4xx. */
+/** One cache for the whole app. Data is fresh for a minute (a screen visited again shows it at once and refreshes quietly after that); failed reads retry once, never a 4xx. */
 export const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: (n, e) => { const status = (e as unknown as { status?: number }).status; return n < 1 && !(status && status < 500); } } },
+  defaultOptions: { queries: { networkMode: 'always', staleTime: 60_000, gcTime: 15 * 60_000, refetchOnWindowFocus: false, retry: (n, e) => { const status = (e as unknown as { status?: number }).status; return n < 1 && !(status && status < 500); } } },
 });
 
 // a change made anywhere refreshes what dashboards and lists have cached (client.js announces it)

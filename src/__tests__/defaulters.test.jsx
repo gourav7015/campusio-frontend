@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FinanceDefaulters } from '../pages/finance/Finance.jsx';
 import { ToastProvider } from '../components/ui.jsx';
+import { Q } from './helpers/Q.jsx';
 
 const stu = (i, over = {}) => ({ studentId: `s${i}`, name: `Student ${i}`, className: 'Class 8', section: 'A', guardian: 'Parent', guardianPhone: '98', overdue: 1000 * i, pending: 2000 * i, daysOverdue: 10 * i, nextDue: '2026-12-10', ...over });
 let calls;
@@ -19,7 +20,7 @@ beforeEach(() => {
     return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body, text: async () => JSON.stringify(body) };
   });
 });
-const mount = (readOnly) => render(<MemoryRouter><ToastProvider><FinanceDefaulters readOnly={readOnly} /></ToastProvider></MemoryRouter>);
+const mount = (readOnly) => render(<MemoryRouter><Q><ToastProvider><FinanceDefaulters readOnly={readOnly} /></ToastProvider></Q></MemoryRouter>);
 const openTab = async () => { expect(await screen.findByRole('heading', { name: 'Defaulters' })).toBeInTheDocument(); }; // Defaulters is its own page now, not a tab inside Reports
 
 describe('Defaulters', () => {

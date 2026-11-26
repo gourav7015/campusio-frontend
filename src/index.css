@@ -68,3 +68,32 @@ tbody tr.sel { background: rgb(var(--c-primary-soft)); }
 /* cards in every portal: rounder, with a soft shadow */
 main .rounded-lg.border.bg-card, main .card { border-radius: 20px; box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 10px 28px -14px rgb(0 0 0 / .12); }
 :root[data-theme='dark'] main .rounded-lg.border.bg-card, :root[data-theme='dark'] main .card { box-shadow: 0 1px 2px rgb(0 0 0 / .5), 0 10px 28px -14px rgb(0 0 0 / .6); }
+
+/* ---------- Loading skeletons (look "Pencil"): text is written out by a small pencil tip, blocks are coloured in, bars grow.
+   Shapes only, never made-up words or numbers. The whole scene appears after 0.2 s so a fast load never flashes. ---------- */
+:where(.sk) { border-radius: 6px; display: block; flex: none; } /* zero specificity, so a class like flex-1 or hidden on a shape still wins */
+.sk { position: relative; overflow: hidden; background: rgb(var(--c-muted)); }
+.sk::after { content: ''; position: absolute; inset: 0; background: rgb(var(--c-border-strong)); opacity: .55; transform-origin: left; transform: scaleX(0); animation: sk-fill 3s ease-in-out infinite; animation-delay: calc(var(--d, 0) * 150ms); }
+.sk-bar::after { transform-origin: bottom; transform: scaleY(0); animation-name: sk-fill-y; }
+/* a line of text: a dotted guide where the words will go, and a stroke drawn along it with a dot at the tip */
+.sk-line { height: 10px; background: none; border-radius: 0; overflow: visible; }
+.sk-line.sk-small { height: 8px; }
+.sk-line.sk-title { height: 20px; }
+.sk-line::before { content: ''; position: absolute; left: 0; right: 0; bottom: 1px; border-bottom: 2px dotted rgb(var(--c-border-strong)); }
+.sk-line::after { inset: auto; left: 0; bottom: 0; height: 4px; width: 0; border-radius: 2px; transform: none; opacity: .65;
+  background: radial-gradient(circle at calc(100% - 2.5px) 50%, rgb(var(--c-primary)) 0 2.6px, transparent 3.2px), linear-gradient(rgb(var(--c-fg-2)), rgb(var(--c-fg-2))) 0 50% / 100% 2px no-repeat;
+  animation: sk-write 3s ease-in-out infinite; animation-delay: calc(var(--d, 0) * 150ms); }
+.sk-title::before { bottom: 3px; } .sk-title::after { bottom: 2px; }
+@keyframes sk-fill { 0% { transform: scaleX(0); opacity: .55; } 55%, 82% { transform: scaleX(1); opacity: .55; } 100% { transform: scaleX(1); opacity: 0; } }
+@keyframes sk-fill-y { 0% { transform: scaleY(0); opacity: .55; } 55%, 82% { transform: scaleY(1); opacity: .55; } 100% { transform: scaleY(1); opacity: 0; } }
+@keyframes sk-write { 0% { width: 0; opacity: .65; } 58%, 84% { width: 100%; opacity: .65; } 100% { width: 100%; opacity: 0; } }
+@keyframes sk-appear { from { opacity: 0; } to { opacity: 1; } }
+.sk-scene { animation: sk-appear .15s ease 200ms both; }
+/* a very long table animates only its first rows; the rest stay still, so the screen never gets busy */
+.sk-still .sk::after, .sk-still.sk::after { animation: none; transform: none; opacity: .3; }
+.sk-still .sk-line::after { width: 100%; opacity: .3; }
+@media (prefers-reduced-motion: reduce) {
+  .sk::after { animation: none; transform: none; opacity: .3; }
+  .sk-line::after { width: 100%; opacity: .5; }
+  .sk-scene { animation: none; }
+}

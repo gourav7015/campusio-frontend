@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
 import { api, post, put } from '../api/client.js';
-import { Async, Badge, Button, Card, Input, Select, useAction } from './ui.jsx';
+import { Async, Spinner, Badge, Button, Card, Input, Select, useAction } from './ui.jsx';
 import { gradeRank } from '../utils/grades.js';
 import { useDialogs } from '../design/ui';
 
@@ -66,7 +66,7 @@ export default function DateSheet({ examId, exam, onChanged }) {
         {exam.schedulePublished && <p className="small muted" style={{ margin: '10px 0 0' }}>This date sheet is published. Saving a change does not tell the students again; use “Re-notify schedule” at the top.</p>}
       </Card>
       <Card flush title={current ? `${exam.name} · ${current.name}` : 'Date sheet'} action={<Badge tone={list.length && dated === list.length ? 'green' : 'amber'}>{dated} of {list.length} dated</Badge>}>
-        {!ready ? <div className="empty small">Loading the date sheet…</div> : <Async state={sheet} empty={null}>{() => (list.length ? (
+        {!ready ? <Spinner kind="table" /> : <Async state={sheet} empty={null}>{() => (list.length ? (
           <div className="table-wrap"><table><thead><tr><th>Subject</th><th>Date</th><th>Day</th><th>Starts</th><th>Ends</th><th>Room</th></tr></thead><tbody>
             {list.map((r) => (
               <tr key={r.subjectId}>

@@ -3,18 +3,14 @@ import { AlertTriangle, Inbox, Lock, RotateCw, WifiOff, type LucideIcon } from '
 import { cn } from '../lib/cn';
 import { Button } from './button';
 import { ErrorScreen, isConnectionProblem } from '../ErrorScreen';
+import { SkeletonScene } from './skeleton';
 
-export const Skeleton = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => <div className={cn('animate-pulse rounded-md bg-muted motion-reduce:animate-none', className)} aria-hidden {...p} />;
+/** A plain loading shape for small pieces (a number, a menu row); whole screens use SkeletonScene. */
+export const Skeleton = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => <div className={cn('sk', className)} aria-hidden {...p} />;
 
-/** Page-level loading placeholder shaped like content (a heading, a stat row and a table). */
+/** Page-level loading screen for a home page (a heading, number cards, a chart and a list). */
 export function PageSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="space-y-6">
-      <div className="space-y-2"><Skeleton className="h-7 w-56" /><Skeleton className="h-4 w-80 max-w-full" /></div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-lg" />)}</div>
-      <Skeleton className="h-64 rounded-lg" />
-    </div>
-  );
+  return <SkeletonScene kind="dashboard" />;
 }
 
 export function EmptyState({ icon: Icon = Inbox, title, description, action, className }: { icon?: LucideIcon; title: string; description?: ReactNode; action?: ReactNode; className?: string }) {

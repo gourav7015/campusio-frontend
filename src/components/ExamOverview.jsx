@@ -13,7 +13,7 @@ export default function ExamOverview({ onPickClass, view = 'summary' }) {
   const nav = useNavigate();
   const q = useApi('/api/school/analysis/overview');
   return (
-    <Async state={q}>{(d) => {
+    <Async skeleton="dashboard" state={q}>{(d) => {
       const t = d.totals;
       if (!t.results) {
         return <Card><Empty title="No results have been published yet">{t.examsScheduled ? `${t.examsScheduled} exam(s) are set up. School-wide statistics appear here once marks are approved and results are published.` : 'Create an examination under “Examinations and marks”. Statistics appear here once results are published.'}</Empty></Card>;

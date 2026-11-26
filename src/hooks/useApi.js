@@ -1,29 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { get } from '../api/client.js';
 
-/** GET a path (skip when null). Re-fetches when path/query change or reload() is called. */
-export function useApi(path, query) {
-  const [state, setState] = useState({ data: null, loading: !!path, error: null });
-  const key = path ? path + JSON.stringify(query || {}) : null;
-  const seq = useRef(0);
-  const latest = useRef({ path, query }); // reload() always asks for what is on screen now, even when it was called from a form opened earlier
-
-  const load = useCallback(async () => {
-    const { path, query } = latest.current;
-    if (!path) { setState({ data: null, loading: false, error: null }); return; }
-    const id = ++seq.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      const data = await get(path, query);
-      if (id === seq.current) setState({ data, loading: false, error: null });
-    } catch (error) {
-      if (id === seq.current) setState({ data: null, loading: false, error });
-    }
-  }, []);
-
-  // Fetch-on-change is the purpose of this hook; the state update happens after the request resolves.
-  useEffect(() => { latest.current = { path, query }; load(); }, [key, load]);
-  return { ...state, reload: load };
+/**
+ * GET a path (skip when null), kept in the app's one shared cache.
+ * - Coming back to a screen shows what was fetched before at once; it is asked for again quietly in the background once it is older than `staleTime` (a minute unless the screen says otherwise).
+ * - When the query changes (a filter, another date) the previous answer stays on screen while the new one loads, as before; `stale` is true meanwhile, for a screen whose layout depends on the query and must not draw the old answer in the new shape.
+ * - With no connection the request is still tried, so the screen can say so (the cache would otherwise wait silently). Network failures are already retried by the api client, so the cache does not retry again.
+ * - Anything the person saves refreshes the cache (see api/query.ts). `reload()` asks again now, for what is on screen.
+ */
+export function useApi(path, query, options = {}) {
+  const qc = useQueryClient();
+  const key = [path, query ?? {}];
+  const q = useQuery({ queryKey: key, queryFn: () => get(path, query), enabled: !!path, retry: false, placeholderData: keepPreviousData, ...options });
+  const keyText = JSON.stringify(key);
+  const latest = useRef(key); // reload() always asks for what is on screen now, even when it was called from a form opened earlier
+  useEffect(() => { latest.current = JSON.parse(keyText); }, [keyText]);
+  const [reload] = useState(() => () => qc.refetchQueries({ queryKey: latest.current, exact: true }).then(() => undefined));
+  return { data: q.data ?? null, loading: !!path && q.isFetching, error: q.error ?? null, stale: q.isPlaceholderData, reload };
 }
 
 export function useForm(initial) {

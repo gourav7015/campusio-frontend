@@ -35,7 +35,7 @@ function Register({ base, group, canEdit }) {
   const [date, setDate] = useState(today());
   const reg = useApi(`${base}/register`, { group, date });
   return (
-    <Async state={reg}>{(d) => <RegisterBody key={`${date}|${group}|${d.session?.status || 'none'}`} base={base} group={group} canEdit={canEdit} date={date} setDate={setDate} d={d} reload={reg.reload} />}</Async>
+    <Async skeleton="roster" state={reg}>{(d) => <RegisterBody key={`${date}|${group}|${d.session?.status || 'none'}`} base={base} group={group} canEdit={canEdit} date={date} setDate={setDate} d={d} reload={reg.reload} />}</Async>
   );
 }
 

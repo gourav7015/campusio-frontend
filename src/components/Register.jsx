@@ -32,7 +32,7 @@ export default function RegisterEditor({ base, sectionId, date, onChange }) {
   const byId = (id) => list.find((s) => s.studentId === id);
   if (!sectionId) return null;
   return (
-    <Async state={reg}>{() => (
+    <Async skeleton="roster" state={reg}>{() => (
       <div className="stack">
         {d.blocked && <div className="alert info row between wrap"><span>Attendance can't be taken for this date: {d.blocked.startsWith('holiday') ? `holiday — ${d.blocked.split(':')[1]}` : d.blocked === 'future' ? 'it is in the future' : 'not a working day'}.{d.blocked !== 'future' && ' If the school is open for a test, exam or duty, attendance can be allowed for this day.'}</span>
           {d.blocked !== 'future' && (isTeacher ? d.isClassTeacher : true) && <Button size="sm" onClick={() => setOpen(true)}>{isTeacher ? 'Ask the admin to allow it' : 'Allow attendance on this day'}</Button>}</div>}

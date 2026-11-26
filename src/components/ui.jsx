@@ -2,7 +2,7 @@ import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, u
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, Copy, Inbox, Loader2, Lock } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 import { isOffline } from '../api/client.js';
-import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Pagination, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
+import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Pagination, SkeletonScene, ToastProvider, useToast, useDialogs } from '../design/ui';
 
 // Toasts, dialogs and empty states now come from the design system; the screens built earlier keep their imports.
 export { ToastProvider, useToast };
@@ -25,13 +25,14 @@ export const Badge = ({ tone, children }) => <span className={cls('badge', tone)
 export const PageHeader = ({ title, subtitle, actions }) => (
   <div className="page-h"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{actions && <div className="row wrap">{actions}</div>}</div>
 );
-export const Spinner = () => <div className="space-y-3 p-5" role="status" aria-label="Loading"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-5/6" /></div>;
+/** The loading screen: shapes drawn like the page they stand in for (see design/ui/skeleton.tsx). `kind` picks the shape. */
+export const Spinner = ({ kind = 'list' }) => <SkeletonScene kind={kind} />;
 export const Empty = ({ title, children }) => <EmptyState icon={Inbox} title={title} description={children} />;
 export const ErrorBox = ({ error, retry }) => error ? (isConnectionProblem(error) ? <ErrorScreen inline error={error} onRetry={retry} /> : error.status === 403 ? <EmptyState icon={Lock} title="You do not have access to this" description={error.message || 'Ask your school admin if you need it.'} /> : <div className="alert" role="alert">{error.message || String(error)} {retry && <button className="btn sm" onClick={retry}>Retry</button>}</div>) : null;
 
-/** Render loading / error / content for a useApi result. */
-export function Async({ state, children, empty }) {
-  if (state.loading && !state.data) return <Spinner />;
+/** Render loading / error / content for a useApi result. `skeleton` is the shape shown while loading: list (default), table, cards, profile, form, roster. */
+export function Async({ state, children, empty, skeleton = 'list' }) {
+  if (state.loading && !state.data) return <Spinner kind={skeleton} />;
   if (state.error) return <ErrorBox error={state.error} retry={state.reload} />;
   if (state.data == null) return null;
   if (empty && Array.isArray(state.data) && !state.data.length) return empty;

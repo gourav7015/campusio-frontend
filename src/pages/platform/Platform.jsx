@@ -77,7 +77,7 @@ export function SchoolDetail() {
 
   const enter = (school) => { setActing({ id: school._id, name: school.name }); nav('/admin'); };
   return (
-    <Async state={s}>{(school) => (
+    <Async skeleton="profile" state={s}>{(school) => (
       <div className="stack">
         <PageHeader title={school.name} subtitle={`Code: ${school.code} · ${school.board || 'Board not set'}`} actions={<>
           <Button variant="primary" onClick={() => enter(school)}>Open school (act as admin)</Button>

@@ -26,6 +26,11 @@ interface Dash {
 interface Heat { days: { date: string; status: string | null; working: boolean }[] }
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
+/** "Today", "Tomorrow", or the date, for the next homework due. */
+const dueWord = (due: string, today: string) => {
+  const d = Math.round((Date.parse(`${due}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+  return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : fmtDate(due);
+};
 const label = (s: string) => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 /** Consecutive recorded school days present or late, counting back from the latest recorded day. Unrecorded days do not break it; an absence does. */
@@ -47,7 +52,7 @@ export default function StudentDashboard() {
 
   const att = x.cards.attendance;
   const streak = streakOf(heat?.days);
-  const pending = x.cards.pendingHomework;
+  const nextHw = x.homework[0];
   // Achievements are worked out from the student's own records; nothing is stored or compared with other students.
   const badges = [
     { id: 'att', title: '95% attendance', hint: 'Keep attendance at 95% or more', icon: CalendarCheck2, earned: att != null && att >= 95 },
@@ -74,10 +79,11 @@ export default function StudentDashboard() {
             : <div className="grid size-16 place-items-center rounded-full bg-muted text-xl text-muted-foreground" aria-hidden>—</div>}
           <div className="min-w-0"><p className="text-[13px] text-muted-foreground">Attendance</p><p className="text-sm font-medium">{att == null ? 'No attendance recorded yet' : streak ? `${streak}-day streak` : 'This year'}</p></div>
         </Link>
-        <div className="rounded-lg border border-border/70 bg-card p-4 shadow-xs">
-          <p className="text-[13px] text-muted-foreground">Homework to do</p><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{pending}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{pending ? 'Given by your teachers, due soon' : 'Nothing right now'}</p>
-        </div>
+        <button type="button" onClick={() => document.getElementById('student-homework')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="rounded-lg border border-border/70 bg-card p-4 text-left shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <p className="text-[13px] text-muted-foreground">Homework due</p>
+          {nextHw ? <><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{dueWord(nextHw.dueDate, x.welcome.date)}</p><p className="mt-1 truncate text-xs text-muted-foreground">{nextHw.subject}{x.homework.length > 1 ? ` and ${x.homework.length - 1} more` : ''}</p></>
+            : <><p className="mt-1 text-3xl font-semibold tracking-tight">—</p><p className="mt-1 text-xs text-muted-foreground">No homework given</p></>}
+        </button>
         <Link to="/student/exams" className="rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="text-[13px] text-muted-foreground">Next exam</p>
           {x.upcomingExam ? <><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{x.upcomingExam.daysLeft === 0 ? 'Today' : <>{x.upcomingExam.daysLeft}<span className="text-base font-normal text-muted-foreground"> {x.upcomingExam.daysLeft === 1 ? 'day' : 'days'}</span></>}</p><p className="mt-1 truncate text-xs text-muted-foreground">{x.upcomingExam.subject} · {fmtDate(x.upcomingExam.date)}</p></>
@@ -92,13 +98,13 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <LinkCard className="xl:col-span-2" title="Today" to="/student/timetable" linkLabel="Full timetable"><DaySchedule rows={x.timetable.rows} showTeacher empty="No classes today" /></LinkCard>
-        <LinkCard title="Homework">
+        <div id="student-homework" className="scroll-mt-24"><LinkCard title="Homework">
           {x.homework.length ? <ul className="space-y-4">{x.homework.map((h) => (
             <li key={h._id} className="text-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{h.title}</p><p className="text-xs text-muted-foreground">{h.subject}</p></div><Badge tone="neutral">Due {fmtDate(h.dueDate)}</Badge></div>
               {h.description && <p className="mt-1 whitespace-pre-line text-[13px] text-muted-foreground">{h.description}</p>}
               {h.attachmentFiles?.length ? <p className="mt-1 flex flex-wrap gap-2">{h.attachmentFiles.map((f) => <a key={f._id} className="chip" href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>)}</p> : null}</li>))}</ul>
             : <EmptyState icon={Sparkles} title="No homework" description="Nothing has been given right now." className="py-6" />}
-        </LinkCard>
+        </LinkCard></div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

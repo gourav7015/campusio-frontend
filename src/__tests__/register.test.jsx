@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import StaffRegister from '../components/StaffRegister.jsx';
 import RegisterEditor from '../components/Register.jsx';
 import { ToastProvider } from '../components/ui.jsx';
+import { Q } from './helpers/Q.jsx';
 
 const row = (id, name, over = {}) => ({ personType: 'teacher', personId: id, name, code: `T${id}`, designation: 'Teacher', status: 'present', source: 'default', remark: '', ...over });
 const REGISTER = (over = {}) => ({ group: 'teachers', date: '2026-10-05', session: null, blocked: null, canEdit: true, canCorrect: false, rows: [row('1', 'Mr Sharma'), row('2', 'Mrs Gupta', { status: 'leave', source: 'leave', remark: 'Approved sick leave' })], totals: {}, ...over });
@@ -16,7 +17,7 @@ function mockApi(register) {
     return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body, text: async () => JSON.stringify(body) };
   });
 }
-const mount = (props) => render(<ToastProvider><StaffRegister base="/api/school/staff-attendance" group="teachers" {...props} /></ToastProvider>);
+const mount = (props) => render(<Q><ToastProvider><StaffRegister base="/api/school/staff-attendance" group="teachers" {...props} /></ToastProvider></Q>);
 
 describe('StaffRegister', () => {
   beforeEach(() => { window.confirm = () => true; });
@@ -153,7 +154,7 @@ const STUDENTS = (rows) => ({ date: '2026-10-05', session: null, blocked: null, 
 const stu = (id, name, roll, status = null) => ({ studentId: id, name, rollNo: roll, status });
 
 describe('Student register', () => {
-  const mountStudents = (rows) => { mockApi(STUDENTS(rows)); return render(<ToastProvider><RegisterEditor base="/api/teacher" sectionId="s1" date="2026-10-05" /></ToastProvider>); };
+  const mountStudents = (rows) => { mockApi(STUDENTS(rows)); return render(<Q><ToastProvider><RegisterEditor base="/api/teacher" sectionId="s1" date="2026-10-05" /></ToastProvider></Q>); };
 
   it('does not treat a student who is not marked as present, and will not submit until everyone is marked', async () => {
     mountStudents([stu('a', 'Aarav Mehta', 1, 'present'), stu('b', 'Bhavya Verma', 2), stu('c', 'Charvi Iyer', 3)]);

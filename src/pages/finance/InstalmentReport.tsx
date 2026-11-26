@@ -1,4 +1,5 @@
 import { useGet } from '../../api/query';
+import { SkeletonScene } from '../../design/ui';
 import { Badge, Progress } from '../../design/ui';
 import { Money } from '../../design/patterns';
 import { fmtDate } from '../../components/ui.jsx';
@@ -13,7 +14,7 @@ const STATE: Record<Row['state'], { tone: 'success' | 'danger' | 'warning' | 'ne
 export default function InstalmentReport({ base }: { base: string }) {
   const { data, error } = useGet<Report>(`${base}/installments`);
   if (error) return <section aria-labelledby="inst-h" className="min-w-0 max-w-full space-y-3"><h2 id="inst-h" className="text-lg font-semibold tracking-tight">Instalment-wise collection</h2><p className="text-sm text-muted-foreground">This could not be loaded. Refresh the page to try again.</p></section>;
-  if (!data) return null;
+  if (!data) return <SkeletonScene kind="list" />;
   const { items, totals } = data;
   return (
     <section aria-labelledby="inst-h" className="space-y-3">

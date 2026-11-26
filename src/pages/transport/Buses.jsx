@@ -27,7 +27,7 @@ export default function Buses({ base, readOnly = false }) {
     <div className="stack">
       <PageHeader title="Buses and riders" subtitle={readOnly ? 'Managed by the Transport officer. You can see everything here, but buses and riders are changed from the Transport desk.' : 'Vehicles, their driver and conductor, routes and stops, and the students who ride each bus. Students see their own bus on their portal.'}
         actions={!readOnly && <Button variant="primary" onClick={() => setEdit({ ...blank })}>+ Add bus</Button>} />
-      <Async state={list} empty={<Empty title="No buses yet" />}>{(rows) => {
+      <Async skeleton="table" state={list} empty={<Empty title="No buses yet" />}>{(rows) => {
         const riders = rows.reduce((n, b) => n + b.students, 0); const seats = rows.filter((b) => b.status === 'active').reduce((n, b) => n + b.capacity, 0);
         const alerts = rows.flatMap((b) => b.alerts.map((a) => ({ bus: b.busNo, ...a })));
         const nq = fl.q.trim().toLowerCase();
@@ -181,7 +181,7 @@ function BusDetail({ base, id, readOnly, onClose }) {
   const [add, setAdd] = useState(false); const [run] = useAction();
   return (
     <Modal wide title={d.data ? `Bus ${d.data.busNo}` : 'Bus'} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={d}>{(b) => (
+      <Async skeleton="profile" state={d}>{(b) => (
         <div className="stack">
           <div className="grid g2">
             <Card title="Vehicle and route"><dl className="kv"><dt>Registration</dt><dd>{b.registrationNo || '—'}</dd><dt>Model</dt><dd>{b.vehicleModel || '—'}</dd><dt>Route</dt><dd>{b.routeName || '—'}</dd><dt>Timing</dt><dd>{b.startTime || '—'} → {b.endTime || '—'}</dd><dt>Seats</dt><dd>{b.students.length} of {b.capacity} taken</dd><dt>Monthly fare</dt><dd>{b.monthlyFare ? fmtMoney(b.monthlyFare) : '—'}</dd>

@@ -40,7 +40,7 @@ export function StudentProfile() {
   const [v, setV] = useState({});
   const [run, busy] = useAction();
   return (
-    <Async state={p}>{(x) => (
+    <Async skeleton="profile" state={p}>{(x) => (
       <div className="stack">
         <PageHeader title="My profile" actions={<><PhotoUpload path={`${S}/profile/photo`} upload={upload} label={x.personal.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} />{x.editableFields.length > 0 && <Button onClick={() => { setV({ phone: x.personal.phone || '', address: x.personal.address || '', email: x.personal.email || '' }); setEdit(true); }}>Edit my details</Button>}</>} />
         <div className="row"><Avatar fileId={x.personal.photoFileId} name={x.personal.name} size={84} /><div><b>{x.personal.name}</b>{x.academic.monitor && <> <Badge tone="blue">Class monitor</Badge></>}<div className="small muted">{x.academic.className} {x.academic.section} · Roll {x.academic.rollNo}</div></div></div>
@@ -60,12 +60,12 @@ export function StudentProfile() {
 
 export function StudentTimetable() {
   const [view, setView] = useState('day'); const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'));
-  const t = useApi(`${S}/timetable`, { view, date });
+  const t = useApi(`${S}/timetable`, { view, date }, { staleTime: 5 * 60_000 }); // a timetable rarely changes: shown from memory when you come back
   return (
     <div className="stack">
       <PageHeader title="My timetable" subtitle="Includes free periods, breaks and any substitute teachers" actions={view !== 'subject' && <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />} />
       <Tabs tabs={[['day', 'Daily'], ['week', 'Weekly'], ['subject', 'Subject-wise']]} value={view} onChange={setView} />
-      <Async state={t}>{(d) => <Card>{view === 'day' && <DayList rows={d.rows} showTeacher empty={d.working === false ? 'No school today' : 'No scheduled classes'} />}{view === 'week' && <WeekGrid week={d.week} showTeacher />}
+      <Async skeleton="table" state={t.stale ? { ...t, data: null } : t}>{(d) => <Card>{view === 'day' && <DayList rows={d.rows} showTeacher empty={d.working === false ? 'No school today' : 'No scheduled classes'} />}{view === 'week' && <WeekGrid week={d.week} showTeacher />}
         {view === 'subject' && (d.subjects?.length ? d.subjects.map((s) => <div key={s.subject} style={{ marginBottom: 14 }}><h3>{s.subject}</h3><div className="row wrap" style={{ marginTop: 6 }}>{s.slots.map((x, i) => <span key={i} className="chip">{dayName(x.day).slice(0, 3)} · {x.period} · {x.startTime} · {x.teacher}{x.room ? ` · ${x.room}` : ''}</span>)}</div></div>) : <Empty title="No timetable yet" />)}</Card>}</Async>
     </div>
   );

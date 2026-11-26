@@ -63,7 +63,7 @@ export function FeesPanel({ studentId }) {
   const [run] = useAction();
   const receipt = (p) => run(() => download(`${base}/payments/${p.id || p._id}/receipt.pdf`, `receipt-${p.receiptNo}.pdf`));
   return (
-    <Async state={a}>{(x) => (
+    <Async skeleton="profile" state={a}>{(x) => (
       <div className="stack">
         <div className="grid g4"><Stat value={fmtMoney(x.totals.assigned)} label="Billed" /><Stat value={fmtMoney(x.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(x.totals.pending)} label="Pending" tone="amber" /><Stat value={fmtMoney(x.totals.overdue)} label="Overdue" tone={x.totals.overdue ? 'red' : 'green'} /></div>
         <FeeSchedule installments={x.installments} charges={x.charges.map((c) => ({ id: c._id, label: c.label, kind: c.kind, dueDate: c.dueDate, period: c.period, amount: c.amount, concession: c.concession, paid: c.paidAmount, outstanding: c.outstanding, status: c.status, overdue: c.overdue, notes: c.concessions?.map((k) => `Concession ${fmtMoney(k.amount)} — ${k.reason}`) }))}

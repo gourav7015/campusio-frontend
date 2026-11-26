@@ -128,7 +128,7 @@ const AREA = { super_admin: 'platform', school_admin: 'admin', teacher: 'teacher
 function Guard({ roles, area, children }) {
   const { user, loading, acting } = useAuth();
   const loc = useLocation();
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner kind="boot" />;
   if (!user) return <Navigate to={`/${roles.length === 2 ? 'admin' : AREA[roles[0]]}/login`} replace state={{ from: loc.pathname }} />;
   if (user.mustChangePassword && loc.pathname !== '/account') return <Navigate to="/account?force=1" replace />;
   if (!roles.includes(user.role)) return <Navigate to={homeFor(user.role)} replace />;
@@ -141,11 +141,11 @@ const AccountShell = () => { const { user } = useAuth(); return <AppShell area={
 
 export default function App() {
   const { user, loading } = useAuth();
-  if (loading) return <Spinner />;
+  if (loading) return <Spinner kind="boot" />;
   return (
     <ToastProvider><DialogsProvider>
       <OfflineBanner />
-      <Suspense fallback={<Spinner />}><Routes>
+      <Suspense fallback={<Spinner kind="boot" />}><Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/connect" element={<ConnectPage />} /><Route path="/privacy" element={<Privacy />} /><Route path="/terms" element={<Terms />} /><Route path="/cookies" element={<Cookies />} /><Route path="/refunds" element={<Refunds />} />
         {Gallery && <Route path="/design" element={<Suspense fallback={null}><Gallery /></Suspense>} />}

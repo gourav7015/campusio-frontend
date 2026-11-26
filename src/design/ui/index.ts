@@ -6,6 +6,7 @@ export * from './tabs';
 export * from './dialog';
 export * from './menu';
 export * from './feedback';
+export * from './skeleton';
 export * from './toast';
 export * from './page';
 export * from './avatar-progress';

@@ -86,7 +86,7 @@ export function ClassDetail() {
   const tab = sp.get('tab') || 'overview';
   const ov = useApi(`/api/school/sections/${sectionId}/insight`);
   return (
-    <Async state={ov}>{(o) => (
+    <Async skeleton="dashboard" state={ov}>{(o) => (
       <div className="stack">
         <PageHeader title={`${o.className} ${o.section}`} subtitle={`Class teacher: ${o.classTeacher || 'not assigned'}${o.room ? ` · Room ${o.room}` : ''} · ${o.students} of ${o.capacity} students`} actions={<Link className="btn" to="/admin/classes">← All classes</Link>} />
         <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ...(o.periodWise ? [['periods', 'By period']] : []), ['homework', 'Homework'], ['subjects', 'Subjects and teachers'], ['exams', 'Exams and performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
