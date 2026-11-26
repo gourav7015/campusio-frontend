@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import StaffRegister from '../components/StaffRegister.jsx';
+import RegisterEditor from '../components/Register.jsx';
 import { ToastProvider } from '../components/ui.jsx';
 
 const row = (id, name, over = {}) => ({ personType: 'teacher', personId: id, name, code: `T${id}`, designation: 'Teacher', status: 'present', source: 'default', remark: '', ...over });
@@ -28,7 +29,8 @@ describe('StaffRegister', () => {
     expect(screen.getByRole('group', { name: 'Status of Mrs Gupta' }).querySelector('button.on')).toHaveTextContent('Leave');
     const sharma = screen.getByRole('group', { name: 'Status of Mr Sharma' });
     fireEvent.click(sharma.querySelector('button.absent'));
-    await waitFor(() => expect(screen.getByText(/1 absent · 0 half day/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Absent 1$/ })).toBeInTheDocument());
+    expect(screen.getByText(/of 2 here/)).toBeInTheDocument();
   });
 
   it('saves only the exceptions as a draft, and a submitted register offers corrections instead of editing', async () => {
@@ -120,5 +122,62 @@ describe('StaffRegister', () => {
     await screen.findByText('Mr Sharma');
     expect(screen.queryByRole('button', { name: 'Mark all present' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Apply to all' })).toBeNull();
+  });
+
+  it('Mark all absent and Mark all present both exist, and Undo takes the last change back', async () => {
+    mockApi(MANY());
+    mount();
+    await screen.findByText('Mr Sharma');
+    expect(screen.getByRole('button', { name: 'Undo the last change' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Mark all absent' }));
+    expect(screen.getByRole('group', { name: 'Status of Mr Sharma' }).querySelector('button.on')).toHaveTextContent('Absent');
+    fireEvent.click(screen.getByRole('button', { name: 'Undo the last change' }));
+    expect(screen.getByRole('group', { name: 'Status of Mr Sharma' }).querySelector('button.on')).toHaveTextContent('Present');
+    expect(screen.getByRole('group', { name: 'Status of Mr Das' }).querySelector('button.on')).toHaveTextContent('Absent'); // as it was before
+  });
+
+  it('Submit register shows a review first, and only the review submits', async () => {
+    mockApi(MANY());
+    mount();
+    await screen.findByText('Mr Sharma');
+    fireEvent.click(screen.getByRole('button', { name: 'Submit register' }));
+    const dlg = await screen.findByRole('dialog');
+    expect(dlg).toHaveTextContent(/Not here \(2\)/);
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+    fireEvent.click(screen.getByRole('dialog').querySelector('button.btn-primary, button[class*="primary"]') || screen.getAllByRole('button', { name: 'Submit register' }).pop());
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.body.submit === true)).toBe(true));
+  });
+});
+
+const STUDENTS = (rows) => ({ date: '2026-10-05', session: null, blocked: null, canEdit: true, canCorrect: false, isClassTeacher: true, students: rows });
+const stu = (id, name, roll, status = null) => ({ studentId: id, name, rollNo: roll, status });
+
+describe('Student register', () => {
+  const mountStudents = (rows) => { mockApi(STUDENTS(rows)); return render(<ToastProvider><RegisterEditor base="/api/teacher" sectionId="s1" date="2026-10-05" /></ToastProvider>); };
+
+  it('does not treat a student who is not marked as present, and will not submit until everyone is marked', async () => {
+    mountStudents([stu('a', 'Aarav Mehta', 1, 'present'), stu('b', 'Bhavya Verma', 2), stu('c', 'Charvi Iyer', 3)]);
+    await screen.findByText('Aarav Mehta');
+    expect(screen.getByText(/2 students not marked yet/)).toBeInTheDocument();
+    expect(screen.getByText('of 3 marked')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit attendance' }));
+    const dlg = await screen.findByRole('dialog');
+    expect(dlg).toHaveTextContent(/2 not marked/);
+    const submit = Array.from(dlg.querySelectorAll('button')).find((b) => b.textContent === 'Submit attendance');
+    expect(submit).toBeDisabled();
+    fireEvent.click(Array.from(dlg.querySelectorAll('button')).find((b) => /Mark 2 as present/.test(b.textContent)));
+    await waitFor(() => expect(Array.from(screen.getByRole('dialog').querySelectorAll('button')).find((b) => b.textContent === 'Submit attendance')).not.toBeDisabled());
+  });
+
+  it('has both bulk buttons and a status pill for phones on every row', async () => {
+    mountStudents([stu('a', 'Aarav Mehta', 1, 'present'), stu('b', 'Bhavya Verma', 2, 'absent')]);
+    await screen.findByText('Aarav Mehta');
+    expect(screen.getByRole('button', { name: 'Mark all present' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark all absent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Bhavya Verma: Absent\. Change/ }));
+    const sheet = await screen.findByRole('dialog');
+    expect(sheet).toHaveTextContent('Bhavya Verma');
+    fireEvent.click(Array.from(sheet.querySelectorAll('button')).find((b) => b.textContent === 'Late'));
+    expect(screen.getByRole('button', { name: /Bhavya Verma: Late\. Change/, hidden: true })).toBeInTheDocument(); // behind the open sheet
   });
 });

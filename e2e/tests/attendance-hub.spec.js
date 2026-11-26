@@ -51,12 +51,10 @@ test('staff tabs have designation and status filters, and the month view an atte
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/attendance?tab=general');
   await expect(page.getByLabel('Search staff by name or ID')).toBeVisible();
-  await expect(page.getByLabel('Status filter')).toHaveCount(0); // behind the icon
-  await openFilters(page);
-  await page.getByLabel('Status filter').selectOption('absent');
+  // the register shows who is where as chips with counts, the same on every register
+  await page.getByRole('button', { name: /^Absent \d+$/ }).click();
   await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /^All \d+$/ }).click();
   await page.getByRole('tab', { name: 'This month' }).click();
   await openFilters(page);
   await expect(page.getByLabel('Attendance band')).toBeVisible();

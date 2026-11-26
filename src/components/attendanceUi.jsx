@@ -1,3 +1,4 @@
+import { Check, X, Clock, Contrast, CalendarDays } from 'lucide-react';
 import { Button } from './ui.jsx';
 
 /**
@@ -6,20 +7,25 @@ import { Button } from './ui.jsx';
  */
 export const STATUSES = ['present', 'absent', 'late', 'half_day', 'leave'];
 export const STATUS_NAME = { present: 'Present', absent: 'Absent', late: 'Late', half_day: 'Half day', leave: 'Leave', excused: 'Leave' };
+/** Every status is an icon plus a word, never colour alone. */
+export const STATUS_ICON = { present: Check, absent: X, late: Clock, half_day: Contrast, leave: CalendarDays, excused: CalendarDays };
 export const SESSION_NAME = { first: 'First session', second: 'Second session' };
 export const SESSION_SHORT = { first: '1st session', second: '2nd session' };
 
 /** "Half day · 2nd session" for a half day, otherwise just the status. */
 export const statusText = (status, halfSession) => (!status ? 'Not marked' : status === 'half_day' ? `Half day · ${SESSION_SHORT[halfSession || 'first']}` : STATUS_NAME[status] || status);
 
+/** The small icon that goes with a status. */
+export function Icon({ st, size = 14 }) { const I = STATUS_ICON[st]; return I ? <I size={size} aria-hidden strokeWidth={2.4} /> : null; }
+
 /** The status buttons for one person. Choosing Half day reveals which session they attended. */
-export function StatusControl({ status, halfSession, onChange, name, size }) {
+export function StatusControl({ status, halfSession, onChange, name, size, statuses = STATUSES }) {
   const session = halfSession || 'first';
   return (
     <div className="stack" style={{ gap: 4 }}>
       <div className="status-seg" role="group" aria-label={`Status of ${name}`}>
-        {STATUSES.map((st) => (
-          <button key={st} type="button" className={`${status === st ? 'on' : ''} ${st}`} aria-pressed={status === st} onClick={() => onChange(st, st === 'half_day' ? session : null)}>{STATUS_NAME[st]}</button>
+        {statuses.map((st) => (
+          <button key={st} type="button" className={`${status === st ? 'on' : ''} ${st}`} aria-pressed={status === st} onClick={() => onChange(st, st === 'half_day' ? session : null)}><Icon st={st} />{STATUS_NAME[st]}</button>
         ))}
       </div>
       {status === 'half_day' && (

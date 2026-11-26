@@ -90,10 +90,9 @@ test('Defaulters is a main tab of Fees, next to Reports', async ({ browser, page
   await expect(page.getByRole('heading', { name: 'Reports', exact: true })).toBeVisible();
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 } }); const f = await ctx.newPage();
   await signIn(f, 'finance', 'finance@gps.test', 'Finance@12345');
-  const nav = f.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'Defaulters', exact: true })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'Reports', exact: true })).toBeVisible();
-  await nav.getByRole('link', { name: 'Defaulters', exact: true }).click();
+  // the Finance portal has a top bar of areas; Defaulters sits under Fees and Reports is its own area
+  await expect(f.getByRole('link', { name: 'Reports', exact: true }).first()).toBeVisible();
+  await f.goto('/finance/defaulters');
   await expect(f.getByRole('heading', { name: 'Defaulters' })).toBeVisible();
   await ctx.close();
 });
@@ -103,7 +102,7 @@ test('a discount can be given while collecting a payment', async ({ page }) => {
   await signIn(page, 'finance', 'finance@gps.test', 'Finance@12345');
   await page.goto('/finance/students');
   await page.getByRole('row').nth(1).click();
-  await page.getByRole('button', { name: 'Collect payment' }).click();
+  await page.getByRole('button', { name: 'Collect payment' }).last().click(); // the one on the open account (the rows have their own too)
   const dlg = page.getByRole('dialog', { name: 'Collect payment' });
   await dlg.getByLabel(/Give a discount or concession/).check();
   await dlg.getByLabel('Discount value').fill('500');

@@ -4,6 +4,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { post, put } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, fmtDate, label } from '../../components/ui.jsx';
 import ChatView from '../../components/ChatView.jsx';
+import AttendanceRoster from '../../components/AttendanceRoster.jsx';
 import { useDialogs } from '../../design/ui';
 
 const T = '/api/teacher';
@@ -92,14 +93,13 @@ export function PeriodAttendance() {
 function PeriodRegister({ entry, date, onClose, onSaved }) {
   const q = useApi(`${T}/period-attendance/register`, { entryId: entry.entryId, date });
   const [edits, setEdits] = useState({}); const [run, busy] = useAction();
-  const STATUS = ['present', 'absent', 'late', 'leave'];
+  const people = (q.data?.students || []).map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, status: edits[s.studentId] || s.status || '', sub: s.dailyStatus === 'absent' ? 'absent in the daily register' : undefined }));
   return (
-    <Modal wide title={`${entry.period} · ${entry.className} ${entry.section} · ${entry.subject || ''}`} onClose={onClose} footer={<><Button onClick={onClose}>Close</Button><Button variant="primary" loading={busy} disabled={!q.data} onClick={async () => { const entries = q.data.students.map((s) => ({ studentId: s.studentId, status: edits[s.studentId] || s.status })); const r = await run(() => put(`${T}/period-attendance/register`, { entryId: entry.entryId, date, entries }), (x) => `Saved: ${x.absent} absent of ${x.total}`); if (r) { onSaved(); onClose(); } }}>Save</Button></>}>
-      <Async state={q}>{(d) => (<>
-        <div className="row"><Button size="sm" onClick={() => setEdits(Object.fromEntries(d.students.map((s) => [s.studentId, 'present'])))}>Mark all present</Button><span className="muted small">Students absent in the daily register start as absent.</span></div>
-        <div className="table-wrap"><table><thead><tr><th>Roll</th><th>Student</th><th>Status</th></tr></thead><tbody>{d.students.map((s) => { const cur = edits[s.studentId] || s.status; return (
-          <tr key={s.studentId}><td>{String(s.rollNo).padStart(2, '0')}</td><td><b>{s.name}</b>{s.dailyStatus === 'absent' && <div className="small muted">absent in the daily register</div>}</td>
-            <td><div className="status-seg" role="group" aria-label={`Status for ${s.name}`}>{STATUS.map((st) => <button key={st} type="button" className={`${cur === st ? 'on' : ''} ${st}`} aria-pressed={cur === st} onClick={() => setEdits({ ...edits, [s.studentId]: st })}>{label(st)}</button>)}</div></td></tr>); })}</tbody></table></div></>)}</Async>
+    <Modal wide title={`${entry.period} · ${entry.className} ${entry.section} · ${entry.subject || ''}`} onClose={onClose} footer={<><Button onClick={onClose}>Close</Button><Button variant="primary" loading={busy} disabled={!q.data} onClick={async () => { const entries = people.map((p) => ({ studentId: p.id, status: p.status })); const r = await run(() => put(`${T}/period-attendance/register`, { entryId: entry.entryId, date, entries }), (x) => `Saved: ${x.absent} absent of ${x.total}`); if (r) { onSaved(); onClose(); } }}>Save</Button></>}>
+      <Async state={q}>{() => (<>
+        <p className="muted small" style={{ marginTop: 0 }}>Students absent in the daily register start as absent.</p>
+        <AttendanceRoster people={people} editable statuses={['present', 'absent', 'late', 'leave']} noun="student" onSet={(changes) => setEdits((e) => { const n = { ...e }; for (const c of changes) n[c.id] = c.status; return n; })} />
+      </>)}</Async>
     </Modal>
   );
 }

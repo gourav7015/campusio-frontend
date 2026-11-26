@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi.js';
 import { post, put } from '../api/client.js';
-import { Async, Badge, Button, Card, DataTable, Field, Input, Modal, Select, Stat, Tabs, useAction } from './ui.jsx';
+import { Async, Badge, Button, Card, DataTable, Field, Input, Modal, Select, Tabs, useAction } from './ui.jsx';
+import AttendanceRoster, { ReviewSubmit } from './AttendanceRoster.jsx';
 import { parseCsv } from '../lib.js';
 import FilterMenu from './FilterMenu.jsx';
 import { useDialogs } from '../design/ui';
 
 const today = () => new Date().toLocaleDateString('en-CA');
-import { STATUSES, STATUS_NAME as NAME, StatusControl, BulkMarkBar, statusText, SESSION_SHORT } from './attendanceUi.jsx';
+import { STATUSES, STATUS_NAME as NAME, statusText, SESSION_SHORT } from './attendanceUi.jsx';
 const monthOf = (d) => d.slice(0, 7);
 /** Name or staff/employee code, any part of it, ignoring case and surrounding spaces. */
 export const matchesPerson = (p, q) => { const t = (q || '').trim().toLowerCase(); return !t || (p.name || '').toLowerCase().includes(t) || (p.code || '').toLowerCase().includes(t); };
@@ -42,26 +43,25 @@ function Register({ base, group, canEdit }) {
 function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
   const [edits, setEdits] = useState({});
   const [importing, setImporting] = useState(false);
-  const [q, setQ] = useState(''); const [desig, setDesig] = useState(''); const [statusF, setStatusF] = useState('');
+  const [desig, setDesig] = useState(''); const [review, setReview] = useState(false);
   const [note, setNote] = useState('');
   const [bulk, setBulk] = useState({ checkIn: d.policy?.shiftStart || '', checkOut: d.policy?.shiftEnd || '', keep: true });
   const [run, busy] = useAction();
   const set = (id, patch) => setEdits((e) => ({ ...e, [id]: { ...e[id], ...patch } }));
   const rows = d.rows.map((r) => ({ ...r, ...(edits[r.personId] || {}) }));
   const entries = rows.filter((r) => edits[r.personId]).map((r) => ({ personId: r.personId, status: r.status, ...(r.status === 'half_day' ? { halfSession: r.halfSession || 'first' } : {}), ...(r.remark ? { remark: r.remark } : {}), ...(edits[r.personId].checkIn !== undefined || edits[r.personId].checkOut !== undefined ? { checkIn: r.checkIn || null, checkOut: r.checkOut || null } : {}) }));
-  const t = (s) => rows.filter((r) => r.status === s).length;
-  const shown = rows.filter((r) => matchesPerson(r, q) && (!desig || r.designation === desig) && (!statusF || r.status === statusF));
   const designations = [...new Set(rows.map((r) => r.designation).filter(Boolean))].sort();
-  const filtered = !!(q.trim() || desig || statusF);
+  const people = rows.filter((r) => !desig || r.designation === desig).map((r) => ({ id: r.personId, name: r.name, code: r.code, sub: `${r.code} · ${r.designation}`, status: r.status, halfSession: r.halfSession, remark: r.remark || '', badges: r.corrected ? <Badge tone="amber">corrected</Badge> : null }));
+  const apply = (changes) => setEdits((e) => { const n = { ...e }; for (const c of changes) n[c.id] = { ...n[c.id], status: c.status, halfSession: c.halfSession }; return n; });
   // bulk actions only change what is on screen: they reach the server with Save draft or Submit. They always act on the WHOLE register, not just the rows the search is showing.
-  const markAll = (status) => {
+  const markAll = (status, view) => {
     let marked = 0; let onLeave = 0; const next = {};
     for (const r of rows) {
       if (onApprovedLeave(r)) { onLeave += 1; continue; }
       next[r.personId] = { ...edits[r.personId], status, halfSession: null }; marked += 1;
     }
     setEdits((e) => ({ ...e, ...next }));
-    setNote(`Marked ${marked} ${NAME[status].toLowerCase()}${onLeave ? `, ${onLeave} on approved leave left as is` : ''}${q.trim() || desig || statusF ? ` (everyone in the register, not only the ${shown.length} shown)` : ''}. Save or submit to keep it.`);
+    setNote(`Marked ${marked} ${NAME[status].toLowerCase()}${onLeave ? `, ${onLeave} on approved leave left as is` : ''}${view?.filtered || desig ? ` (everyone in the register, not only the ${desig ? people.length : view.shown} shown)` : ''}. Save or submit to keep it.`);
   };
   const applyTimes = () => {
     let changed = 0; const next = {};
@@ -88,12 +88,10 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
     <div className="stack">
       <div className="row between wrap">
         <div className="row"><Input type="date" aria-label="Date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />{d.session && <Badge tone={d.session.status === 'submitted' ? 'green' : 'amber'}>{d.session.status === 'submitted' ? 'Submitted' : 'Draft'}</Badge>}{canEdit && <Button size="sm" onClick={() => setImporting(true)}>Import from attendance machine</Button>}</div>
-        {editable && <div className="row"><Button onClick={() => save(false)} loading={busy} disabled={!entries.length}>Save draft</Button><Button variant="primary" loading={busy} onClick={async () => { if (await dlg.confirm('Submit this register? It will be locked, and everyone not marked is recorded as present.', { confirmLabel: 'Submit register' })) save(true); }}>Submit register</Button></div>}
       </div>
       {editable && (
-        <Card title="Everyone at once"><div className="stack">
+        <Card title="Set the time for everyone"><div className="stack">
           <div className="row wrap" style={{ alignItems: 'end', gap: 12 }}>
-            <BulkMarkBar onAll={markAll} />
             <label className="field"><span>In</span><Input type="time" aria-label="Time in for everyone" value={bulk.checkIn} onChange={(e) => setBulk({ ...bulk, checkIn: e.target.value })} style={{ width: 120 }} /></label>
             <label className="field"><span>Out</span><Input type="time" aria-label="Time out for everyone" value={bulk.checkOut} min={bulk.checkIn || undefined} onChange={(e) => setBulk({ ...bulk, checkOut: e.target.value })} style={{ width: 120 }} /></label>
             <Button onClick={applyTimes} disabled={(!bulk.checkIn && !bulk.checkOut) || !timeOk(bulk.checkIn, bulk.checkOut)}>Apply to all</Button>
@@ -104,26 +102,18 @@ function RegisterBody({ base, group, canEdit, date, setDate, d, reload }) {
         </div></Card>
       )}
       {d.blocked && <div className="alert info">{d.blocked === 'future' ? 'Attendance cannot be taken for a future date.' : d.blocked === 'not_working_day' ? 'This is not a working day for the school.' : `This date is a holiday (${d.blocked.split(':')[1]}).`}</div>}
-      <div className="grid g4"><Stat value={rows.length} label="People" /><Stat value={t('present') + t('late')} label="Present" sub={t('late') ? `${t('late')} late` : undefined} tone="green" /><Stat value={t('absent') + t('half_day')} label="Absent / half day" sub={`${t('absent')} absent · ${t('half_day')} half day`} tone={t('absent') ? 'red' : t('half_day') ? 'amber' : 'green'} /><Stat value={t('leave')} label="On leave" tone="blue" /></div>
-      <div className="row wrap" style={{ gap: 12, alignItems: 'center' }}>
-        <Input type="search" aria-label="Search staff by name or ID" placeholder="Search by name or ID" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 280 }} />
-        <FilterMenu count={[desig, statusF].filter(Boolean).length} onClear={() => { setDesig(''); setStatusF(''); }}>
-          {designations.length > 1 && <Field label="Designation"><Select aria-label="Designation" value={desig} onChange={(e) => setDesig(e.target.value)} placeholder="All designations" options={designations.map((x) => ({ value: x, label: `${x} (${rows.filter((r) => r.designation === x).length})` }))} /></Field>}
-          <Field label="Status"><Select aria-label="Status filter" value={statusF} onChange={(e) => setStatusF(e.target.value)} placeholder="Any status" options={STATUSES.map((x) => ({ value: x, label: `${NAME[x]} (${t(x)})` }))} /></Field>
-        </FilterMenu>
-        <span className="muted small" aria-live="polite" style={{ marginLeft: 'auto' }}>Showing {shown.length} of {rows.length}</span>
-      </div>
-      <Card flush><DataTable rows={shown} rowKey="personId" empty={filtered ? 'No one matches' : 'Nobody in this group yet'} columns={[
-        { label: 'Name', render: (r) => <><b>{r.name}</b> {r.corrected && <Badge tone="amber">corrected</Badge>}<div className="small muted">{r.code} · {r.designation}</div></> },
-        { label: 'Status', render: (r) => (editable
-          ? <StatusControl name={r.name} status={r.status} halfSession={r.halfSession} onChange={(st, hs) => set(r.personId, { status: st, halfSession: hs })} />
-          : <div className="row"><Badge tone={{ present: 'green', late: 'amber', half_day: 'amber', absent: 'red', leave: 'blue' }[r.status]}>{statusText(r.status, r.halfSession)}</Badge>
-            {canEdit && d.canCorrect && <select aria-label={`Correct ${r.name}`} value="" onChange={(e) => e.target.value && correct(r, e.target.value)}><option value="">Correct…</option>{STATUSES.flatMap((s) => (s === 'half_day' ? ['first', 'second'].map((x) => ({ v: `half_day:${x}`, l: `Half day · ${SESSION_SHORT[x]}`, same: r.status === 'half_day' && (r.halfSession || 'first') === x })) : [{ v: s, l: NAME[s], same: r.status === s }])).filter((o) => !o.same).map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>}</div>) },
-        { label: 'In', render: (r) => { const late = minutesLate(r.checkIn, d.policy); return (<>{editable ? <Input aria-label={`Check-in of ${r.name}`} type="time" value={r.checkIn || ''} onChange={(e) => set(r.personId, { checkIn: e.target.value, checkOut: r.checkOut || '', status: r.status })} style={{ width: 110, ...(late ? { borderColor: 'rgb(var(--c-danger))', color: 'rgb(var(--c-danger-ink))', fontWeight: 600 } : {}) }} /> : (late ? <b style={{ color: 'rgb(var(--c-danger-ink))' }}>{r.checkIn}</b> : (r.checkIn || '—'))}{late > 0 && <div className="small" style={{ color: 'rgb(var(--c-danger-ink))' }}>{late} min late</div>}</>); } },
-        { label: 'Out', render: (r) => (editable ? <Input aria-label={`Check-out of ${r.name}`} type="time" value={r.checkOut || ''} onChange={(e) => set(r.personId, { checkOut: e.target.value, checkIn: r.checkIn || '', status: r.status })} style={{ width: 110 }} /> : (r.checkOut || '—')) },
-        { label: 'Hours', render: (r) => (r.hours != null ? r.hours : '—') },
-        { label: 'Remark', render: (r) => (editable ? <Input aria-label={`Remark for ${r.name}`} value={r.remark || ''} onChange={(e) => set(r.personId, { remark: e.target.value, status: r.status })} placeholder="Optional" /> : (r.remark || '—')) },
-      ]} /></Card>
+      <AttendanceRoster people={people} editable={editable} noun="person" nounPlural="people" nameHead="Name" hideRoll searchLabel="Search staff by name or ID" searchPlaceholder="Search by name or ID" match={(p, t) => matchesPerson(p, t)}
+        emptyText={desig ? 'No one matches' : undefined} onSet={apply} onMarkAll={markAll} onRemark={(id, text) => set(id, { remark: text, status: rows.find((r) => r.personId === id).status })}
+        extraHead="In · Out"
+        toolbar={designations.length > 1 && <Select aria-label="Designation" value={desig} onChange={(e) => setDesig(e.target.value)} placeholder="All designations" options={designations.map((x) => ({ value: x, label: `${x} (${rows.filter((r) => r.designation === x).length})` }))} />}
+        renderExtra={(p) => { const r = rows.find((x) => x.personId === p.id); const late = minutesLate(r.checkIn, d.policy); return editable
+          ? <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}><span><Input aria-label={`Check-in of ${r.name}`} type="time" value={r.checkIn || ''} onChange={(e) => set(r.personId, { checkIn: e.target.value, checkOut: r.checkOut || '', status: r.status })} style={{ width: 110, ...(late ? { borderColor: 'rgb(var(--c-danger))', color: 'rgb(var(--c-danger-ink))', fontWeight: 600 } : {}) }} />{late > 0 && <div className="small" style={{ color: 'rgb(var(--c-danger-ink))' }}>{late} min late</div>}</span><Input aria-label={`Check-out of ${r.name}`} type="time" value={r.checkOut || ''} onChange={(e) => set(r.personId, { checkOut: e.target.value, checkIn: r.checkIn || '', status: r.status })} style={{ width: 110 }} /></span>
+          : <span className="small">{late ? <b style={{ color: 'rgb(var(--c-danger-ink))' }}>{r.checkIn} ({late} min late)</b> : (r.checkIn || '—')} – {r.checkOut || '—'}{r.hours != null && <span className="muted"> · {r.hours} h</span>}</span>; }}
+        rowAction={(p) => { const r = rows.find((x) => x.personId === p.id); return canEdit && d.canCorrect ? <select aria-label={`Correct ${r.name}`} value="" onChange={(e) => e.target.value && correct(r, e.target.value)}><option value="">Correct…</option>{STATUSES.flatMap((s) => (s === 'half_day' ? ['first', 'second'].map((x) => ({ v: `half_day:${x}`, l: `Half day · ${SESSION_SHORT[x]}`, same: r.status === 'half_day' && (r.halfSession || 'first') === x })) : [{ v: s, l: NAME[s], same: r.status === s }])).filter((o) => !o.same).map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select> : null; }}
+        footer={editable && <><Button onClick={() => save(false)} loading={busy} disabled={!entries.length}>Save draft</Button><Button variant="primary" onClick={() => setReview(true)}>Submit register</Button></>} />
+      {review && <ReviewSubmit people={people} busy={busy} submitLabel="Submit register" onClose={() => setReview(false)} title="Review before submitting"
+        note="Submitting locks the register. Anyone you have not changed is recorded as present. A later change needs a reason and is kept in the history."
+        onSubmit={async () => { await save(true); setReview(false); }} />}
       {importing && <ImportModal base={base} group={group} onClose={() => setImporting(false)} onDone={reload} />}
       <p className="muted small">Check-in and check-out times come from the person's own check-in, from you typing them, or from the attendance machine's file. A late or short day is suggested from the school's working hours — you decide the status.</p>
       <p className="muted small">Teachers on an approved leave are filled in as “Leave” automatically. Days marked absent, or half day, reduce that person's pay in payroll; days that were never submitted cost nothing.</p>

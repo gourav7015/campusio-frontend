@@ -59,7 +59,9 @@ test('only the class teacher takes attendance and may change it later; the admin
   await first.getByRole('button', { name: 'Absent' }).click();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page.getByText('Draft saved')).toBeVisible();
-  await page.getByRole('button', { name: 'Submit attendance' }).click();
+  await page.getByRole('button', { name: 'Submit attendance' }).click(); // opens the review: who is not here
+  await expect(page.getByRole('dialog')).toContainText('Not here (1)');
+  await page.getByRole('dialog').getByRole('button', { name: 'Submit attendance' }).click();
   await expect(page.getByText(/Submitted: \d+ present, 1 absent/)).toBeVisible();
   // the class teacher can reopen the submitted register and change it: here Aarav is moved to present and back to absent
   await expect(page.getByText(/You can still change it/)).toBeVisible();
@@ -649,7 +651,7 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   // library by class (admin, read-only)
   await page.goto('/admin/library?tab=classes');
   await page.getByLabel('Class', { exact: true }).selectOption({ label: 'Class 8' });
-  await expect(page.getByText('Never borrowed').first()).toBeVisible();
+  await expect(page.getByText('Borrowed a book this year')).toBeVisible();
   // buses are not the admin's to edit: the admin gets a read-only window
   await page.goto('/admin/transport?tab=buses');
   await expect(page.getByRole('button', { name: '+ Add bus' })).toHaveCount(0);

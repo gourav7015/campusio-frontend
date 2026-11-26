@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Inbox, Loader2, Lock } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, Copy, Inbox, Loader2, Lock } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 import { isOffline } from '../api/client.js';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Pagination, Skeleton, ToastProvider, useToast, useDialogs } from '../design/ui';
@@ -140,18 +140,30 @@ export function DataTable({ columns, rows, onRowClick, empty = 'Nothing to show 
 export function CredentialsModal(props) { return <CredentialsDialog key={props.creds?.temporaryPassword || 'none'} {...props} />; }
 function CredentialsDialog({ creds, onClose, title = 'Account created' }) {
   const toast = useToast();
-  const [copied, setCopied] = useState(false); const [warned, setWarned] = useState(false);
+  const [copied, setCopied] = useState(false); const [warned, setWarned] = useState(false); const [done, setDone] = useState('');
   if (!creds) return null;
   const text = `Login id: ${creds.loginId}\nTemporary password: ${creds.temporaryPassword}`;
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(text); setCopied(true); toast('Copied to the clipboard'); setTimeout(() => setCopied(false), 2000); }
+  const copy = async (what, value, message = 'Copied to the clipboard') => {
+    try { await navigator.clipboard.writeText(value); if (what !== 'loginId') setCopied(true); setDone(what); toast(message); setTimeout(() => { setCopied(false); setDone(''); }, 2000); }
     catch { toast('Could not copy. Select the text and copy it by hand.', 'error'); }
   };
+  // a small copy icon right after a value; it becomes a tick for a moment once copied
+  const icon = (what, value, l, message) => (
+    <button type="button" className="ml-2 inline-grid size-7 place-items-center rounded-md align-middle text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={l} title={l} onClick={() => copy(what, value, message)}>
+      {done === what ? <Check className="size-4 text-success" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+    </button>
+  );
   return (
-    <Modal title={title} onClose={onClose} footer={<><Button onClick={copy} aria-live="polite">{copied ? 'Copied' : 'Copy'}</Button><Button variant="primary" onClick={() => { if (!copied && !warned) { setWarned(true); return; } onClose(); }}>{warned && !copied ? 'Close anyway' : 'Done'}</Button></>}>
-      {warned && !copied && <div className="alert danger" role="alert">You have not copied the password. It cannot be shown again (you can make a new one with Reset password). Press Copy first, or Close anyway.</div>}
+    <Modal title={title} onClose={onClose} footer={<><Button onClick={() => copy('both', text)} aria-live="polite">{copied ? 'Copied' : 'Copy both'}</Button><Button variant="primary" onClick={() => { if (!copied && !warned) { setWarned(true); return; } onClose(); }}>{warned && !copied ? 'Close anyway' : 'Done'}</Button></>}>
+      {warned && !copied && <div className="alert danger" role="alert">You have not copied the password. It cannot be shown again (you can make a new one with Reset password). Copy the password first (the icon beside it, or Copy both), or Close anyway.</div>}
       <div className="alert info">Share these details securely. The password is shown only once. It is a starting password: the person chooses their own at first sign-in.</div>
-      <dl className="kv" style={{ marginTop: 14 }}><dt>Login id</dt><dd><b>{creds.loginId}</b></dd><dt>Temporary password</dt><dd><b>{creds.temporaryPassword}</b></dd></dl>
+      {creds.emailedTo && <div className="alert ok" role="status">The login id and temporary password were also emailed to {creds.emailedTo}.</div>}
+      {creds.emailNote === 'no_address' && <div className="alert" role="status">There is no email address on record for the person who holds this login, so nothing was emailed. Share the details yourself.</div>}
+      {creds.emailNote === 'mail_off' && <div className="alert" role="status">Email is not set up on the server yet, so nothing was emailed. Share the details yourself.</div>}
+      <dl className="kv" style={{ marginTop: 14 }}>
+        <dt>Login id</dt><dd><b>{creds.loginId}</b>{icon('loginId', creds.loginId, 'Copy login id', 'Login id copied')}</dd>
+        <dt>Temporary password</dt><dd><b>{creds.temporaryPassword}</b>{icon('password', creds.temporaryPassword, 'Copy temporary password', 'Password copied')}</dd>
+      </dl>
     </Modal>
   );
 }

@@ -38,8 +38,18 @@ test('a new office desk login is listed at once; Reset password asks first (type
   await reset.getByLabel('The new password', { exact: true }).fill('Typed-By-Admin-42');
   await reset.getByRole('button', { name: 'Set this password' }).click();
   await expect(page.getByRole('dialog', { name: 'Staff account' })).toContainText('Typed-By-Admin-42');
-  await page.getByRole('dialog', { name: 'Staff account' }).getByRole('button', { name: 'Done' }).click();
-  await page.getByRole('button', { name: 'Close anyway' }).click();
+  // a small copy icon follows the login id and the temporary password; the dialog says whether the holder was emailed
+  const staffDlg = page.getByRole('dialog', { name: 'Staff account' });
+  await expect(staffDlg.getByRole('button', { name: 'Copy login id' })).toBeVisible();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await staffDlg.getByRole('button', { name: 'Copy temporary password' }).click();
+  await expect(page.getByText('Password copied')).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Typed-By-Admin-42'); // exactly the password, nothing else
+  await staffDlg.getByRole('button', { name: 'Copy login id' }).click();
+  await expect(page.getByText('Login id copied')).toBeVisible();
+  await expect(staffDlg).toContainText(/nothing was emailed|also emailed/); // this demo has no mail server, so it says so
+  await page.getByRole('dialog', { name: 'Staff account' }).getByRole('button', { name: 'Done' }).click(); // the password was copied, so Done closes at once
+  await expect(page.getByRole('dialog', { name: 'Staff account' })).toHaveCount(0);
   // generate one: it can be regenerated before it is applied, and the shown one is the one that is set
   await row.getByRole('button', { name: 'Reset password' }).click();
   const gen = reset.getByLabel('Generated password');
