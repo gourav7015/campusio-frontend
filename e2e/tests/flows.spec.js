@@ -629,6 +629,8 @@ test('admin: everything hangs off the class — students, attendance, homework, 
   await page.getByRole('tab', { name: 'Library' }).click();
   await expect(page.getByText('Borrowed a book this year')).toBeVisible();
   await page.getByRole('tab', { name: 'Attendance' }).click();
+  await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Registers' }).click();
   await expect(page.getByText('Registers — last 45 days')).toBeVisible();
   // one student: summary strip and a tab for everything
   await page.getByRole('tab', { name: 'Students' }).click();

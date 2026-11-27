@@ -70,3 +70,33 @@ test('period by period: subjects with what to do next, no heat map, and every pe
   await setWay(false);
   expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
 });
+
+/** Once a day: the class teacher and the office also get the whole class at once (every student's days, who needs a word). */
+test('once a day: the whole class in one table for the class teacher and the office, with the register one tab over', async ({ page }) => {
+  const problems = watch(page);
+  await setWay(false);
+  await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
+  await page.goto('/teacher/my-class?tab=attendance');
+  await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible();
+  await expect(page.getByText('Needs a word', { exact: true })).toBeVisible();
+  await expect(page.getByText('Class attendance by month', { exact: true })).toBeVisible();
+  await expect(page.getByRole('table').first().getByRole('row').nth(1)).toContainText(/%|—/);
+  await page.getByLabel('Find a student').fill('zzzz');
+  await expect(page.getByText('No student matches')).toBeVisible();
+  await page.getByLabel('Find a student').fill('');
+  await page.getByRole('tab', { name: "Today's register" }).click();
+  await expect(page.getByRole('button', { name: 'Mark all present' })).toBeVisible();
+  // the office: the same, with the registers one tab over
+  const admin = await page.context().browser().newContext(); const ap = await admin.newPage();
+  await signIn(ap, 'admin', 'admin@gps.test', 'Admin@12345');
+  await ap.goto('/admin/classes');
+  await ap.getByRole('navigation', { name: 'Classes' }).getByText('Class 8', { exact: true }).first().click();
+  await ap.getByRole('link', { name: 'Open' }).first().click();
+  await expect(ap.getByRole('heading', { name: 'Class 8 A' })).toBeVisible();
+  await ap.getByRole('tab', { name: 'Attendance' }).click();
+  await expect(ap.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible();
+  await ap.getByRole('tab', { name: 'Registers' }).click();
+  await expect(ap.getByText(/Registers/).first()).toBeVisible();
+  await admin.close();
+  expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
+});

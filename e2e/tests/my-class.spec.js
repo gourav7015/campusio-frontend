@@ -26,6 +26,8 @@ test('a class teacher gets a My class tab with the register, students and monito
   await expect(page.getByText('Library books out')).toBeVisible();
   // the daily register of his own class, right here
   await page.getByRole('tab', { name: 'Attendance' }).click();
+  await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible();
+  await page.getByRole('tab', { name: "Today's register" }).click();
   await expect(page.getByRole('button', { name: 'Mark all present' })).toBeVisible();
   // the students, as the office lists them, with the monitors chooser
   await page.getByRole('tab', { name: 'Students' }).click();

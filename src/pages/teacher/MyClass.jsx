@@ -41,7 +41,7 @@ export default function MyClass() {
             {tab === 'students' && <SectionStudents sectionId={sid} />}
             {tab === 'attendance' && (user?.periodWise
               ? <ClassAttendanceTabs sectionId={sid}><ClassPeriods sectionId={sid}>{(date) => <Attendance sectionId={sid} embedded date={date} />}</ClassPeriods></ClassAttendanceTabs>
-              : <Attendance sectionId={sid} embedded />)}
+              : <ClassAttendanceTabs sectionId={sid} periodWise={false}><Attendance sectionId={sid} embedded /></ClassAttendanceTabs>)}
             {tab === 'homework' && <HomeworkDay sectionId={sid} />}
             {tab === 'exams' && <ExamAnalysis sectionId={sid} />}
             {tab === 'marks' && <ClassMarks sid={sid} />}

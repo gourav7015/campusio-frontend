@@ -25,6 +25,9 @@ test('the School Admin switches the school to period by period, with a dialog th
   await expect(dlg.getByText(/Records before that date stay exactly as they are/)).toBeVisible();
   await dlg.getByRole('radio', { name: /From today/ }).check(); // nothing has been taken today in the freshly reset demo
   await dlg.getByRole('button', { name: 'Switch from today' }).click();
+  const done = page.getByRole('dialog', { name: 'Done' }); // the answer comes at once: it never waits for the notices
+  await expect(done.getByText(/From today attendance is taken period by period/)).toBeVisible();
+  await done.getByRole('button', { name: 'Close' }).last().click();
   await expect(page.getByRole('radio', { name: /Period by period/ })).toContainText('In use now');
   expect(problems, problems.join('\n')).toEqual([]);
 });
@@ -125,6 +128,9 @@ test('switching back is booked for tomorrow once a period was marked today, and 
   await expect(dlg.getByRole('radio', { name: /From today/ })).toHaveCount(0); // period registers were started today
   await expect(dlg.getByText(/Still open today/)).toBeVisible();
   await dlg.getByRole('button', { name: /^Switch from / }).click();
+  const booked = page.getByRole('dialog', { name: 'Done' });
+  await expect(booked.getByText(/Booked: once a day from/)).toBeVisible();
+  await booked.getByRole('button', { name: 'Close' }).last().click();
   await expect(page.getByText(/A change is booked: once a day from/)).toBeVisible();
   await page.getByRole('button', { name: 'Withdraw it' }).click();
   await expect(page.getByText(/A change is booked/)).toHaveCount(0);

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
-import { put } from '../../api/client.js';
+import { get, put } from '../../api/client.js';
 import { Async, Badge, Button, Field, Input, Modal, useAction, fmtDate } from '../../components/ui.jsx';
 
 const WAYS = [
@@ -68,12 +68,44 @@ function SwitchDialog({ info, periodWise, onClose, onDone }) {
   const tomorrow = plus(info.today, 1);
   const [when, setWhen] = useState('tomorrow');
   const [later, setLater] = useState(plus(info.today, 7));
-  const [run, busy] = useAction();
+  const [phase, setPhase] = useState('ask'); // ask, saving, slow (no answer yet), done
+  const [problem, setProblem] = useState('');
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
   const from = when === 'today' ? info.today : when === 'tomorrow' ? tomorrow : later;
   const badDate = !from || from < info.earliest || from < info.today;
   const to = periodWise ? 'period by period' : 'once a day';
+  const now = from === info.today;
+  const save = async () => {
+    setProblem(''); setPhase('saving');
+    timer.current = setTimeout(() => setPhase((p) => (p === 'saving' ? 'slow' : p)), 12000); // never leave the person guessing
+    try { await put('/api/school/attendance-mode', { periodWise, from }); clearTimeout(timer.current); setPhase('done'); } catch (e) { clearTimeout(timer.current); setProblem(e?.message || 'It could not be saved'); setPhase('ask'); }
+  };
+  // after a slow answer: look at what the school has now, so it is never switched twice
+  const check = async () => {
+    try {
+      const x = await get('/api/school/attendance-mode');
+      if (x.periodWise === periodWise && now) setPhase('done');
+      else if (x.pending?.periodWise === periodWise && x.pending.from === from) setPhase('done');
+      else { setProblem('It did not go through. Nothing was changed. You can try again.'); setPhase('ask'); }
+    } catch { setProblem('Still no answer from the server. Check your connection, then check again.'); setPhase('slow'); }
+  };
+  if (phase !== 'ask') {
+    const done = phase === 'done';
+    return (
+      <Modal title={done ? 'Done' : phase === 'slow' ? 'This is taking longer than usual' : `Switching to ${to}`} onClose={done ? onDone : onClose}
+        footer={done ? <Button variant="primary" onClick={onDone}>Close</Button> : phase === 'slow' ? <><Button onClick={onClose}>Close</Button><Button variant="primary" onClick={check}>Check the current way</Button></> : <Button onClick={onClose}>Close</Button>}>
+        <div className="stack" role="status" aria-live="polite">
+          {done ? (<><div><b>{now ? `From today attendance is taken ${to}.` : `Booked: ${to} from ${fmtDate(from, true)}.`}</b></div>
+            <div className="muted small">Teachers, students and parents are being told. You can close this window, and change it back from this page.</div></>)
+            : phase === 'slow' ? (<><div>We have not heard back yet, so we cannot tell if the change went through. Nothing is lost either way.</div><div className="muted small">Check the current way before trying again, so it is not switched twice.</div>{problem && <div className="alert danger" role="alert">{problem}</div>}</>)
+              : (<><b>Saving the change…</b><div className="muted small">One moment. Teachers, students and parents are told right after.</div></>)}
+        </div>
+      </Modal>
+    );
+  }
   return (
-    <Modal wide title={`Switch to ${to}?`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={badDate} onClick={async () => { const x = await run(() => put('/api/school/attendance-mode', { periodWise, from }), from === info.today ? `Attendance is now taken ${to}` : `Booked: ${to} from ${fmtDate(from, true)}`); if (x) onDone(); }}>{from === info.today ? 'Switch from today' : `Switch from ${fmtDate(from, true)}`}</Button></>}>
+    <Modal wide title={`Switch to ${to}?`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={badDate} onClick={save}>{now ? 'Switch from today' : `Switch from ${fmtDate(from, true)}`}</Button></>}>
       <div className="stack">
         <div className="stack" role="radiogroup" aria-label="When it starts" style={{ gap: 8 }}>
           {info.earliest === info.today && <label className="row"><input type="radio" name="when" checked={when === 'today'} onChange={() => setWhen('today')} /> From today <span className="muted small">(no register has been started today)</span></label>}
@@ -93,6 +125,7 @@ function SwitchDialog({ info, periodWise, onClose, onDone }) {
           </ul>
         </div>
         {info.openCount > 0 && <div className="alert info"><b>Still open today:</b> {info.openToday.map((o) => o.name).join(', ')}{info.openCount > info.openToday.length ? ` and ${info.openCount - info.openToday.length} more` : ''}. {periodWise ? 'They can still be submitted as daily registers until the switch date.' : 'Their period registers are kept.'}</div>}
+        {problem && <div className="alert danger" role="alert">{problem}</div>}
         {badDate && <div className="alert danger" role="alert">Choose {info.earliest === info.today ? 'today' : 'tomorrow'} or a later date.</div>}
       </div>
     </Modal>

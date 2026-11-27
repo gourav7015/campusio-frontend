@@ -145,7 +145,7 @@ export function SectionStudents({ sectionId }) {
 /** Period by period: the whole class first (every student's attendance in lessons), then one class and day as a grid of students against periods (corrections and asking a teacher to mark). Once a day: the registers. */
 function SectionAttendance({ sectionId, title, periodWise }) {
   const [day, setDay] = useState(today());
-  if (!periodWise) return <DailyRegisters sectionId={sectionId} title={title} />;
+  if (!periodWise) return <ClassAttendanceTabs sectionId={sectionId} periodWise={false} daysLabel="Registers"><DailyRegisters sectionId={sectionId} title={title} /></ClassAttendanceTabs>;
   return (
     <ClassAttendanceTabs sectionId={sectionId}>
       <div className="stack">
