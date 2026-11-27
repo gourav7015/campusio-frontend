@@ -154,7 +154,6 @@ export function Learning() {
 export function LeaveAdmin({ embedded = false }) {
   const [status, setStatus] = useState('all'); // everything, newest first; the status list narrows it
   const list = useApi('/api/school/leave', { status: status === 'all' ? undefined : status });
-  const L = useLookups();
   const [view, setView] = useState(null); const [editing, setEditing] = useState(null);
   const [run, busy] = useAction();
   return (
@@ -164,13 +163,15 @@ export function LeaveAdmin({ embedded = false }) {
           : <PageHeader title="Teacher leave" subtitle="Approve or reject leave and arrange substitutes for the periods that are missed" actions={pick} />; })()}
       <Card flush><Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Teacher', render: (l) => <b>{l.teacherId?.name}</b> }, { label: 'Type', key: 'leaveType' }, { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (l) => <Badge tone={statusTone(l.status)}>{leaveStatus(l.status)}</Badge> }, { label: '', render: (l) => <div className="row"><Button size="sm" onClick={() => setView(l)}>Review</Button>{l.status !== 'cancelled' && <Button size="sm" onClick={() => setEditing(l)}>Edit</Button>}</div> }]} />}</Async></Card>
       {editing && <FormModal title={`Edit leave · ${editing.teacherId?.name}`} initial={editing} submitLabel="Save changes" fields={leaveFields({ startLabel: 'From', endLabel: 'To', after: [{ name: 'editNote', label: 'Note to the teacher (optional)', full: true }] })} onClose={() => setEditing(null)} onSubmit={async (v) => { await patch(`/api/school/leave/${editing._id}`, leavePayload(v)); list.reload(); return true; }}><p className="small muted" style={{ marginTop: 10 }}>The days are counted again from the working days in the new dates, and the teacher is told what changed.</p></FormModal>}
-      {view && <LeaveReview leave={view} L={L} onClose={() => { setView(null); list.reload(); }} run={run} busy={busy} />}
+      {view && <LeaveReview leave={view} onClose={() => { setView(null); list.reload(); }} run={run} busy={busy} />}
     </div>
   );
 }
 
-function LeaveReview({ leave, L, onClose, run, busy }) {
+function LeaveReview({ leave, onClose, run, busy }) {
   const affected = useApi(`/api/school/leave/${leave._id}/affected-periods`);
+  const L = useLookups(undefined, { teachers: false });
+  const names = useApi('/api/school/leave/teachers', undefined, { staleTime: 5 * 60_000 }); // names only, so a leave approver can pick a substitute without opening the teacher records
   const [remark, setRemark] = useState('');
   const [status, setStatus] = useState(leave.status);
   const decide = async (decision) => { const r = await run(() => post(`/api/school/leave/${leave._id}/decide`, { decision, remark: remark || undefined }), `Leave ${decision}d`); if (r) { setStatus(r.status); } };
@@ -182,7 +183,7 @@ function LeaveReview({ leave, L, onClose, run, busy }) {
       <h3 style={{ margin: '16px 0 8px' }}>Periods affected</h3>
       <Async state={affected} empty={<div className="empty small">This teacher has no periods on those dates</div>}>{(rows) => <DataTable rows={rows} rowKey="entryId" columns={[{ label: 'Date', render: (a) => fmtDate(a.date) }, { label: 'Period', render: (a) => `${a.period} ${a.startTime}` }, { label: 'Class', render: (a) => `${L.sectionName(a.sectionId)}` }, { label: 'Subject', key: 'subject' },
         { label: 'Substitute', render: (a) => a.substitute ? <Badge tone="green">{a.substitute}</Badge> : <Button size="sm" onClick={() => setSubFor(a)}>Arrange</Button> }]} />}</Async>
-      {subFor && <FormModal title={`Substitute · ${fmtDate(subFor.date)} ${subFor.period}`} fields={[{ name: 'substituteTeacherId', label: 'Substitute teacher', type: 'select', options: L.teacherOptions.filter((t) => t.value !== leave.teacherId?._id), required: true }]} onClose={() => setSubFor(null)}
+      {subFor && <FormModal title={`Substitute · ${fmtDate(subFor.date)} ${subFor.period}`} fields={[{ name: 'substituteTeacherId', label: 'Substitute teacher', type: 'select', options: (names.data || []).filter((t) => t._id !== leave.teacherId?._id).map((t) => ({ value: t._id, label: `${t.name} (${t.employeeId})` })), required: true }]} onClose={() => setSubFor(null)}
         onSubmit={async (v) => { await post('/api/school/substitutions', { entryId: subFor.entryId, date: subFor.date, substituteTeacherId: v.substituteTeacherId, leaveId: leave._id, reason: 'Teacher on leave' }); affected.reload(); return true; }} />}
     </Modal>
   );

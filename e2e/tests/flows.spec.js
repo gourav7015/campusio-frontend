@@ -219,7 +219,7 @@ test('student: every test of the class (attempted or not), everyone\'s results a
   await page.getByRole('tab', { name: 'All tests of my class' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Unit Test 1' })).toContainText('Results out');
   await expect(page.getByRole('row').filter({ hasText: /Class Test 1\b/ })).toBeVisible();
-  await expect(page.getByRole('row').filter({ hasText: 'Unit Test 2' })).toContainText('Upcoming');
+  await expect(page.locator('tr.clickable').filter({ hasText: 'Unit Test 2' })).toContainText('Upcoming'); // the exam's own row (its dated papers are listed above, in the date sheet)
   await page.getByRole('row').filter({ hasText: 'Unit Test 1' }).getByRole('button', { name: 'See everyone' }).click();
   const dlg = page.getByRole('dialog');
   await expect(dlg).toContainText('Your rank:');

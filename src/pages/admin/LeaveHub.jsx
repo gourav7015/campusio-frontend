@@ -10,8 +10,8 @@ export default function LeaveHub() {
   const [sp, setSp] = useSearchParams();
   const { user } = useAuth();
   const sub = user?.adminLevel === 'sub'; const may = (k) => !sub || (user.permissions || []).includes(k);
-  const people = [...(may('teachers') ? [['teachers', 'Teaching staff']] : []), ...(may('staff_attendance') ? [['general', 'Non-teaching staff'], ['transport', 'Transport crew']] : [])];
-  const tabs = people.length ? [...people, ['balances', 'Leave balances']] : [];
+  const people = [...(may('teachers') || may('leave_approval') ? [['teachers', 'Teaching staff']] : []), ...(may('staff_attendance') ? [['general', 'Non-teaching staff'], ['transport', 'Transport crew']] : [])];
+  const tabs = people.length ? [...people, ...(may('teachers') || may('staff_attendance') ? [['balances', 'Leave balances']] : [])] : []; // a leave approver decides applications; giving extra leave stays with the teachers/staff permissions
   if (!tabs.length) return <Navigate to="/admin" replace />;
   const tab = tabs.some(([k]) => k === sp.get('tab')) ? sp.get('tab') : tabs[0][0];
   return (

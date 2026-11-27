@@ -70,12 +70,13 @@ export default function HelpDesk({ base, handler = false, platform = false, titl
   const query = handler ? { ...(status === 'attention' ? { open: 'true' } : status ? { status } : {}), ...(priority ? { priority } : {}), ...(dq ? { q: dq } : {}), limit: 50 } : { limit: 100 };
   const list = useApi(base, query);
 
-  if (openId) return <Thread key={openId} base={base} id={openId} handler={handler} platform={platform} onBack={() => { setOpenId(null); if (params.has('open')) setParams({}, { replace: true }); list.reload(); }} />;
+  if (openId) return <Thread key={openId} base={base} id={openId} handler={handler} platform={platform} noun={noun} onBack={() => { setOpenId(null); if (params.has('open')) setParams({}, { replace: true }); list.reload(); }} />;
 
   const columns = [
     { label: 'Ref', render: (t) => <b>{t.reference}</b> }, { label: 'Subject', render: (t) => t.subject },
     ...(platform ? [{ label: 'School', render: (t) => t.school?.name || '—' }] : []),
     ...(handler ? [{ label: 'From', render: (t) => <>{t.raisedBy?.name} <span className="muted small">{label(t.raisedBy?.role)}</span></> }] : []),
+    ...(noun === 'query' ? [{ label: 'Sent to', render: (t) => (t.sentTo?.name ? <b>{t.sentTo.name}</b> : <span className="muted">The whole office</span>) }] : []),
     { label: 'Status', render: (t) => <StatusBadge s={t.status} handler={handler} /> }, { label: 'Priority', render: (t) => <Badge tone={PRIORITY_TONE[t.priority]}>{label(t.priority)}</Badge> },
     ...(handler && platform ? [{ label: 'Assigned', render: (t) => t.assignedTo?.name || <span className="muted">—</span> }] : []),
     { label: 'Last activity', render: (t) => fmtDateTime(t.lastActivityAt) },
@@ -106,9 +107,10 @@ export default function HelpDesk({ base, handler = false, platform = false, titl
 
 function NewTicket({ base, onClose, onCreated, noun = 'ticket' }) {
   const [files, setFiles] = useState([]);
+  const who = useApi(noun === 'query' ? `${base}/recipients` : null, undefined, { staleTime: 5 * 60_000 }); // the people a teacher may address a query to
   return (
         <FormModal wide title={`New ${noun}`} submitLabel="Send"
-          fields={[{ name: 'subject', label: 'Subject', required: true, placeholder: 'A short summary' }, { name: 'category', label: 'About', type: 'select', options: CATEGORIES, default: 'general', required: true },
+          fields={[...(noun === 'query' ? [{ name: 'sentTo', label: 'Send to', type: 'select', default: '', full: true, hint: 'Choose a person and only they and the School Admin can see it. Leave it on the whole office and anyone at the office can answer.', options: [{ value: '', label: 'The whole office' }, ...(who.data || []).map((p) => ({ value: p.userId, label: `${p.name} · ${p.title}` }))] }] : []), { name: 'subject', label: 'Subject', required: true, placeholder: 'A short summary' }, { name: 'category', label: 'About', type: 'select', options: CATEGORIES, default: 'general', required: true },
             { name: 'priority', label: 'How urgent?', type: 'select', options: [{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }], default: 'normal', required: true },
             { name: 'body', label: noun === 'query' ? 'Your question' : 'What happened?', type: 'textarea', required: true, full: true, placeholder: noun === 'query' ? 'Say what you would like the office to check or answer.' : 'Tell us what you were trying to do and what went wrong.' }]}
           onClose={onClose} onSubmit={async (v) => { const t = await sendForm(base, v, files); onCreated(t); return true; }}>
@@ -117,9 +119,10 @@ function NewTicket({ base, onClose, onCreated, noun = 'ticket' }) {
   );
 }
 
-function Thread({ base, id, handler, platform, onBack }) {
+function Thread({ base, id, handler, platform, noun, onBack }) {
   const { user } = useAuth();
   const q = useApi(`${base}/${id}`);
+  const people = useApi(handler && noun === 'query' ? `${base}/recipients` : null); // who a query can be handed to
   const [text, setText] = useState(''); const [internal, setInternal] = useState(false); const [files, setFiles] = useState([]); const [run, busy] = useAction();
   const t = q.data;
   const send = async () => { const body = text.trim(); if (!body) return; const r = await run(() => sendForm(`${base}/${id}/replies`, handler ? { body, internal } : { body }, files)); if (r) { setText(''); setInternal(false); setFiles([]); q.reload(); } };
@@ -136,12 +139,13 @@ function Thread({ base, id, handler, platform, onBack }) {
                 <StatusBadge s={t.status} handler={handler} /><Badge tone={PRIORITY_TONE[t.priority]}>{label(t.priority)} priority</Badge><Badge>{label(t.category)}</Badge>
                 {platform && t.school && <span className="small muted">{t.school.name}</span>}
                 <span className="small muted">Raised by {t.raisedBy?.name} ({label(t.raisedBy?.role)}) · {fmtDateTime(t.createdAt)}</span>
-                {t.assignedTo && <span className="small muted">Assigned to {t.assignedTo.name}</span>}
+                {t.sentTo?.name ? <span className="small muted">Sent to {t.sentTo.name}{handler ? '' : '. Only they and the School Admin can see it.'}</span> : t.assignedTo && <span className="small muted">{handler ? 'Assigned to' : 'Answered by'} {t.assignedTo.name}</span>}
               </div>
               {handler && (
                 <div className="row" style={{ flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
                   <Field label="Status"><Select value={t.status} onChange={(e) => change({ status: e.target.value })} options={STATUSES.map((s) => ({ value: s, label: label(s) }))} /></Field>
                   <Field label="Priority"><Select value={t.priority} onChange={(e) => change({ priority: e.target.value })} options={['low', 'normal', 'high', 'urgent'].map((p) => ({ value: p, label: label(p) }))} /></Field>
+                  {noun === 'query' && people.data && <Field label="Handled by"><Select value={t.assignedTo?.userId || ''} onChange={(e) => e.target.value && change({ assignedTo: e.target.value })} options={people.data.map((p) => ({ value: p.userId, label: `${p.name} · ${p.title}` }))} placeholder="Nobody yet" /></Field>}
                   {platform && String(t.assignedTo?.userId) !== String(user?.id || user?._id) && <Button style={{ alignSelf: 'end' }} onClick={() => change({ assignedTo: user.id || user._id })}>Assign to me</Button>}
                   {t.status !== 'resolved' && t.status !== 'closed' && <Button style={{ alignSelf: 'end' }} onClick={() => change({ status: 'resolved' })}>Mark resolved</Button>}
                 </div>
