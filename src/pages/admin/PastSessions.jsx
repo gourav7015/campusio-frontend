@@ -20,7 +20,7 @@ export default function PastSessions() {
     <div className="stack">
       <PageHeader title="Past sessions" subtitle="Look back at an earlier academic year. This is a read-only record: the dashboard and every other page always show the current session."
         actions={<><Link className="btn" to="/admin/years">← Academic years</Link>{past.length > 0 && <Select value={yearId} onChange={(e) => setParams({ year: e.target.value })} aria-label="Past session" options={past.map((y) => ({ value: y._id, label: `${y.name}${y.status === 'closed' ? ' (closed)' : ''}` }))} />}</>} />
-      <Async state={years} empty={null}>{() => !past.length ? (
+      <Async keep state={years} empty={null}>{() => !past.length ? (
         <Card><Empty title="No past sessions yet">When a year ends and the next one begins, the earlier year is kept here for reference.</Empty></Card>
       ) : year && (
         <>
@@ -43,7 +43,7 @@ function ClassesTab({ year }) {
   return (
     <div className="grid g-side">
       <Card title={`Sections in ${year.name}`} flush>
-        <Async state={sections} empty={<Empty title="No sections were recorded in this session" />}>{() => rows.length ? (
+        <Async skeleton="datatable" state={sections} empty={<Empty title="No sections were recorded in this session" />}>{() => rows.length ? (
           <>
             <p className="small muted" style={{ padding: '10px 18px 0' }}>{rows.length} sections · {total.toLocaleString('en-IN')} students. Choose a section to see its students.</p>
             <DataTable rows={rows} onRowClick={setOpen} columns={[
@@ -63,7 +63,7 @@ function ClassesTab({ year }) {
 function Roster({ section, year }) {
   const q = useApi(`/api/school/sections/${section._id}/students`, { yearId: year._id });
   return (
-    <Async state={q} empty={<Empty title="No students were recorded in this section" />}>{(d) => (d.length ? (
+    <Async skeleton="datatable" state={q} empty={<Empty title="No students were recorded in this section" />}>{(d) => (d.length ? (
       <DataTable rows={d} columns={[
         { label: 'Roll', render: (s) => s.rollNo ?? '—' }, { label: 'Student', render: (s) => <b>{s.name}</b> }, { label: 'Admission no.', key: 'admissionNo' },
         { label: 'Attendance', render: (s) => (s.attendance == null ? '—' : `${s.attendance}%`) }, { label: 'Latest score', render: (s) => (s.latestScore == null ? '—' : `${s.latestScore}%`) },
@@ -78,7 +78,7 @@ function ExamsTab({ year }) {
   return (
     <div className="stack">
       <Card title={`Exams in ${year.name}`} flush>
-        <Async state={exams} empty={<Empty title="No exams were recorded in this session" />}>{(d) => (d.length ? (
+        <Async skeleton="datatable" state={exams} empty={<Empty title="No exams were recorded in this session" />}>{(d) => (d.length ? (
           <DataTable rows={d} onRowClick={setOpen} columns={[
             { label: 'Exam', render: (e) => <b>{e.name}</b> }, { label: 'Type', render: (e) => label(e.type) },
             { label: 'Dates', render: (e) => `${fmtDate(e.startDate, true)} to ${fmtDate(e.endDate, true)}` }, { label: 'Classes', render: (e) => `${e.classNames?.length || 0}` },
@@ -96,7 +96,7 @@ function Results({ exam, year, onClose }) {
   const q = useApi(`/api/school/exams/${exam._id}/results`, { yearId: year._id });
   return (
     <Card title={`${exam.name}: results`} action={<Button size="sm" onClick={onClose}>Close</Button>} flush>
-      <Async state={q} empty={<Empty title="No results were published for this exam" />}>{(d) => (d.length ? (
+      <Async skeleton="datatable" state={q} empty={<Empty title="No results were published for this exam" />}>{(d) => (d.length ? (
         <>
           {d.length > SHOWN && <p className="small muted" style={{ padding: '10px 18px 0' }}>Showing the first {SHOWN} of {d.length.toLocaleString('en-IN')} results.</p>}
           <DataTable rows={d.slice(0, SHOWN)} columns={[

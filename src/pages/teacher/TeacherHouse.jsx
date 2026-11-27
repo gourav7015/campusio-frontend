@@ -5,7 +5,7 @@ import { Async, Card, DataTable, Empty, PageHeader } from '../../components/ui.j
 export default function TeacherHouse() {
   const q = useApi('/api/teacher/house');
   return (
-    <Async state={q}>{(d) => (d.house
+    <Async skeleton="datatable" state={q}>{(d) => (d.house
       ? <div className="stack">
         <PageHeader title={`${d.house.name} house`} subtitle={`${d.students.length} students and ${d.teachers.length} mentors${d.house.motto ? ` · “${d.house.motto}”` : ''}. You are one of its mentors: guide and look after its students.`} />
         <div className="grid g2">

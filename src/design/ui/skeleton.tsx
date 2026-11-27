@@ -104,6 +104,95 @@ function Roster({ rows = 8 }: { rows?: number }) {
   );
 }
 
+
+/** Number cards across the top, then a card of rows: pages that open with figures (a summary strip, an overview). */
+function Stats() {
+  return (
+    <Frame className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Cell key={i} d={i}><Sk kind="small" w="55%" /><Sk kind="title" w="48%" className="mt-3" d={i + 1} /><Sk kind="small" w="75%" className="mt-3" d={i + 2} /></Cell>)}</div>
+      <div className={cn(card, 'space-y-4')}>{[0, 1, 2, 3].map((i) => <div key={i} className="flex items-center gap-3"><Sk kind="circle" w={18} h={18} d={i + 2} /><Sk kind="line" w={`${[44, 62, 36, 54][i]}%`} d={i + 2} /><span className="flex-1" /><Sk kind="pill" w={52} h={18} d={i + 2} /></div>)}</div>
+    </Frame>
+  );
+}
+
+/** A table that draws its own frame on the page: a row of column headings, then rows. No filters (the page has those). */
+function DataRows({ rows = 6 }: { rows?: number }) {
+  return (
+    <Frame className="overflow-hidden rounded-lg border border-border/70 bg-card">
+      <div className="flex items-center gap-4 border-b border-border/60 px-4 py-3">{[22, 14, 12, 10].map((w, i) => <Sk key={i} kind="small" w={`${w}%`} d={i} className={i > 1 ? 'hidden sm:block' : ''} />)}</div>
+      {Array.from({ length: Math.min(rows, 12) }).map((_, i) => (
+        <div key={i} className={cn('flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-0', i >= 8 && 'sk-still')}>
+          <Sk kind="line" w={`${[24, 18, 28, 21][i % 4]}%`} d={Math.min(i, 8)} /><Sk kind="line" w="12%" d={Math.min(i, 8)} /><span className="flex-1" /><Sk kind="line" w="10%" d={Math.min(i, 8)} className="hidden sm:block" /><Sk kind="pill" w={52} h={18} d={Math.min(i, 8)} />
+        </div>))}
+    </Frame>
+  );
+}
+
+/** One chart inside a card: gridlines, then a line that draws itself. */
+function Chart() {
+  return (
+    <Frame className="p-1">
+      <svg className="sk-svg block h-40 w-full" viewBox="0 0 240 100" preserveAspectRatio="none" aria-hidden>
+        {[20, 50, 80].map((y) => <line key={y} className="sk-grid" x1="0" y1={y} x2="240" y2={y} vectorEffect="non-scaling-stroke" />)}
+        <path className="sk-area" d="M4 74 C34 64 54 44 84 52 C114 60 134 26 164 34 C194 42 214 18 236 24 L236 80 L4 80 Z" />
+        <path className="sk-path" pathLength={100} d="M4 74 C34 64 54 44 84 52 C114 60 134 26 164 34 C194 42 214 18 236 24" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="mt-3 flex gap-4"><Sk kind="small" w={70} d={2} /><Sk kind="small" w={54} d={3} /><Sk kind="small" w={62} d={4} /></div>
+    </Frame>
+  );
+}
+
+/** A month: weekday heads, then five rows of days. */
+function Calendar() {
+  return (
+    <Frame>
+      <div className="grid grid-cols-7 gap-1.5">{Array.from({ length: 7 }).map((_, i) => <Sk key={i} kind="small" w="60%" d={i} className="mx-auto" />)}
+        {Array.from({ length: 35 }).map((_, i) => <Sk key={i} kind="block" h={40} d={Math.min(Math.floor(i / 7) + 1, 8)} className={cn('w-full rounded-md', i >= 21 && 'sk-still')} />)}</div>
+    </Frame>
+  );
+}
+
+/** Facts in a card: a label and a value, again and again (no header; the page drew its own). */
+function Facts() {
+  return (
+    <Frame><div className={cn(card, 'grid gap-x-6 gap-y-5 sm:grid-cols-2')}>{Array.from({ length: 6 }).map((_, i) => <div key={i} className="space-y-2"><Sk kind="small" w="36%" d={i} /><Sk kind="line" w={`${[70, 50, 80, 62, 56, 44][i]}%`} d={i + 1} /></div>)}</div></Frame>
+  );
+}
+
+/** A report: a chart beside a ring, then three figures. */
+function Report() {
+  return (
+    <Frame className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+        <div className={card}><Sk kind="small" w={140} />
+          <svg className="sk-svg mt-3 block h-36 w-full" viewBox="0 0 240 100" preserveAspectRatio="none" aria-hidden>
+            {[20, 50, 80].map((y) => <line key={y} className="sk-grid" x1="0" y1={y} x2="240" y2={y} vectorEffect="non-scaling-stroke" />)}
+            <path className="sk-area" d="M4 74 C34 64 54 44 84 52 C114 60 134 26 164 34 C194 42 214 18 236 24 L236 80 L4 80 Z" />
+            <path className="sk-path" pathLength={100} d="M4 74 C34 64 54 44 84 52 C114 60 134 26 164 34 C194 42 214 18 236 24" vectorEffect="non-scaling-stroke" />
+          </svg></div>
+        <div className={cn(card, 'flex items-center gap-4')}>
+          <svg className="sk-svg size-24 shrink-0" viewBox="0 0 72 72" aria-hidden><circle className="sk-track" cx="36" cy="36" r="26" /><circle className="sk-arc" pathLength={100} cx="36" cy="36" r="26" transform="rotate(-90 36 36)" /></svg>
+          <div className="min-w-0 flex-1 space-y-3">{[100, 80, 64].map((w, i) => <div key={i} className="flex items-center gap-2"><Sk kind="circle" w={8} h={8} d={i} /><Sk kind="small" w={`${w}%`} d={i + 1} /></div>)}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">{[0, 1, 2].map((i) => <Cell key={i} d={i + 2}><Sk kind="small" w="40%" /><Sk kind="title" w="55%" className="mt-3" d={i + 3} /></Cell>)}</div>
+    </Frame>
+  );
+}
+
+/** A printed document (receipt, payslip, report card): letterhead, a rule, lines and a total. */
+function Document() {
+  return (
+    <Frame className="mx-auto max-w-md space-y-4 rounded-md border border-border/70 bg-card p-5">
+      <div className="flex items-start gap-3"><Sk kind="circle" w={36} h={36} /><div className="min-w-0 flex-1 space-y-2"><Sk kind="line" w="60%" d={1} /><Sk kind="small" w="80%" d={2} /></div><div className="w-24 space-y-2"><Sk kind="small" w="100%" d={1} /><Sk kind="small" w="70%" d={2} className="ml-auto" /></div></div>
+      <div className="border-t-2 border-border" />
+      <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Sk kind="small" w="50%" d={2} /><Sk kind="line" w="80%" d={3} /></div><div className="space-y-2"><Sk kind="small" w="40%" d={2} /><Sk kind="line" w="60%" d={3} /></div></div>
+      <div className="space-y-3 border-y border-border/60 py-3">{[0, 1, 2].map((i) => <div key={i} className="flex items-center gap-4"><Sk kind="line" w={`${[58, 44, 66][i]}%`} d={i + 3} /><span className="flex-1" /><Sk kind="line" w="16%" d={i + 3} /></div>)}</div>
+      <div className="flex items-center justify-between"><Sk kind="small" w={44} d={6} /><Sk kind="title" w={90} d={6} /></div>
+    </Frame>
+  );
+}
+
 /** Opening the app, before the menu is known. */
 function Boot() {
   return (
@@ -111,8 +200,8 @@ function Boot() {
   );
 }
 
-export type SkeletonKind = 'dashboard' | 'table' | 'list' | 'cards' | 'profile' | 'form' | 'roster' | 'boot';
-const SCENES: Record<SkeletonKind, (p: object) => ReactNode> = { dashboard: Dashboard, table: Table, list: List, cards: Cards, profile: Profile, form: Form, roster: Roster, boot: Boot };
+export type SkeletonKind = 'dashboard' | 'table' | 'list' | 'cards' | 'profile' | 'form' | 'roster' | 'boot' | 'stats' | 'datatable' | 'chart' | 'calendar' | 'facts' | 'report' | 'document';
+const SCENES: Record<SkeletonKind, (p: object) => ReactNode> = { dashboard: Dashboard, table: Table, list: List, cards: Cards, profile: Profile, form: Form, roster: Roster, boot: Boot, stats: Stats, datatable: DataRows, chart: Chart, calendar: Calendar, facts: Facts, report: Report, document: Document };
 
 /** The loading screen for a kind of page. */
 export function SkeletonScene({ kind = 'list' }: { kind?: SkeletonKind }) {

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { resetAttendance, setWay } from './attendance-way.js';
 import { signIn, watch, openFilters } from './helpers.js';
 
 const API = process.env.API_URL || 'http://localhost:4010';
@@ -62,11 +63,10 @@ test('staff tabs have designation and status filters, and the month view an atte
   await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible();
 });
 
-test('a whole section row opens the class page; its buttons still do their own job; "By period" shows only for schools that use it', async ({ page }) => {
-  const token = await adminToken();
-  const settings = await (await call(token, 'GET', '/api/school/settings')).json();
+test('a whole section row opens the class page; its buttons still do their own job; the Attendance tab follows the way the school takes attendance', async ({ page }) => {
+  test.skip(new Date().getDay() === 0, 'the demo school does not work on Sunday');
+  await resetAttendance();
   try {
-    await call(token, 'PUT', '/api/school/settings', { attendance: { ...settings.attendance, periodWise: false } });
     await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
     await page.goto('/admin/classes');
     await expect(page.getByRole('button', { name: 'Edit', exact: true }).first()).toBeVisible();
@@ -77,11 +77,15 @@ test('a whole section row opens the class page; its buttons still do their own j
     await expect(page).toHaveURL(/\/admin\/classes\/[a-f0-9]{24}/);
     await expect(page.getByRole('tab', { name: 'Attendance', exact: true })).toBeVisible(); // the class page keeps its own attendance
     await expect(page.getByRole('tab', { name: 'By period' })).toHaveCount(0);
-    // a school that takes attendance period by period gets the option
-    await call(token, 'PUT', '/api/school/settings', { attendance: { ...settings.attendance, periodWise: true } });
+    await page.getByRole('tab', { name: 'Attendance', exact: true }).click();
+    await expect(page.getByText(/Registers/).first()).toBeVisible(); // once a day: the registers
+    // a school that takes attendance period by period: the same tab is the day as periods
+    await setWay(true);
     await page.reload();
-    await expect(page.getByRole('tab', { name: 'By period' })).toBeVisible();
-  } finally {
-    await call(token, 'PUT', '/api/school/settings', { attendance: { ...settings.attendance, periodWise: !!settings.attendance?.periodWise } });
-  }
+    await page.getByRole('tab', { name: 'Attendance', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible(); // the whole class comes first
+    await page.getByRole('tab', { name: 'Day by day' }).click();
+    await expect(page.getByText(/of \d periods submitted/)).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'By period' })).toHaveCount(0);
+  } finally { await resetAttendance(); }
 });

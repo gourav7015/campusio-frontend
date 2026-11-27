@@ -39,7 +39,7 @@ function Team() {
   return (
     <div className="stack">
       <Card title="People on the Connect page" action={<div className="row"><a className="btn sm" href="/connect" target="_blank" rel="noopener noreferrer">View the public page</a><Button size="sm" variant="primary" onClick={() => setEdit({})}>+ Add a person</Button></div>} flush>
-        <Async state={list} empty={<Empty title="Nobody is listed yet">Add the people visitors can reach.</Empty>}>{(rows) => rows.length ? (
+        <Async skeleton="datatable" state={list} empty={<Empty title="Nobody is listed yet">Add the people visitors can reach.</Empty>}>{(rows) => rows.length ? (
           <DataTable searchable={false} pageSize={50} rowKey="id" rows={rows} columns={[
             { label: 'Order', render: (r) => { const i = rows.findIndex((x) => x.id === r.id); return <div className="row" style={{ gap: 4 }}><Button size="sm" aria-label={`Move ${r.name} up`} disabled={i === 0} onClick={() => move(rows, i, -1)}>▲</Button><Button size="sm" aria-label={`Move ${r.name} down`} disabled={i === rows.length - 1} onClick={() => move(rows, i, 1)}>▼</Button></div>; } },
             { label: 'Person', render: (r) => <><b>{r.name}</b> <Badge tone={TONE_BADGE[r.tone]}>{TONES[(r.tone || 1) - 1].label}</Badge><div className="small muted">{r.role || '—'}</div></> },
@@ -65,7 +65,7 @@ function Team() {
 
 function PageSettings() {
   const cur = useApi('/api/platform/connect');
-  return <Async state={cur}>{(d) => <SettingsForm key={JSON.stringify(d)} d={d} reload={cur.reload} />}</Async>;
+  return <Async skeleton="form" state={cur}>{(d) => <SettingsForm key={JSON.stringify(d)} d={d} reload={cur.reload} />}</Async>;
 }
 function SettingsForm({ d, reload }) {
   const [f, setF] = useState({ ...d, hoursDays: d.hoursDays.map(String), mailboxes: d.mailboxes.map((m) => ({ ...m })) });
@@ -125,7 +125,7 @@ function Messages() {
   return (
     <div className="stack">
       <Card title="Messages from the Connect page" action={<Select aria-label="Show messages" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'new', label: 'New' }, { value: 'handled', label: 'Handled' }, { value: '', label: 'All' }]} />} flush>
-        <Async state={list} empty={<Empty title="No messages here">Messages sent from the public Connect page appear here.</Empty>}>{(rows) => rows.length ? (
+        <Async skeleton="datatable" state={list} empty={<Empty title="No messages here">Messages sent from the public Connect page appear here.</Empty>}>{(rows) => rows.length ? (
           <DataTable searchable={false} pageSize={25} rowKey="_id" rows={rows} onRowClick={setOpen} columns={[
             { label: 'Received', render: (m) => <span style={{ whiteSpace: 'nowrap' }}>{fmtDateTime(m.createdAt)}<div className="small muted">{m.ref}</div></span> },
             { label: 'From', render: (m) => <><b>{m.name}</b><div className="small muted">{m.school}</div></> },

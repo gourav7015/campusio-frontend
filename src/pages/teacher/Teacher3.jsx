@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { post, put } from '../../api/client.js';
+import { post } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, fmtDate, label } from '../../components/ui.jsx';
 import ChatView from '../../components/ChatView.jsx';
-import AttendanceRoster from '../../components/AttendanceRoster.jsx';
-import { Segmented, useDialogs } from '../../design/ui';
+import { YourPeriods, DayGrid, ModeNotice } from '../../components/PeriodAttendance.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
+import { useDialogs } from '../../design/ui';
 
 const T = '/api/teacher';
 const todayStr = () => new Date().toLocaleDateString('en-CA');
@@ -19,7 +20,7 @@ export function TeacherRemarks() {
     <div className="stack">
       <PageHeader title="Remarks and guidelines" subtitle="Everything you have sent to families, and who has acknowledged it. Families are reminded every day until they do. Add a remark from a student's page." />
       <Tabs tabs={[['all', 'Everything'], ['pending', 'Not acknowledged yet']]} value={pending ? 'pending' : 'all'} onChange={(t) => setPending(t === 'pending')} />
-      <Card flush><Async state={q} empty={<Empty title="Nothing here">Open a student from My classes to add a remark.</Empty>}>{(rows) => <DataTable rows={rows} empty="Nothing here" columns={[
+      <Card flush><Async skeleton="datatable" state={q} empty={<Empty title="Nothing here">Open a student from My classes to add a remark.</Empty>}>{(rows) => <DataTable rows={rows} empty="Nothing here" columns={[
         { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Student', render: (r) => <Link to={`/teacher/students/${r.studentId}`}><b>{r.student}</b></Link> }, { label: 'Kind', render: (r) => label(r.category) }, { label: 'Message', key: 'text' },
         { label: 'Family', render: (r) => (!r.requireAck ? <span className="muted small">No reply needed</span> : r.acknowledged ? <Badge tone="green">Acknowledged</Badge> : <><Badge tone="amber">Not yet</Badge><div className="small muted">{r.reminders} reminder(s)</div></>) },
         { label: '', render: (r) => r.requireAck && !r.acknowledged && <Button size="sm" onClick={async () => { await run(() => post(`${T}/remarks/${r._id}/remind`), 'Reminder sent'); q.reload(); }}>Remind now</Button> }]} />}</Async></Card>
@@ -38,14 +39,14 @@ export function Swaps() {
     <div className="stack">
       <PageHeader title="Period swaps" subtitle="Need to change a period, for example because you will be on leave? Ask a colleague to take it, or swap with one of theirs. They agree first, then the school admin approves." actions={<Button variant="primary" onClick={() => setModal(true)}>+ Ask for a swap</Button>} />
       <Tabs tabs={[['swaps', 'Swaps'], ['closed', 'Attendance on closed days']]} value={tab} onChange={setTab} />
-      {tab === 'swaps' && <Card flush><Async state={q} empty={<Empty title="No swaps yet" />}>{(rows) => <DataTable rows={rows} empty="No swaps yet" columns={[
+      {tab === 'swaps' && <Card flush><Async skeleton="datatable" state={q} empty={<Empty title="No swaps yet" />}>{(rows) => <DataTable rows={rows} empty="No swaps yet" columns={[
         { label: 'Date', render: (s) => fmtDate(s.date, true) },
         { label: 'Who', render: (s) => (s.mine ? <>You → <b>{s.toTeacher}</b></> : <><b>{s.fromTeacher}</b> → you</>) },
         { label: 'Period', render: (s) => <>{s.fromPeriod?.period} · {s.fromPeriod?.section} · {s.fromPeriod?.subject}<div className="small muted">{s.fromPeriod?.time}</div>{s.toPeriod && <div className="small muted">in return: {s.toPeriod.period} · {s.toPeriod.section} · {s.toPeriod.subject}</div>}</> },
         { label: 'Reason', key: 'reason' },
         { label: 'Status', render: (s) => <><Badge tone={tone[s.status]}>{label(s.status)}</Badge>{s.status === 'pending' && <div className="small muted">{s.peerStatus === 'accepted' ? 'Waiting for the school admin' : `Waiting for ${s.mine ? s.toTeacher : 'you'}`}</div>}{(s.peerNote || s.adminNote) && <div className="small muted">{s.adminNote || s.peerNote}</div>}</> },
         { label: '', render: (s) => s.status === 'pending' && (s.mine ? <ConfirmButton size="sm" message="Withdraw this request?" onConfirm={async () => { await run(() => post(`${T}/swaps/${s._id}/cancel`), 'Withdrawn'); q.reload(); }}>Withdraw</ConfirmButton> : s.peerStatus === 'pending' && <div className="row"><Button size="sm" variant="primary" onClick={() => answer(s, true)}>Accept</Button><Button size="sm" onClick={() => answer(s, false)}>Decline</Button></div>) }]} />}</Async></Card>}
-      {tab === 'closed' && <Card flush title="Your requests to take attendance on a Sunday, a holiday or another closed day"><Async state={ex} empty={<Empty title="No requests">Open Attendance, pick the day, and use “Ask the admin to allow it”.</Empty>}>{(rows) => <DataTable rows={rows} empty="No requests" columns={[{ label: 'Date', render: (e) => fmtDate(e.date, true) }, { label: 'Class', key: 'section' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (e) => <><Badge tone={tone[e.status]}>{label(e.status)}</Badge>{e.decisionNote && <div className="small muted">{e.decisionNote}</div>}</> }, { label: '', render: (e) => e.status === 'approved' && <Link className="btn sm" to={`/teacher/attendance?sectionId=${e.sectionId}&date=${e.date}`}>Take attendance</Link> }]} />}</Async></Card>}
+      {tab === 'closed' && <Card flush title="Your requests to take attendance on a Sunday, a holiday or another closed day"><Async skeleton="datatable" state={ex} empty={<Empty title="No requests">Open Attendance, pick the day, and use “Ask the admin to allow it”.</Empty>}>{(rows) => <DataTable rows={rows} empty="No requests" columns={[{ label: 'Date', render: (e) => fmtDate(e.date, true) }, { label: 'Class', key: 'section' }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (e) => <><Badge tone={tone[e.status]}>{label(e.status)}</Badge>{e.decisionNote && <div className="small muted">{e.decisionNote}</div>}</> }, { label: '', render: (e) => e.status === 'approved' && <Link className="btn sm" to={`/teacher/attendance?sectionId=${e.sectionId}&date=${e.date}`}>Take attendance</Link> }]} />}</Async></Card>}
       {modal && <SwapModal onClose={() => setModal(false)} onDone={q.reload} />}
     </div>
   );
@@ -72,65 +73,32 @@ function SwapModal({ onClose, onDone }) {
   );
 }
 
-// ───────────── period-wise attendance (when the school uses it) ─────────────
+// ───────────── attendance period by period (when the school takes it that way) ─────────────
+/** "Attendance" for every teacher in a school that takes it period by period: your lessons for the day, each marked by you. */
 export function PeriodAttendance() {
   const [date, setDate] = useState(todayStr());
-  const q = useApi(`${T}/period-attendance`, { date });
-  const [open, setOpen] = useState(null);
-  const off = q.error?.status === 409;
+  const { user } = useAuth();
   return (
     <div className="stack">
-      <PageHeader title="Period attendance" subtitle="Mark who is in your class for each period you teach, including periods you are covering. This is separate from the class teacher's daily register." actions={<Input type="date" aria-label="Date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />} />
-      {off ? <Card><Empty title="Period-wise attendance is not switched on">Your school can turn it on in School settings. Until then, the class teacher's daily register is the attendance.</Empty></Card> : (
-        <Card flush><Async state={q} empty={<Empty title="No periods this day" />}>{(d) => <DataTable rows={d.periods} rowKey="entryId" empty="You have no periods on this day" columns={[
-          { label: 'Period', render: (p) => <><b>{p.period}</b><div className="small muted">{p.startTime}–{p.endTime}</div></> }, { label: 'Class', render: (p) => `${p.className} ${p.section}` }, { label: 'Subject', render: (p) => <>{p.subject}{p.covering && <Badge tone="amber">covering</Badge>}</> },
-          { label: 'Attendance', render: (p) => (p.marked ? <Badge tone="green">Marked</Badge> : <Badge>Not marked</Badge>) }, { label: '', render: (p) => <Button size="sm" variant={p.marked ? undefined : 'primary'} onClick={() => setOpen(p)}>{p.marked ? 'Review' : 'Mark'}</Button> }]} />}</Async></Card>)}
-      {open && <PeriodRegister entry={open} date={date} onClose={() => setOpen(null)} onSaved={q.reload} />}
+      <PageHeader title="Attendance" subtitle="Mark who is in your class for each period you teach, including periods you are covering. A submitted period is locked, and the day is worked out from all the periods." actions={<Input type="date" aria-label="Date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />} />
+      <ModeNotice change={user?.attendanceChange} />
+      <Card flush><YourPeriods date={date} /></Card>
     </div>
   );
 }
 
 /**
- * "My class" in a school that takes attendance period by period: the class teacher sees the day's lessons, who took each and how many were away,
- * and marks their own periods from here. The whole-day register is one switch away, because it is still the official record of the day.
+ * "My class" in a school that takes attendance period by period: the class teacher sees the day as a grid of students against periods, who has marked
+ * what, and the day that was worked out. There is no daily register. For a date before the change, the daily register is shown instead.
  */
-export function ClassPeriods({ sectionId, className, section, children }) {
-  const [view, setView] = useState('periods');
+export function ClassPeriods({ sectionId, children }) {
   const [date, setDate] = useState(todayStr());
-  const q = useApi(view === 'periods' ? `${T}/class-periods` : null, { sectionId, date });
-  const [open, setOpen] = useState(null);
+  const { user } = useAuth();
   return (
     <div className="stack">
-      <div className="row between wrap">
-        <Segmented label="Attendance view" value={view} onChange={setView} options={[{ value: 'periods', label: 'By period' }, { value: 'day', label: 'Daily register' }]} />
-        {view === 'periods' && <Input type="date" aria-label="Date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />}
-      </div>
-      {view === 'day' ? children : (
-        <>
-          <p className="muted small" style={{ margin: 0 }}>Your school takes attendance period by period. Each teacher marks their own lessons; you can mark yours here. The daily register is the official record of the day.</p>
-          <Card flush><Async state={q} empty={<Empty title="No lessons this day" />}>{(d) => <DataTable rows={d.periods} rowKey="entryId" empty="This class has no lessons on this day" columns={[
-            { label: 'Period', render: (p) => <><b>{p.period}</b><div className="small muted">{p.time}</div></> },
-            { label: 'Subject', render: (p) => p.subject || '—' },
-            { label: 'Teacher', render: (p) => <>{p.teacher || '—'}{p.covering && <> <Badge tone="amber">covering</Badge></>}</> },
-            { label: 'Attendance', render: (p) => (p.marked ? <><Badge tone="green">Marked</Badge> <span className="small muted">{p.absent} absent{p.late ? `, ${p.late} late` : ''} of {p.total}</span></> : <Badge>Not marked</Badge>) },
-            { label: '', render: (p) => p.mine && <Button size="sm" variant={p.marked ? undefined : 'primary'} onClick={() => setOpen(p)}>{p.marked ? 'Review' : 'Mark'}</Button> }]} />}</Async></Card>
-          {open && <PeriodRegister entry={{ ...open, className, section }} date={date} onClose={() => setOpen(null)} onSaved={q.reload} />}
-        </>
-      )}
+      <div className="row between wrap"><span className="muted small">Your school takes attendance period by period. Each teacher marks their own lessons; you mark yours.</span><Input type="date" aria-label="Date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} /></div>
+      <ModeNotice change={user?.attendanceChange} />
+      <DayGrid role="teacher" sectionId={sectionId} date={date} fallback={typeof children === 'function' ? children(date) : children} />
     </div>
-  );
-}
-
-function PeriodRegister({ entry, date, onClose, onSaved }) {
-  const q = useApi(`${T}/period-attendance/register`, { entryId: entry.entryId, date });
-  const [edits, setEdits] = useState({}); const [run, busy] = useAction();
-  const people = (q.data?.students || []).map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, status: edits[s.studentId] || s.status || '', sub: s.dailyStatus === 'absent' ? 'absent in the daily register' : undefined }));
-  return (
-    <Modal wide title={`${entry.period} · ${entry.className} ${entry.section} · ${entry.subject || ''}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!q.data} onClick={async () => { const entries = people.map((p) => ({ studentId: p.id, status: p.status })); const r = await run(() => put(`${T}/period-attendance/register`, { entryId: entry.entryId, date, entries }), (x) => `Saved: ${x.absent} absent of ${x.total}`); if (r) { onSaved(); onClose(); } }}>Save</Button></>}>
-      <Async state={q}>{() => (<>
-        <p className="muted small" style={{ marginTop: 0 }}>Students absent in the daily register start as absent.</p>
-        <AttendanceRoster people={people} editable statuses={['present', 'absent', 'late', 'leave']} noun="student" onSet={(changes) => setEdits((e) => { const n = { ...e }; for (const c of changes) n[c.id] = c.status; return n; })} />
-      </>)}</Async>
-    </Modal>
   );
 }

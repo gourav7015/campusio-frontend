@@ -15,7 +15,7 @@ test('student timetable: while the server is slow it shows loading, never "No ti
   await expect(page.getByRole('columnheader', { name: /Period/ })).toBeVisible({ timeout: 10_000 });
   // leave and come back: the same answer is on screen straight away, with no second wait
   const before = calls;
-  await page.getByRole('link', { name: 'Examinations' }).click();
+  await page.getByRole('link', { name: 'Results and class ranks' }).click();
   await page.getByRole('link', { name: 'My timetable' }).click();
   await page.getByRole('tab', { name: 'Weekly' }).or(page.getByRole('button', { name: 'Weekly' })).first().click();
   await expect(page.getByRole('columnheader', { name: /Period/ })).toBeVisible({ timeout: 1000 });

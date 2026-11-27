@@ -9,6 +9,7 @@ import { BarsChart } from '../../components/Charts.jsx';
 import { DayList, WeekGrid } from '../../components/Timetable.jsx';
 import RegisterEditor from '../../components/Register.jsx';
 import { useDialogs } from '../../design/ui';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 const T = '/api/teacher';
 const todayStr = () => new Date().toLocaleDateString('en-CA');
@@ -21,7 +22,7 @@ export function TeacherTimetable() {
     <div className="stack">
       <PageHeader title="My timetable" subtitle="Your own periods, with substitutions shown" actions={<Input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />} />
       <Tabs tabs={[['day', 'Day'], ['week', 'Week']]} value={view} onChange={setView} />
-      <Async state={tt}>{(d) => <Card>{view === 'day' ? <DayList rows={d.day} showSection empty={`No classes on ${dayName(new Date(`${date}T00:00:00`).getDay() || 7)}`} /> : <WeekGrid week={d.week} />}</Card>}</Async>
+      <Async skeleton="datatable" state={tt}>{(d) => <Card>{view === 'day' ? <DayList rows={d.day} showSection empty={`No classes on ${dayName(new Date(`${date}T00:00:00`).getDay() || 7)}`} /> : <WeekGrid week={d.week} />}</Card>}</Async>
     </div>
   );
 }
@@ -32,7 +33,7 @@ export function Classes() {
   return (
     <div className="stack">
       <PageHeader title="My classes" subtitle="Only the classes and sections assigned to you" />
-      <Card flush><Async state={list} empty={<Empty title="No classes assigned yet" >The school admin assigns classes to you.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="sectionId" onRowClick={(c) => nav(`/teacher/classes/${c.sectionId}`)} columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No classes assigned yet" >The school admin assigns classes to you.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="sectionId" onRowClick={(c) => nav(`/teacher/classes/${c.sectionId}`)} columns={[
         { label: 'Class', render: (c) => <b>{c.className}</b> }, { label: 'Section', key: 'section' }, { label: 'Subjects', render: (c) => c.subjects.map((s) => s.name).join(', ') || '—' }, { label: 'Students', key: 'students' }, { label: 'Role', render: (c) => <Badge tone={c.isClassTeacher ? 'primary' : ''}>{c.role}</Badge> }]} />}</Async></Card>
     </div>
   );
@@ -52,19 +53,19 @@ export function ClassWorkspace() {
   const nav = useNavigate();
   const tabs = [['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ['timetable', 'Timetable'], ['homework', 'Homework'], ['exams', 'Examinations'], ['marks', 'Marks'], ['performance', 'Performance'], ['activity', 'Activity history']];
   return (
-    <Async state={ov}>{(o) => (
+    <Async skeleton="stats" keep state={ov}>{(o) => (
       <div className="stack">
         <PageHeader title={`${o.className} ${o.section}`} subtitle={`${o.subjects.map((s) => s.name).join(', ')} · Room ${o.room || '—'} · ${o.yearName}`} actions={o.isClassTeacher && <Link className="btn primary" to={`/teacher/attendance?sectionId=${sectionId}`}>Take attendance</Link>} />
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'overview' && <div className="grid g4"><Stat value={o.studentCount} label="Students" sub={`Capacity ${o.capacity}`} /><Stat value={label(o.attendanceToday)} label="Today's register" tone={o.attendanceToday === 'submitted' ? 'green' : 'amber'} /><Stat value={o.activeHomework} label="Active homework" /><Stat value={o.upcomingExam ? fmtDate(o.upcomingExam.date) : '—'} label="Upcoming exam" sub={o.upcomingExam ? `${o.upcomingExam.exam} · ${o.upcomingExam.subject}` : 'None scheduled'} />
           <Card title="Class teacher">{o.classTeacher || <span className="muted">Not assigned</span>}</Card><Card title="Next scheduled period">{o.nextPeriod ? <><b>{o.nextPeriod.subject}</b><div className="small muted">{fmtDate(o.nextPeriod.date)} · {o.nextPeriod.startTime}</div></> : <span className="muted">None this week</span>}</Card></div>}
-        {tab === 'students' && <Card flush title="Students" action={o.isClassTeacher && <Monitors sectionId={sectionId} rows={students.data || []} onSaved={students.reload} />}><Async state={students}>{(rows) => <DataTable rows={rows} rowKey="studentId" onRowClick={(s) => nav(`/teacher/students/${s.studentId}`)} columns={[{ label: 'Roll', render: (s) => String(s.rollNo).padStart(2, '0') }, { label: 'Student', render: (s) => <><b>{s.name}</b> {s.monitor && <Badge tone="blue">Monitor</Badge>}</> }, { label: 'Attendance', render: (s) => fmtPct(s.attendance) }, { label: 'Latest score', render: (s) => (s.latestScore != null ? s.latestScore : '—') }, { label: '', render: () => <span className="muted">View →</span> }]} />}</Async></Card>}
-        {tab === 'attendance' && <Card flush><Async state={hist} empty={<Empty title="No registers yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }, { label: 'Leave', render: (r) => r.totals.leave + r.totals.excused }, { label: '', render: (r) => o.isClassTeacher ? <Link to={`/teacher/attendance?sectionId=${sectionId}&date=${r.date}`}>Open</Link> : null }]} />}</Async></Card>}
-        {tab === 'timetable' && <Card><Async state={tt}>{(d) => <WeekGrid week={d.week.map((w) => ({ ...w, rows: w.rows.filter((r) => String(r.sectionId) === sectionId || r.isBreak) }))} />}</Async></Card>}
-        {tab === 'homework' && <Card flush action={<Link className="btn sm" to="/teacher/homework?new=1">+ New</Link>} title="Homework for this class"><Async state={hw} empty={<Empty title="No homework" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{h.effectiveStatus}</Badge> }]} />}</Async></Card>}
-        {tab === 'materials' && <Card flush title="Study materials"><Async state={mat} empty={<Empty title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{m.status}</Badge> }]} />}</Async></Card>}
-        {(tab === 'exams' || tab === 'marks') && <Card flush><Async state={exams} empty={<Empty title="No examinations" />}>{(rows) => <DataTable rows={rows.filter((r) => r.sectionId === sectionId)} rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} empty="No exams for this class" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: '', render: (r) => <Link to={`/teacher/exams/${r.examSubjectId}/${r.sectionId}`}>Open marks</Link> }]} />}</Async></Card>}
-        {tab === 'performance' && <Card title="Student scores" flush><Async state={students}>{(rows) => <div className="card-b"><BarsChart data={rows.map((s) => ({ name: s.name.split(' ')[0], score: s.latestScore ?? 0 }))} x="name" bars={[{ key: 'score', name: 'Latest score' }]} domain={[0, 100]} /></div>}</Async></Card>}
+        {tab === 'students' && <Card flush title="Students" action={o.isClassTeacher && <Monitors sectionId={sectionId} rows={students.data || []} onSaved={students.reload} />}><Async skeleton="datatable" state={students}>{(rows) => <DataTable rows={rows} rowKey="studentId" onRowClick={(s) => nav(`/teacher/students/${s.studentId}`)} columns={[{ label: 'Roll', render: (s) => String(s.rollNo).padStart(2, '0') }, { label: 'Student', render: (s) => <><b>{s.name}</b> {s.monitor && <Badge tone="blue">Monitor</Badge>}</> }, { label: 'Attendance', render: (s) => fmtPct(s.attendance) }, { label: 'Latest score', render: (s) => (s.latestScore != null ? s.latestScore : '—') }, { label: '', render: () => <span className="muted">View →</span> }]} />}</Async></Card>}
+        {tab === 'attendance' && <Card flush><Async skeleton="datatable" state={hist} empty={<Empty title="No registers yet" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }, { label: 'Leave', render: (r) => r.totals.leave + r.totals.excused }, { label: '', render: (r) => o.isClassTeacher ? <Link to={`/teacher/attendance?sectionId=${sectionId}&date=${r.date}`}>Open</Link> : null }]} />}</Async></Card>}
+        {tab === 'timetable' && <Card><Async skeleton="datatable" state={tt}>{(d) => <WeekGrid week={d.week.map((w) => ({ ...w, rows: w.rows.filter((r) => String(r.sectionId) === sectionId || r.isBreak) }))} />}</Async></Card>}
+        {tab === 'homework' && <Card flush action={<Link className="btn sm" to="/teacher/homework?new=1">+ New</Link>} title="Homework for this class"><Async skeleton="datatable" state={hw} empty={<Empty title="No homework" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (h) => <b>{h.title}</b> }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate) }, { label: 'Status', render: (h) => <Badge tone={statusTone(h.effectiveStatus)}>{h.effectiveStatus}</Badge> }]} />}</Async></Card>}
+        {tab === 'materials' && <Card flush title="Study materials"><Async skeleton="datatable" state={mat} empty={<Empty title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{m.status}</Badge> }]} />}</Async></Card>}
+        {(tab === 'exams' || tab === 'marks') && <Card flush><Async skeleton="datatable" state={exams} empty={<Empty title="No examinations" />}>{(rows) => <DataTable rows={rows.filter((r) => r.sectionId === sectionId)} rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} empty="No exams for this class" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: '', render: (r) => <Link to={`/teacher/exams/${r.examSubjectId}/${r.sectionId}`}>Open marks</Link> }]} />}</Async></Card>}
+        {tab === 'performance' && <Card title="Student scores" flush><Async skeleton="chart" state={students}>{(rows) => <div className="card-b"><BarsChart data={rows.map((s) => ({ name: s.name.split(' ')[0], score: s.latestScore ?? 0 }))} x="name" bars={[{ key: 'score', name: 'Latest score' }]} domain={[0, 100]} /></div>}</Async></Card>}
         {tab === 'activity' && <Card><Async state={act}>{(d) => <ul className="timeline">{d.activity.map((a) => <li key={a.id}><span className="dotc" /><div><div>{a.summary}</div><div className="small muted">{fmtDateTime(a.at)}</div></div></li>)}</ul>}</Async></Card>}
       </div>)}</Async>
   );
@@ -118,7 +119,7 @@ export function StudentView() {
   const [editing, setEditing] = useState(false); const [msg, setMsg] = useState(false);
   const [run, busy] = useAction();
   return (
-    <Async state={d}>{(s) => (
+    <Async skeleton="stats" keep state={d}>{(s) => (
       <div className="stack">
         <PageHeader title={<span className="row"><Avatar fileId={s.photoFileId} name={s.profile.name} size={44} />{s.profile.name}{s.monitor && <Badge tone="blue">Class monitor</Badge>}</span>} subtitle={`${s.profile.className} ${s.profile.section} · Roll ${s.profile.rollNo} · Admission ${s.profile.admissionNo}`} actions={<Button onClick={() => setMsg(true)}>Message the family</Button>} />
         <Tabs tabs={[['profile', 'Profile summary'], ['attendance', 'Attendance'], ['marks', 'Subject marks'], ['homework', 'Homework'], ['remarks', 'Teacher remarks'], ['history', 'Academic history']]} value={tab} onChange={setTab} />
@@ -149,7 +150,7 @@ export function Subjects() {
   return (
     <div className="stack">
       <PageHeader title="My subjects" subtitle="Each subject with the sections you teach it in" />
-      <Async state={list} empty={<Empty title="No subjects assigned yet" />}>{(rows) => rows.map((s) => (
+      <Async skeleton="cards" state={list} empty={<Empty title="No subjects assigned yet" />}>{(rows) => rows.map((s) => (
         <Card key={s.subjectId} title={`${s.name} (${s.code})`} action={<span className="muted small">{s.assignmentCount} teaching assignment(s) · {s.academicYear}</span>}>
           <div className="grid g3"><div><div className="muted small">Assigned sections</div>{s.assignments.map((a) => <Link key={a.sectionId} className="chip" style={{ margin: 2 }} to={`/teacher/classes/${a.sectionId}`}>{a.className} {a.section}</Link>)}</div>
             <div><div className="muted small">Weekly periods</div><b>{s.weeklyPeriods}</b><div className="muted small" style={{ marginTop: 8 }}>Exam structure</div>{s.examStructure ? `Theory ${s.examStructure.theory} · Practical ${s.examStructure.practical} · Internal ${s.examStructure.internal} · Pass ${s.examStructure.passMarks}` : '—'}</div>
@@ -159,26 +160,30 @@ export function Subjects() {
   );
 }
 
-export function Attendance({ sectionId: fixed, embedded } = {}) {
+export function Attendance({ sectionId: fixed, embedded, date: forcedDate } = {}) {
   const dlg = useDialogs();
+  const { user } = useAuth();
   const classes = useApi(`${T}/classes`);
   const mine = (classes.data || []).filter((c) => c.isClassTeacher);
   const params = new URLSearchParams(window.location.search);
   const [sectionId, setSectionId] = useState(params.get('sectionId') || '');
-  const [date, setDate] = useState(params.get('date') || todayStr());
+  const [pickedDate, setDate] = useState(params.get('date') || todayStr());
+  const date = forcedDate ?? pickedDate;
   const sid = (mine.find((c) => c.sectionId === (fixed || sectionId)) || mine[0])?.sectionId || '';
   const hist = useApi(sid ? `${T}/attendance/history` : null, { sectionId: sid });
   const queries = useApi(`${T}/attendance/queries`, { status: 'open' });
   const [run] = useAction();
+  // a period-by-period school has no daily register (an older day is still reached from My class → Attendance)
+  if (user?.periodWise && !embedded) return <div className="stack"><PageHeader title="Attendance" subtitle="Your school takes attendance period by period." /><Card><Empty title="There is no daily register">Each teacher marks their own periods, and the day is worked out from them. Open your periods to mark them.<span style={{ display: 'block', marginTop: 12 }}><Link className="btn primary" to="/teacher/period-attendance">Go to my periods</Link></span></Empty></Card></div>;
   return (
     <div className="stack">
-      {embedded ? <div className="row between wrap"><span className="muted small">Mark, review the totals, then submit. You can open an earlier date at any time and change it.</span><Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></div> : <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit. You can open an earlier date at any time and change it." actions={mine.length > 0 && <>
+      {embedded ? <div className="row between wrap"><span className="muted small">{forcedDate ? 'The school took attendance once a day on this date: this is the class teacher\'s register.' : 'Mark, review the totals, then submit. You can open an earlier date at any time and change it.'}</span>{!forcedDate && <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" />}</div> : <PageHeader title="Attendance" subtitle="Only the class teacher takes a section's daily register. Mark, review the totals, then submit. You can open an earlier date at any time and change it." actions={mine.length > 0 && <>
         <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class and section" />
         <Input type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Date" /></>} />}
-      {classes.loading && !classes.data ? <Spinner /> : !mine.length ? <Empty title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}
+      {classes.loading && !classes.data ? <Spinner kind="cards" /> : !mine.length ? <Empty title="You are not a class teacher">Attendance is taken by the class teacher of each section. You can still see the attendance of the classes you teach under My Classes → Attendance.</Empty> : <RegisterEditor base={T} sectionId={sid} date={date} onChange={hist.reload} />}
       {mine.length > 0 && <div className="grid g2">
-        <Card title="Recent registers" flush><Async state={hist} empty={<div className="empty small">No registers yet</div>}>{(rows) => <DataTable rows={rows.slice(0, 8)} columns={[{ label: 'Date', render: (r) => <a href="#!" onClick={(e) => { e.preventDefault(); setDate(r.date); }}>{fmtDate(r.date, true)}</a> }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }]} />}</Async></Card>
-        <Card title="Attendance queries from your students" flush><Async state={queries} empty={<div className="empty small">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date) }, { label: 'Message', key: 'message' }, { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = await dlg.prompt('Reply to the student', { title: 'Answer the query', required: true }); if (!response) return; await run(() => post(`${T}/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
+        <Card title="Recent registers" flush><Async skeleton="datatable" state={hist} empty={<div className="empty small">No registers yet</div>}>{(rows) => <DataTable rows={rows.slice(0, 8)} columns={[{ label: 'Date', render: (r) => <a href="#!" onClick={(e) => { e.preventDefault(); setDate(r.date); }}>{fmtDate(r.date, true)}</a> }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{r.status}</Badge> }, { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }]} />}</Async></Card>
+        <Card title="Attendance queries from your students" flush><Async skeleton="datatable" state={queries} empty={<div className="empty small">No open queries</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Student', render: (q) => q.studentId?.name }, { label: 'Date', render: (q) => fmtDate(q.date) }, { label: 'Message', key: 'message' }, { label: '', render: (q) => <Button size="sm" onClick={async () => { const response = await dlg.prompt('Reply to the student', { title: 'Answer the query', required: true }); if (!response) return; await run(() => post(`${T}/attendance/queries/${q._id}/resolve`, { status: 'resolved', response }), 'Answered'); queries.reload(); }}>Answer</Button> }]} />}</Async></Card>
       </div>}
     </div>
   );

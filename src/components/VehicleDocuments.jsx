@@ -16,7 +16,7 @@ export default function VehicleDocuments({ base, busId, readOnly, onChange }) {
   const done = () => { setEdit(null); q.reload(); onChange?.(); };
   return (
     <Card title="Vehicle documents" action={!readOnly && <Button size="sm" onClick={() => setEdit({ type: 'other', label: 'Other document', id: null })}>+ Other document</Button>} flush>
-      <Async state={q}>{(d) => (
+      <Async skeleton="datatable" state={q}>{(d) => (
         <DataTable rows={d.documents} rowKey={(r) => r.id || r.type} empty="No documents" columns={[
           { label: 'Document', render: (r) => <b>{r.label}</b> },
           { label: 'Number', render: (r) => r.number || <span className="muted">—</span> },

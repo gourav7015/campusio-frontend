@@ -29,7 +29,7 @@ export default function ClassBorrowers({ base, sectionId: fixedSection }) {
         {classId && !fixedSection && <Button size="sm" onClick={() => { setClassId(''); setSectionId(''); }}>All classes</Button>}
       </div>
       {!sid && !classId ? (
-        <Async state={overview}>{(d) => (<>
+        <Async skeleton="stats" state={overview}>{(d) => (<>
           <div className="grid g4">
             <Stat value={`${d.totals.borrowedAny} / ${d.totals.students}`} label="Borrowed a book this year" tone="green" />
             <Stat value={d.totals.neverBorrowed} label="Never borrowed" tone={d.totals.neverBorrowed ? 'amber' : 'green'} />
@@ -46,7 +46,7 @@ export default function ClassBorrowers({ base, sectionId: fixedSection }) {
           </Card>
         </>)}</Async>
       ) : (
-        <Async state={q}>{(d) => (<>
+        <Async skeleton="stats" state={q}>{(d) => (<>
           <div className="grid g4">
             <Stat value={`${d.summary.borrowedAny} / ${d.summary.students}`} label="Borrowed a book this year" tone="green" />
             <Stat value={d.summary.neverBorrowed} label="Never borrowed" tone={d.summary.neverBorrowed ? 'amber' : 'green'} />

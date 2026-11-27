@@ -60,7 +60,7 @@ export default function Employees() {
         </div>
       </Card>
       <Card flush>
-        <Async state={list} empty={<Empty title="No employees match" />}>{(x) => (x.items.length ? (
+        <Async skeleton="datatable" state={list} empty={<Empty title="No employees match" />}>{(x) => (x.items.length ? (
           <>
             <p className="small muted" style={{ padding: '10px 18px 0' }}>{x.total.toLocaleString('en-IN')} {x.total === 1 ? 'person' : 'people'}{x.total > x.items.length ? `, showing the first ${x.items.length}` : ''}.</p>
             <DataTable rows={x.items} rowKey="id" onRowClick={open} columns={[

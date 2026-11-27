@@ -37,7 +37,7 @@ export function Approvals() {
       <PageHeader title="Approvals" subtitle="Expenses and vendors from Finance, period swaps and attendance on days the school is closed: what waits for your decision, and what you decided before" actions={<>
         <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={APPROVAL_STATUS} />
         <Select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} options={APPROVAL_KIND} /></>} />
-      <Async state={q}>{(d) => (<>
+      <Async skeleton="datatable" state={q}>{(d) => (<>
         {(() => { const shown = ['expenses', 'vendors', 'swaps', 'exceptions'].filter((k) => kind === 'all' || kind === k).reduce((n, k) => n + d.counts[k], 0);
           return shown === 0 && <Card><Empty title={status === 'pending' ? 'Nothing is waiting for you' : 'Nothing to show'}>{status === 'pending' ? 'New requests appear here and in your notifications.' : 'No request matches these filters yet. Decisions you make are kept here.'}</Empty></Card>; })()}
         {d.counts.expenses > 0 && (kind === 'all' || kind === 'expenses') && <Card title={`Expenses (${d.counts.expenses})`} flush><DataTable rows={d.expenses} columns={[
@@ -68,7 +68,7 @@ export function SubAdmins() {
   return (
     <div className="stack">
       <PageHeader title="Sub-admins" subtitle="Give someone a limited admin login: for example only teacher and staff attendance. You choose exactly what each one can open. Their login is created here, by you." actions={<Button variant="primary" onClick={() => setModal({})}>+ Add a sub-admin</Button>} />
-      <Card flush><Async state={list} empty={<Empty title="No sub-admins yet">Add one to share the daily work without sharing everything.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No sub-admins yet">Add one to share the daily work without sharing everything.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[
         { label: 'Name', render: (u) => <><b>{u.name}</b><div className="small muted">{u.loginId}{u.email && u.email !== u.loginId ? ` · ${u.email}` : ''}</div></> },
         { label: 'Can open', render: (u) => <div className="row wrap" style={{ gap: 4 }}>{u.permissions.map((p) => <Badge key={p}>{opts.data?.permissions.find((x) => x.key === p)?.label.split(',')[0] || p}</Badge>)}</div> },
         { label: 'Status', render: (u) => <Badge tone={u.status === 'active' ? 'green' : 'red'}>{label(u.status)}</Badge> }, { label: 'Last sign-in', render: (u) => (u.lastLoginAt ? fmtDate(u.lastLoginAt, true) : 'Never') },
@@ -156,7 +156,7 @@ function Gallery() {
   };
   return (
     <Card title="Gallery" action={<div className="row"><Input aria-label="Caption for the next picture" placeholder="Caption (optional)" value={caption} onChange={(e) => setCaption(e.target.value)} /><label className="btn primary" style={{ cursor: busy ? 'wait' : 'pointer' }}>{busy ? 'Uploading…' : '+ Add a picture'}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={add} disabled={busy} /></label></div>}>
-      <Async state={q}>{(d) => (d.profile.gallery.length ? <div className="grid g3">{d.profile.gallery.map((g) => (
+      <Async skeleton="cards" state={q}>{(d) => (d.profile.gallery.length ? <div className="grid g3">{d.profile.gallery.map((g) => (
         <figure key={g._id} style={{ margin: 0 }}><FileImage fileId={g.fileId} alt={g.caption || 'School picture'} style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 10 }} />
           <figcaption className="row between small" style={{ marginTop: 6 }}><span>{g.caption}</span><ConfirmButton size="sm" variant="danger" message="Remove this picture?" onConfirm={async () => { await run(() => del(`${A}/school-info/gallery/${g._id}`), 'Removed'); q.reload(); }}>Remove</ConfirmButton></figcaption></figure>))}</div> : <Empty title="No pictures yet">Pictures of the building, events and facilities show on the school page.</Empty>)}</Async>
     </Card>
@@ -171,7 +171,7 @@ function Licenses() {
   const uploadFile = async (l, e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const form = new FormData(); form.append('file', f); await run(() => upload(`${A}/licenses/${l._id}/file`, form), 'Copy attached'); q.reload(); };
   return (
     <Card title="Licences and approvals" action={<Button variant="primary" onClick={() => setModal({})}>+ Add</Button>} flush>
-      <Async state={q} empty={<Empty title="No licences added">Add the mandatory licences and approvals from the state and central government.</Empty>}>{(rows) => <DataTable rows={rows} columns={[
+      <Async skeleton="datatable" keep state={q} empty={<Empty title="No licences added">Add the mandatory licences and approvals from the state and central government.</Empty>}>{(rows) => <DataTable rows={rows} columns={[
         { label: 'Licence', render: (l) => <><b>{l.name}</b><div className="small muted">{AUTH[l.authority]}{l.issuedBy ? ` · ${l.issuedBy}` : ''}{l.number ? ` · No. ${l.number}` : ''}</div></> },
         { label: 'Valid until', render: (l) => (l.validUntil ? fmtDate(l.validUntil, true) : 'No expiry') },
         { label: 'Copy', render: (l) => (l.fileId ? <Badge tone="green">attached</Badge> : <label className="btn sm" style={{ cursor: 'pointer' }}>Attach<input type="file" accept="application/pdf,image/png,image/jpeg" hidden onChange={(e) => uploadFile(l, e)} /></label>) },

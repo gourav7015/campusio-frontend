@@ -10,7 +10,7 @@ export default function StudentPrivacy({ studentId, name, onErased }) {
   const [c, setC] = useState({ givenOn: new Date().toLocaleDateString('en-CA'), guardianName: '', relationship: '', note: '' });
   const [erase, setErase] = useState({ admissionNo: '', reason: '' });
   return (
-    <Async state={q}>{(p) => (
+    <Async skeleton="form" keep state={q}>{(p) => (
       <div className="stack">
         <Card title="Guardian consent" action={p.consent ? <Badge tone="green">Recorded</Badge> : <Badge tone="amber">Not recorded</Badge>}>
           {p.erased ? <p className="muted" style={{ margin: 0 }}>This student's personal details were erased on {fmtDate(p.erasedAt, true)}.</p> : p.consent ? (

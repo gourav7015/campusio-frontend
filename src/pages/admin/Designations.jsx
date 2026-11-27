@@ -20,7 +20,7 @@ export default function Designations() {
       <PageHeader title="Designations" subtitle="The ranks and job titles of your school. Teachers and staff can hold only the ones registered here, so the list never fills with different spellings." actions={<Button variant="primary" onClick={() => setEdit({})}>+ Add a designation</Button>} />
       <Tabs tabs={Object.entries(KINDS).map(([key, v]) => [key, v.tab])} value={tab} onChange={setTab} />
       <p className="muted small" style={{ margin: 0 }}>{k.note}</p>
-      <Card flush><Async state={list} empty={null}>{(rows) => <DataTable rows={rows} rowKey="_id" empty="Nothing registered yet" columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={null}>{(rows) => <DataTable rows={rows} rowKey="_id" empty="Nothing registered yet" columns={[
         { label: 'Designation', render: (d) => <b>{d.name}</b> }, { label: 'Held by', render: (d) => `${d.staff} ${k.who}${d.staff === 1 ? '' : 's'}` },
         { label: 'Status', render: (d) => <Badge tone={d.status === 'active' ? 'green' : 'amber'}>{d.status === 'active' ? 'In use' : 'Archived'}</Badge> },
         { label: '', render: (d) => <div className="row" style={{ gap: 8 }}><Button size="sm" onClick={() => setEdit(d)}>Rename</Button>

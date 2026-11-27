@@ -24,7 +24,7 @@ export default function LeaveBalances({ may = () => true, isOwner = false }) {
       </div>
       <Tabs tabs={groups} value={group} onChange={(g) => { setGroup(g); setFind(''); }} />
       <Card title="Leave balances (this year)" action={<Input aria-label="Find a person" placeholder="Find by name or id" value={find} onChange={(e) => setFind(e.target.value)} style={{ width: 220 }} />} flush>
-        <Async state={list} empty={<div className="empty">No one here yet</div>}>{(d) => <DataTable rowKey="id" empty="No one matches" rows={d.rows.filter((r) => !q || `${r.name} ${r.code}`.toLowerCase().includes(q))} columns={[
+        <Async skeleton="datatable" state={list} empty={<div className="empty">No one here yet</div>}>{(d) => <DataTable rowKey="id" empty="No one matches" rows={d.rows.filter((r) => !q || `${r.name} ${r.code}`.toLowerCase().includes(q))} columns={[
           { label: 'Name', sort: (a, b) => a.name.localeCompare(b.name), render: (r) => <><b>{r.name}</b><div className="small muted">{r.code} · {r.title}</div></> },
           ...TYPES.map((t) => ({
             label: label(t), render: (r) => { const b = r.balances[t]; return b && b.allowance > 0 ? <>{b.remaining} <span className="muted small">of {b.allowance}</span>{b.granted > 0 && <div className="small" style={{ color: 'var(--blue, #2563eb)' }}>+{b.granted} extra</div>}</> : <span className="muted">—</span>; },
@@ -47,7 +47,7 @@ function History({ person, onClose }) {
   const [run] = useAction(); const dlg = useDialogs();
   return (
     <Modal wide title={`Extra leave · ${person.name}`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={g} empty={<div className="empty small">No extra leave has been given this year.</div>}>{(rows) => <DataTable rowKey="_id" rows={rows} columns={[
+      <Async skeleton="datatable" state={g} empty={<div className="empty small">No extra leave has been given this year.</div>}>{(rows) => <DataTable rowKey="_id" rows={rows} columns={[
         { label: 'Type', render: (x) => label(x.leaveType) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Given on', render: (x) => fmtDate(x.createdAt, true) },
         { label: '', render: (x) => <Button size="sm" onClick={async () => { if (await dlg.confirm(`Take back these ${x.days} day(s)?`)) { await run(() => del(`/api/school/leave-balances/grants/${x._id}`), 'Withdrawn'); g.reload(); } }}>Withdraw</Button> },
       ]} />}</Async>

@@ -35,7 +35,7 @@ function PayrollPage() {
   return (
     <div className="stack">
       <PageHeader title="Payroll and salaries" subtitle={canEdit ? "Each month's payroll prepares itself on the payroll day. Check what each person will get, adjust it, approve the amounts, then record the payments. Unpaid leave and days marked absent in the staff attendance registers are deducted automatically." : "Run by the Finance department. You can see every salary, the month's payroll and what has been paid, but cannot change anything here."} />
-      <Async state={sum}>{(s) => (
+      <Async skeleton="stats" state={sum}>{(s) => (
         <div className="grid g4">
           <Stat value={fmtMoney(s.monthlyNet)} label="Monthly salary bill (net)" sub={`Gross ${fmtMoney(s.monthlyGross)}`} tone="blue" />
           <Stat value={`${s.withSalary} / ${s.people}`} label="People with a salary" sub={`${s.teachers} teachers · ${s.staff} staff${s.withoutSalary ? ` · ${s.withoutSalary} still need one` : ''}`} tone={s.withoutSalary ? 'amber' : 'green'} />
@@ -55,7 +55,7 @@ function PayDay() {
   const cfg = useApi(`${P}/settings`);
   const [run] = useAction();
   return (
-    <Async state={cfg}>{(c) => (
+    <Async keep state={cfg}>{(c) => (
       <div className="row between wrap" style={{ gap: 12 }}>
         <span className="muted small">{c.generateDay ? `The payroll prepares itself on day ${c.generateDay} of every month, and Finance is told.` : 'Automatic preparation is switched off.'}</span>
         {canEdit && <label className="row" style={{ gap: 8, alignItems: 'center' }}><span className="small">Payroll day</span>
@@ -91,7 +91,7 @@ function Levels() {
   return (
     <>
       <Card title="Pay levels" action={canEdit ? <Button variant="primary" size="sm" onClick={() => setEdit({})}>+ Add pay level</Button> : undefined} flush>
-        <Async state={list} empty={<div className="empty">No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal.</div>}>{(rows) => (
+        <Async skeleton="datatable" state={list} empty={<div className="empty">No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal.</div>}>{(rows) => (
           <DataTable rows={rows} empty="No pay levels yet. Add levels like PRT, TGT, PGT or Vice Principal." columns={[
             { label: 'Level', render: (l) => <><b>{l.name}</b>{l.status === 'archived' && <> <Badge>archived</Badge></>}<div className="muted">{l.description}</div></> },
             { label: 'Basic', render: (l) => fmtMoney(l.basic) }, { label: 'Allowances', render: (l) => summaryText(l.allowances) }, { label: 'Deductions', render: (l) => summaryText(l.deductions) },
@@ -197,7 +197,7 @@ function Salaries({ onChange }) {
 
   return (
     <>
-      <Async state={list}>{() => (
+      <Async skeleton="datatable" keep state={list}>{() => (
         <div className={`stu-split${cur ? ' open' : ''}`}>
           <ListCard>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
@@ -419,7 +419,7 @@ function HistoryModal({ teacher, onClose }) {
   const h = useApi(`${P}/salaries/${teacher.personId}`);
   return (
     <Modal wide title={`Salary history — ${teacher.name}`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={h}>{(d) => (
+      <Async skeleton="datatable" state={h}>{(d) => (
         <DataTable rows={d.history} empty="No history" columns={[
           { label: 'From', render: (r) => fmtDate(r.effectiveFrom, true) }, { label: 'Level', render: (r) => r.levelName || 'Custom' }, { label: 'Basic', render: (r) => fmtMoney(r.basic) },
           { label: 'Gross', render: (r) => fmtMoney(r.gross) }, { label: 'Net', render: (r) => <b>{fmtMoney(r.net)}</b> }, { label: 'Reason', key: 'reason' }, { label: 'By', key: 'byName' },
@@ -438,7 +438,7 @@ function Runs({ onChange }) {
   return (
     <>
       <Card title="Payroll runs" action={canEdit ? <Button size="sm" onClick={() => setGen(true)}>+ Prepare a month</Button> : undefined} flush>
-        <Async state={list}>{(rows) => (
+        <Async skeleton="datatable" state={list}>{(rows) => (
           <DataTable rows={rows} empty={canEdit ? 'No payroll yet. It prepares itself on the payroll day, or prepare a month by hand.' : 'No payroll has been prepared yet.'} onRowClick={(r) => setOpen(r._id)} columns={[
             { label: 'Month', render: (r) => <b>{monthLabel(r.month)}</b> }, { label: 'Status', render: (r) => <Badge tone={tone(r.status)}>{label(r.status)}</Badge> }, { label: 'Payslips', render: (r) => r.totals?.count },
             { label: 'Gross', render: (r) => fmtMoney(r.totals?.gross) }, { label: 'Deductions', render: (r) => fmtMoney(r.totals?.deductions) }, { label: 'Net payable', render: (r) => <b>{fmtMoney(r.totals?.net)}</b> }, { label: 'Paid', render: (r) => fmtMoney(r.totals?.paid) },
@@ -461,7 +461,7 @@ function RunDetail({ id, onBack, embedded }) {
   const [adj, setAdj] = useState(null); const [pay, setPay] = useState(null); const [part, setPart] = useState(null); const [report, setReport] = useState(null);
   const act = (fn, msg) => async () => { await run(fn, msg); d.reload(); };
   return (
-    <Async state={d}>{({ run: r, payslips }) => {
+    <Async skeleton="stats" keep state={d}>{({ run: r, payslips }) => {
       const pending = payslips.filter((p) => ['pending', 'partial'].includes(p.status));
       return (
         <div className="stack">
@@ -619,7 +619,7 @@ function BankFileModal({ id, month, onClose }) {
   const [run] = useAction();
   return (
     <Modal wide title={`Bank transfer file — ${monthLabel(month)}`} onClose={onClose} footer={<><Button onClick={onClose}>Close</Button>{f.data && f.data.count > 0 && <Button variant="primary" onClick={() => run(() => download(`${P}/runs/${id}/bank-file.csv`, `salary-bank-file-${month}.csv`))}>Download file ({f.data.count})</Button>}</>}>
-      <Async state={f}>{(d) => (
+      <Async skeleton="stats" state={f}>{(d) => (
         <div className="stack">
           <div className="grid g4"><Stat value={d.count} label="Ready to pay" tone="green" /><Stat value={fmtMoney(d.total)} label="Total to transfer" /><Stat value={d.missing.length} label="Missing bank details" tone={d.missing.length ? 'amber' : 'green'} /></div>
           <p className="muted small" style={{ margin: 0 }}>Upload this file to your bank's bulk-payment (NEFT) portal. The bank makes the payments — then use <b>Mark all paid</b> here to record it. People already paid are not in the file.</p>
@@ -638,7 +638,7 @@ function StatutoryModal({ id, month, onClose }) {
   const [run] = useAction();
   return (
     <Modal wide title={`PF, ESI and Professional Tax — ${monthLabel(month)}`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={q}>{(d) => {
+      <Async skeleton="stats" state={q}>{(d) => {
         const on = d.policy.pf.enabled || d.policy.esi.enabled || d.policy.pt.enabled;
         if (!on) return <div className="alert info">No statutory deductions are switched on for this school. Turn on PF, ESI or Professional Tax in School settings, then recalculate a draft payroll.</div>;
         return (

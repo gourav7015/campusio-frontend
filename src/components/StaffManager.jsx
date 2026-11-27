@@ -28,7 +28,7 @@ export default function StaffManager({ staffBase, designationBase, canEdit = tru
         <Select aria-label="Designation" value={designationId} onChange={(e) => setDesignationId(e.target.value)} placeholder="All designations" options={(designations.data || []).map((d) => ({ value: d._id, label: `${d.name} (${d.staff})` }))} />
         <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'all', label: 'All' }]} />
         {canEdit && <><Button size="sm" onClick={() => setManage(true)}>Designations</Button><Button size="sm" variant="primary" onClick={() => setEdit({})}>+ Add {noun}</Button></>}</div>} flush>
-        <Async state={list} empty={<Empty title={`No ${noun}s yet`} />}>{(d) => (
+        <Async skeleton="datatable" state={list} empty={<Empty title={`No ${noun}s yet`} />}>{(d) => (
           <DataTable rows={d.items} empty={`No ${noun}s match`} columns={[
             { label: 'ID', key: 'staffId' }, { label: 'Name', render: (s) => <><b>{s.name}</b><div className="small muted">{s.phone || '—'}</div></> },
             { label: 'Designation', render: (s) => <><Badge tone={s.group === 'transport' ? 'blue' : ''}>{s.designation}</Badge>{s.alsoBusRoles?.length > 0 && <div className="small muted">also {s.alsoBusRoles.join(' and ')}</div>}</> },
@@ -126,7 +126,7 @@ function DesignationsModal({ base, group, onClose }) {
           {group === 'transport' && <Field label="On a bus"><Select aria-label="On a bus" value={busRole} onChange={(e) => setBusRole(e.target.value)} options={BUS_ROLES} /></Field>}
           <Button variant="primary" loading={busy} disabled={name.trim().length < 2} onClick={add}>Add designation</Button>
         </div>
-        <Async state={list}>{(rows) => <DataTable rows={rows} columns={[
+        <Async skeleton="datatable" state={list}>{(rows) => <DataTable rows={rows} columns={[
           { label: 'Designation', render: (d) => <><b>{d.name}</b> {d.status === 'archived' && <Badge>archived</Badge>}</> }, { label: 'Group', render: (d) => <Badge tone={d.group === 'transport' ? 'blue' : ''}>{label(d.group)}</Badge> },
           { label: 'On a bus', render: (d) => (d.busRole ? label(d.busRole) : '—') }, { label: 'Staff', key: 'staff' },
           { label: '', render: (d) => <div className="row">

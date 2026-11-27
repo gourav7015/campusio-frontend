@@ -132,7 +132,7 @@ function Month({ base, group }) {
           {designations.length > 1 && <Field label="Designation"><Select aria-label="Designation" value={desig} onChange={(e) => setDesig(e.target.value)} placeholder="All designations" options={designations.map((x) => ({ value: x, label: x }))} /></Field>}
           <Field label="Attendance"><Select aria-label="Attendance band" value={band} onChange={(e) => setBand(e.target.value)} placeholder="Any attendance" options={[{ value: 'low', label: 'Below 75%' }, { value: 'mid', label: '75% to 90%' }, { value: 'high', label: '90% and above' }, { value: 'absent', label: 'Has absences' }]} /></Field>
         </FilterMenu><Input type="month" aria-label="Month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>} flush>
-      <Async state={q}>{(d) => (
+      <Async skeleton="datatable" state={q}>{(d) => (
         <>
           <div className="card-b muted small">{d.registers} register(s) submitted this month. Showing {d.people.filter(pass).length} of {d.people.length}.</div>
           <DataTable rows={d.people.filter(pass)} rowKey="personId" empty={find.trim() || desig || band ? 'No one matches these filters' : 'Nobody in this group yet'} columns={[

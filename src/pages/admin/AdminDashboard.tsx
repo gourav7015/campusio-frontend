@@ -96,6 +96,7 @@ export default function AdminDashboard() {
   const hello = `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}${first ? `, ${first}` : ''}`;
   const sections: SectionRow[] = (reg.data as unknown as { rows?: SectionRow[] } | null)?.rows ?? [];
   const waiting = sections.filter((s) => s.status !== 'submitted');
+  const pw = !!(reg.data as unknown as { periodWise?: boolean } | null)?.periodWise;
   const ex = x.exams;
   const exTotal = ex.awaitingReview + ex.approved + ex.published + ex.returned;
   const seg = (n: number) => (exTotal ? `${(n / exTotal) * 100}%` : '0%');
@@ -117,7 +118,7 @@ export default function AdminDashboard() {
           { label: 'Mark sheets waiting for review', note: 'Teachers have sent marks for you to approve', count: x.exams.awaitingReview, to: '/admin/exams', icon: ClipboardCheck, tone: 'primary', action: 'Review' },
           { label: 'Sections with no class teacher', note: 'Their attendance has nobody to take it', count: x.coverage?.sectionsWithoutClassTeacher ?? 0, to: '/admin/class-structure', icon: UserX, tone: 'danger', action: 'Assign' },
           { label: 'Subjects with no teacher in a section', note: 'A period for these subjects cannot run', count: x.coverage?.subjectsWithoutTeacher ?? 0, to: '/admin/class-structure', icon: UserX, tone: 'danger', action: 'Assign' },
-          { label: 'Attendance registers not submitted today', note: waiting.length ? `${waiting.slice(0, 4).map((w) => `${w.className.replace(/^Class\s+/i, '')}-${w.section}`).join(', ')}${waiting.length > 4 ? ` and ${waiting.length - 4} more` : ''}` : 'Class teachers have not sent today\'s register', count: a.pending, to: '/admin/attendance', icon: ClipboardCheck, tone: 'warning', action: 'Open' },
+          { label: pw ? 'Classes with periods still to mark today' : 'Attendance registers not submitted today', note: waiting.length ? `${waiting.slice(0, 4).map((w) => `${w.className.replace(/^Class\s+/i, '')}-${w.section}`).join(', ')}${waiting.length > 4 ? ` and ${waiting.length - 4} more` : ''}` : 'Class teachers have not sent today\'s register', count: a.pending, to: '/admin/attendance', icon: ClipboardCheck, tone: 'warning', action: 'Open' },
           { label: 'Leave applications to review', note: 'Staff and students are waiting for an answer', count: x.cards.pendingLeave, to: '/admin/leave', icon: PlaneTakeoff, tone: 'primary', action: 'Review' },
           { label: 'Timetable periods with no teacher', note: 'Open the timetable to fill them', count: x.cards.unresolvedPeriods, to: '/admin/timetable', icon: CalendarX2, tone: 'danger', action: 'Fix' },
           { label: 'Classes with no subjects set up', note: 'Choose their subjects for this year', count: x.coverage?.classesWithoutSubjects ?? 0, to: '/admin/class-structure', icon: BookOpen, tone: 'warning', action: 'Set up' },

@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, Copy, Inbox, Loader2, Lock } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, Copy, Inbox, Lock } from 'lucide-react';
 import { ErrorScreen, isConnectionProblem } from '../design/ErrorScreen';
 import { isOffline } from '../api/client.js';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, EmptyState, Pagination, SkeletonScene, ToastProvider, useToast, useDialogs } from '../design/ui';
@@ -10,7 +10,7 @@ export { ToastProvider, useToast };
 export const cls = (...a) => a.filter(Boolean).join(' ');
 
 export function Button({ variant, size, className, loading, children, ...p }) {
-  return <button className={cls('btn', variant, size, className)} disabled={p.disabled || loading} {...p}>{loading && <Loader2 className="size-4 animate-spin" aria-hidden />}{children}</button>;
+  return <button className={cls('btn', variant, size, className)} disabled={p.disabled || loading} {...p}>{loading && <span className="sk-dots" aria-hidden><i /><i /><i /></span>}{children}</button>;
 }
 export const Card = ({ title, action, children, className, flush }) => (
   <section className={cls('card', className)}>
@@ -30,9 +30,28 @@ export const Spinner = ({ kind = 'list' }) => <SkeletonScene kind={kind} />;
 export const Empty = ({ title, children }) => <EmptyState icon={Inbox} title={title} description={children} />;
 export const ErrorBox = ({ error, retry }) => error ? (isConnectionProblem(error) ? <ErrorScreen inline error={error} onRetry={retry} /> : error.status === 403 ? <EmptyState icon={Lock} title="You do not have access to this" description={error.message || 'Ask your school admin if you need it.'} /> : <div className="alert" role="alert">{error.message || String(error)} {retry && <button className="btn sm" onClick={retry}>Retry</button>}</div>) : null;
 
-/** Render loading / error / content for a useApi result. `skeleton` is the shape shown while loading: list (default), table, cards, profile, form, roster. */
-export function Async({ state, children, empty, skeleton = 'list' }) {
-  if (state.loading && !state.data) return <Spinner kind={skeleton} />;
+/** Once a skeleton has had time to appear (0.2 s), keep it up until it has been seen for about a third of a second, so a quick answer never makes it flash. */
+function useSkeletonHold(waiting) {
+  const since = useRef(0);
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    if (waiting) { if (!since.current) since.current = Date.now(); return undefined; }
+    if (!since.current) return undefined;
+    const spent = Date.now() - since.current; since.current = 0;
+    if (spent <= 200 || spent >= 550) return undefined; // not yet visible, or seen long enough
+    setHeld(true);
+    const t = setTimeout(() => setHeld(false), 550 - spent);
+    return () => clearTimeout(t);
+  }, [waiting]);
+  return held;
+}
+
+/** Render loading / error / content for a useApi result. `skeleton` is the shape shown while loading (see design/ui/skeleton.tsx: list is the default; table, datatable, stats, cards, profile, facts, form, roster, chart, calendar, report, document).
+ *  When the screen was asked something different (another date, class or tab) the old answer is not shown as if it were the new one: the skeleton shows until the new answer arrives. `keep` opts out, for a screen whose own controls sit inside it. */
+export function Async({ state, children, empty, skeleton = 'list', keep = false }) {
+  const waiting = (state.loading && !state.data) || (!keep && !!state.stale && state.data != null);
+  const held = useSkeletonHold(waiting);
+  if (waiting || held) return <Spinner kind={skeleton} />;
   if (state.error) return <ErrorBox error={state.error} retry={state.reload} />;
   if (state.data == null) return null;
   if (empty && Array.isArray(state.data) && !state.data.length) return empty;

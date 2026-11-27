@@ -51,11 +51,11 @@ export default function AuditLog({ base }) {
           <Input placeholder="Search the details or a name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search the log" />
         </div>
         <div className="row between wrap small muted" style={{ gap: 8 }}>
-          <span role="status">{rows.loading ? 'Loading…' : `${rows.data?.length ?? 0} entr${rows.data?.length === 1 ? 'y' : 'ies'} for ${period}${rows.data?.length >= 500 ? ' (the latest 500: narrow the days, the person or the kind of action)' : ''}`}</span>
+          <span aria-live="polite">{rows.loading ? 'Getting the entries' : `${rows.data?.length ?? 0} entr${rows.data?.length === 1 ? 'y' : 'ies'} for ${period}${rows.data?.length >= 500 ? ' (the latest 500: narrow the days, the person or the kind of action)' : ''}`}</span>
           {dirty && <Button size="sm" onClick={clear}>Back to today</Button>}
         </div>
       </div>
-      <Async state={rows} empty={<Empty title={`Nothing was recorded for ${period}`} />}>{(r) => (r.length ? (
+      <Async skeleton="datatable" state={rows} empty={<Empty title={`Nothing was recorded for ${period}`} />}>{(r) => (r.length ? (
         <DataTable rows={r} columns={[
           { label: 'When', render: (x) => when(x.createdAt) },
           { label: 'Who', render: (x) => <>{x.actorName} <span className="muted small">({ROLES[x.actorRole] || x.actorRole})</span> {x.actingAsSuperAdmin && <Badge tone="amber">platform</Badge>}</> },

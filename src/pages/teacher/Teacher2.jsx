@@ -41,7 +41,7 @@ export function Homework() {
   return (
     <div className="stack">
       <PageHeader title="Homework" subtitle="Give homework to a class. The students see it on their dashboard." actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add homework</Button>} />
-      <Card flush><Async state={list} empty={<Empty title="No homework yet" />}>{(rows) => <DataTable rows={rows.filter((h) => h.status !== 'archived')} columns={[{ label: 'Title', render: (h) => <><b>{h.title}</b>{h.description && <div className="small muted" style={{ maxWidth: 420, whiteSpace: 'pre-line' }}>{h.description}</div>}</> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate, true) },
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No homework yet" />}>{(rows) => <DataTable rows={rows.filter((h) => h.status !== 'archived')} columns={[{ label: 'Title', render: (h) => <><b>{h.title}</b>{h.description && <div className="small muted" style={{ maxWidth: 420, whiteSpace: 'pre-line' }}>{h.description}</div>}</> }, { label: 'Class', render: (h) => `${h.className} ${h.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Due', render: (h) => fmtDate(h.dueDate, true) },
           { label: 'File', render: (h) => h.attachmentFiles?.length ? h.attachmentFiles.map((f) => <a key={f._id} className="chip" style={{ marginRight: 6 }} href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>) : <Button size="sm" onClick={() => { target.current = h._id; fileRef.current.click(); }}>Add a file</Button> },
           { label: '', render: (h) => <div className="row"><Button size="sm" onClick={() => setModal(h)}>Edit</Button><ConfirmButton size="sm" variant="danger" message="Delete this homework? Students will no longer see it." onConfirm={async () => { await run(() => del(`${T}/homework/${h._id}`), 'Deleted'); list.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>
       <input type="file" hidden ref={fileRef} onChange={async (e) => { const f = e.target.files[0]; if (!f || !target.current) return; const fd = new FormData(); fd.append('file', f); await run(() => upload(`${T}/homework/${target.current}/attachments`, fd), 'File added'); e.target.value = ''; list.reload(); }} />
@@ -72,7 +72,7 @@ export function Materials() {
         <div className="card-b row wrap"><Select value={f.sectionId} onChange={(e) => setF({ ...f, sectionId: e.target.value })} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} placeholder="All sections" aria-label="Section" />
           <Select value={f.subjectId} onChange={(e) => setF({ ...f, subjectId: e.target.value })} options={(subjects.data || []).map((s) => ({ value: s.subjectId, label: s.name }))} placeholder="All subjects" aria-label="Subject" />
           <Select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} options={['draft', 'published', 'unpublished', 'archived'].map((s) => ({ value: s, label: label(s) }))} placeholder="Any status" aria-label="Status" /></div>
-        <Async state={list} empty={<Empty title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Class', render: (m) => `${m.className} ${m.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Type', key: 'materialType' }, { label: 'Uploaded', render: (m) => fmtDate(m.createdAt, true) }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{label(m.status)}</Badge> },
+        <Async skeleton="datatable" state={list} empty={<Empty title="No materials" />}>{(rows) => <DataTable rows={rows} columns={[{ label: 'Title', render: (m) => <b>{m.title}</b> }, { label: 'Class', render: (m) => `${m.className} ${m.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Chapter', key: 'chapter' }, { label: 'Type', key: 'materialType' }, { label: 'Uploaded', render: (m) => fmtDate(m.createdAt, true) }, { label: 'Status', render: (m) => <Badge tone={statusTone(m.status)}>{label(m.status)}</Badge> },
           { label: '', render: (m) => <div className="row">{m.file && <Button size="sm" onClick={() => run(() => openFile(m.file._id))}>Preview</Button>}{m.externalUrl && <a className="btn sm" href={safeHref(m.externalUrl)} target="_blank" rel="noopener noreferrer">Open link</a>}
             {m.status !== 'published' && m.status !== 'archived' && <Button size="sm" variant="primary" onClick={() => act(m, 'publish')}>Publish</Button>}{m.status === 'published' && <Button size="sm" onClick={() => act(m, 'unpublish')}>Unpublish</Button>}
             {m.fileId && m.status !== 'archived' && <Button size="sm" onClick={() => { replaceId.current = m._id; fileRef.current.click(); }}>Replace file</Button>}{m.status !== 'archived' && <Button size="sm" onClick={() => act(m, 'archive')}>Archive</Button>}</div> }]} />}</Async>
@@ -175,12 +175,12 @@ export function Exams() {
           {(fClass || fSubject) && <Button size="sm" onClick={() => { setFClass(''); setFSubject(''); }}>Clear</Button>}
         </div>
       </div>
-      <Card flush><Async state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
         { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge tone={r.type === 'surprise_test' ? 'amber' : r.createdByMe ? 'blue' : ''}>{label(r.type)}</Badge></> }, { label: 'Class', render: (r) => `${r.className} ${r.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) },
         { label: 'Marks fields', render: (r) => componentsText(r.components) }, { label: 'Max', key: 'max' }, { label: 'Deadline', render: (r) => <>{fmtDate(r.deadline)} {r.overdue && <Badge tone="red">Overdue</Badge>}</> }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> },
         { label: '', render: (r) => <div className="row"><Button size="sm" variant={EDITABLE.includes(r.status) ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{EDITABLE.includes(r.status) ? 'Enter marks' : 'View'}</Button>
           {r.createdByMe && <Button size="sm" onClick={() => setModal(r)}>Edit</Button>}{r.canDelete && <ConfirmButton size="sm" variant="danger" message={`Delete ${r.exam}? Only possible before any marks are entered.`} onConfirm={async () => { await run(() => del(`${T}/exams/${r.examId}`), 'Test deleted'); list.reload(); }}>Delete</ConfirmButton>}</div> }]} />}</Async></Card>
-      <Card title="Correction requests" flush><Async state={corr} empty={<div className="empty small">No mark sheets have been returned to you</div>}>{(rows) => <DataTable rows={rows} rowKey="sheetId" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', key: 'subject' }, { label: 'Section', key: 'section' }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: 'Reason', render: (r) => r.returnReason || r.history.at(-1)?.reason }]} />}</Async></Card>
+      <Card title="Correction requests" flush><Async skeleton="datatable" state={corr} empty={<div className="empty small">No mark sheets have been returned to you</div>}>{(rows) => <DataTable rows={rows} rowKey="sheetId" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', key: 'subject' }, { label: 'Section', key: 'section' }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: 'Reason', render: (r) => r.returnReason || r.history.at(-1)?.reason }]} />}</Async></Card>
       {modal && <ExamForm pairs={pairs} initial={modal.examId ? modal : null} onClose={() => setModal(null)} onDone={() => { setModal(null); list.reload(); }} />}
     </div>
   );
@@ -230,7 +230,7 @@ export function MarksSheet() {
     if (dry.errors.length && !(await dlg.confirm(`${dry.errors.length} row(s) have problems:\n${dry.errors.slice(0, 5).map((x) => `Row ${x.row}: ${x.error}`).join('\n')}\n\nImport the ${dry.valid} valid row(s) anyway?`))) return;
     await run(() => post(`${T}/marks/import`, { examSubjectId, sectionId, rows: data, skipInvalid: true }), (r) => `${r.applied} row(s) imported`); sheet.reload();
   };
-  if (sheet.loading && !d) return <Spinner />;
+  if (sheet.loading && !d) return <Spinner kind="datatable" />;
   if (sheet.error) return <div className="alert">{sheet.error.message}</div>;
   if (!d || !rows) return null;
   return (
@@ -276,7 +276,7 @@ export function Performance({ sectionId: fixed, embedded } = {}) {
     <div className="stack">
       {!embedded && <PageHeader title="Student performance" subtitle="Published results only. Click a student to see every exam and every mark field." actions={tab === 'class' && <Select value={sid} onChange={(e) => setSectionId(e.target.value)} options={(classes.data || []).map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} aria-label="Class" />} />}
       <Tabs tabs={[['class', 'Class results'], ['analytics', 'Charts and insights']]} value={tab} onChange={setTab} />
-      {tab === 'class' && <Async state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
+      {tab === 'class' && <Async skeleton="datatable" keep state={matrix} empty={null}>{(m) => !m.exams.length ? <Empty title="No published results for this class yet">Results appear here once the school admin publishes them.</Empty> : (
         <Card title={`${mine?.className || ''} ${mine?.section || ''} — ${m.scope === 'overall' ? 'overall results (you are the class teacher)' : 'your subject only'}`} flush>
           <div className="card-b row wrap">
             <Select aria-label="Sort by" value={sort.by} onChange={(e) => setSort({ ...sort, by: e.target.value })} options={[{ value: 'roll', label: 'Sort: roll number' }, { value: 'name', label: 'Sort: name (A–Z)' }, { value: 'average', label: 'Sort: average marks' }, ...m.exams.map((e) => ({ value: e.id, label: `Sort: ${e.name}` }))]} />
@@ -291,7 +291,7 @@ export function Performance({ sectionId: fixed, embedded } = {}) {
                 {m.exams.map((e) => { const c = s.scores[e.id]; return <td key={e.id}>{c ? <><b>{c.percentage != null ? `${c.percentage}%` : '—'}</b> <span className="muted small">{c.grade || ''}</span><div className="small" style={{ color: c.result === 'fail' ? 'var(--red)' : 'var(--muted)' }}>{c.obtained}/{c.max}</div></> : <span className="muted">—</span>}</td>; })}
                 <td><b>{s.average != null ? `${s.average}%` : '—'}</b></td></tr>))}</tbody></table></div>
         </Card>)}</Async>}
-      {tab === 'analytics' && <Async state={analytics}>{(d) => d.sampleSize === 0 ? <Empty title="No published results yet" /> : (
+      {tab === 'analytics' && <Async skeleton="datatable" state={analytics}>{(d) => d.sampleSize === 0 ? <Empty title="No published results yet" /> : (
         <div className="stack">
           <div className="grid g2"><Card title="Average marks by examination"><BarsChart data={d.averageByExam} x="exam" bars={[{ key: 'average', name: 'Average %' }]} domain={[0, 100]} unit="%" /></Card>
             <Card title="Performance distribution"><BarsChart data={d.distribution} x="range" bars={[{ key: 'count', name: 'Students', color: 'rgb(var(--c-primary))' }]} /></Card></div>
@@ -310,7 +310,7 @@ export function Leave() {
   return (
     <div className="stack">
       <PageHeader title="Leave management" subtitle="Leave is approved by the school administrator" actions={<Button variant="primary" onClick={() => setModal(true)}>+ Apply for leave</Button>} />
-      <Async state={l}>{(d) => (<>
+      <Async skeleton="stats" state={l}>{(d) => (<>
         <div className="grid g4">{Object.entries(d.balances).filter(([, b]) => b.allowance > 0).map(([k, b]) => <Stat key={k} value={b.remaining} label={`${label(k)} leave left`} sub={`${b.used} used of ${b.allowance}${b.granted ? ` (${b.granted} extra from the school)` : ''}`} />)}</div>
         {d.grants?.length > 0 && <Card title="Extra leave given to me this year" flush><DataTable rows={d.grants} rowKey="_id" columns={[{ label: 'Type', render: (g) => label(g.leaveType) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Given on', render: (g) => fmtDate(g.createdAt, true) }]} /></Card>}
         <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{leaveStatus(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
@@ -327,7 +327,7 @@ export function Leave() {
 export function Profile() {
   const p = useApi(`${T}/profile`);
   return (
-    <Async state={p}>{(t) => (
+    <Async skeleton="profile" state={p}>{(t) => (
       <div className="stack" style={{ maxWidth: 800 }}>
         <PageHeader title="My profile" actions={<PhotoUpload path={`${T}/profile/photo`} upload={upload} label={t.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} />} />
         <Card><div className="row" style={{ marginBottom: 14 }}><Avatar fileId={t.photoFileId} name={t.name} size={84} /><div className="small muted">A passport-size or any clear photo. The school office can also add it for you.</div></div><dl className="kv"><dt>Name</dt><dd>{t.name}</dd><dt>Employee id</dt><dd>{t.employeeId}</dd><dt>School</dt><dd>{t.school}</dd><dt>Designation</dt><dd>{t.designation || '—'}</dd><dt>Qualification</dt><dd>{t.qualification || '—'}</dd><dt>Subjects</dt><dd>{t.subjects.map((s) => s.name).join(', ') || '—'}</dd><dt>Email</dt><dd>{t.email || '—'}</dd><dt>Phone</dt><dd>{t.phone || '—'}</dd><dt>Address</dt><dd>{t.address || '—'}</dd><dt>Login id</dt><dd>{t.account?.loginId}</dd></dl>

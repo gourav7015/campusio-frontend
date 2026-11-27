@@ -15,7 +15,7 @@ export function PageSkeleton() {
 
 export function EmptyState({ icon: Icon = Inbox, title, description, action, className }: { icon?: LucideIcon; title: string; description?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn('flex flex-col items-center px-6 py-12 text-center', className)}>
+    <div data-empty className={cn('flex flex-col items-center px-6 py-12 text-center', className)}>
       <div className="mb-4 grid size-11 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-5" aria-hidden /></div>
       <p className="text-[15px] font-semibold">{title}</p>
       {description && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>}

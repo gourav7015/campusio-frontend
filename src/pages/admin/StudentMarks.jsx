@@ -35,7 +35,7 @@ export default function StudentMarks() {
   return (
     <div className="stack">
       <PageHeader title={q.data ? q.data.profile.name : 'Student marks'} subtitle="Marks and exam analysis" actions={<Button onClick={() => nav(-1)}>← Back to the list</Button>} />
-      <Async state={q}>{(d) => {
+      <Async skeleton="stats" state={q}>{(d) => {
         const p = d.profile; const sm = d.summary; const pass = sm.passMark;
         return (
           <>

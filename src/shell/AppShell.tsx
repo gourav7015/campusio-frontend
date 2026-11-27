@@ -16,6 +16,7 @@ import { NavList } from './NavList';
 import { AreaPanel, AreaRail, SubNav, TopNav, areaOf } from './AreaNav';
 import { Notifications } from './Notifications';
 import { CommandSearch } from './CommandSearch';
+import { TopProgress } from './TopProgress';
 import { UserMenu } from './UserMenu';
 import YearSwitcher from './YearSwitcher';
 
@@ -135,6 +136,7 @@ export function AppShell({ area }: { area: PortalKey }) {
             ) : (<ErrorBoundary inline resetKey={pathname}><Suspense fallback={<PageSkeleton />}><Outlet /></Suspense></ErrorBoundary>)}</m.div>
           </main>
           <footer className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center justify-between gap-2 px-4 pb-6 text-xs text-muted-foreground sm:px-6 lg:px-8"><span>© {new Date().getFullYear()} AtKaksha</span><span className="flex gap-4">{(user.role === 'school_admin' || user.role === 'super_admin') && <a className="hover:text-foreground hover:underline" href={`mailto:${site.mailboxes.support}?subject=${encodeURIComponent('AtKaksha support')}&body=${encodeURIComponent(`\n\n---\nSchool: ${school?.name || '-'}\nLogin ID: ${user.loginId || '-'}\nRole: ${user.role}`)}`}>Support</a>}<Link className="hover:text-foreground hover:underline" to="/privacy">Privacy</Link><Link className="hover:text-foreground hover:underline" to="/terms">Terms</Link><Link className="hover:text-foreground hover:underline" to="/cookies">Cookies</Link></span></footer>
+          <TopProgress />
           <BackToTop />
         </div>
 

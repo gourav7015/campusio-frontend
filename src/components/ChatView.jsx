@@ -39,7 +39,7 @@ function Thread({ base, side, id, onActivity }) {
   const send = async () => { const t = text.trim(); if (!t) return; const r = await run(() => post(`${base}/chats/${id}/messages`, { text: t })); if (r) { setText(''); q.reload(); onActivity(); } };
   return (
     <Card title={<span>{side === 'teacher' ? `Family of ${q.data?.student || ''}` : q.data?.teacher || ''}</span>} flush>
-      <Async state={q}>{(d) => (<>
+      <Async keep state={q}>{(d) => (<>
         <div style={{ maxHeight: 420, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }} aria-live="polite">
           {d.messages.map((m) => { const mine = m.from === side; return (
             <div key={m._id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '80%', background: mine ? 'rgb(var(--c-primary-soft))' : 'var(--grey-50)', borderRadius: 12, padding: '8px 12px' }}>

@@ -117,7 +117,7 @@ export function Staff() {
     <div className="stack">
       <PageHeader title="Desk logins" subtitle="The sign-ins of the school's sub-portals: Finance, Library and Transport, each held by one officer, and the office desk (Staff portal) for staff who work for the admin. Each officer sees only their own desk." actions={<Button variant="primary" onClick={() => { setRole(''); setModal(true); }}>+ Add sign-in</Button>} />
       <Async state={list}>{(rows) => <PortalTiles rows={rows} onOpen={(r) => { setRole(r); setModal(true); }} />}</Async>
-      <Card flush><Async state={list} empty={<Empty title="No desk logins yet" />}>{(rows) => <DataTable rows={rows} columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No desk logins yet" />}>{(rows) => <DataTable rows={rows} columns={[
         { label: 'Desk', sort: (u) => u.role, render: (u) => <><Badge tone={u.role === 'finance' ? 'green' : u.role === 'transport' ? 'amber' : 'blue'}>{DESK_NAME[u.role] || label(u.role)}</Badge><div className="small muted">Login id: {u.loginId}</div></> },
         { label: 'Held by', sort: (u) => u.personName || u.name, render: (u) => (!u.assigned
           ? <><span className="muted">Nobody assigned yet</span><div className="small muted">Give this desk to someone on the staff list</div></>
@@ -148,7 +148,7 @@ function AssignEmployee({ desk, onClose, onDone }) {
     <Modal title={`${desk.assigned ? 'Change' : 'Assign'} employee · ${DESK_NAME[desk.role]}`} onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!pick} onClick={save}>{desk.assigned ? 'Change employee' : 'Assign employee'}</Button></>}>
       <div className="stack">
         <p className="muted" style={{ margin: 0 }}>{desk.assigned ? <>The {DESK_NAME[desk.role]} is held by <b>{desk.personName || desk.name}</b>. Choose who holds it now.</> : 'Choose the employee who runs this desk.'} The login id <b>{desk.loginId}</b> and its password stay the same. {desk.role === 'staff' ? 'The employee keeps their own job title and the Staff portal opens for them.' : 'The employee\'s job title becomes the desk\'s title.'}</p>
-        <Async state={people}>{() => (free.length
+        <Async skeleton="form" keep state={people}>{() => (free.length
           ? <Field label="Employee" hint="Active staff who do not have a login or another desk. Drivers and conductors cannot hold an officer desk."><Select value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Choose an employee" options={free.map((p) => ({ value: p._id, label: `${p.name} · ${[p.staffId, p.designation].filter(Boolean).join(' · ')}` }))} /></Field>
           : <div className="alert">There is nobody free on the staff list. Add the person first under Employees, then come back.</div>)}</Async>
       </div>

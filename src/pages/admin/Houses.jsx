@@ -15,7 +15,7 @@ export default function Houses() {
   const [edit, setEdit] = useState(null); const [roster, setRoster] = useState(null); const [run, busy] = useAction();
   const fieldsFor = (d) => [{ name: 'name', label: 'House name', required: true, placeholder: 'e.g. Aravali' }, { name: 'color', label: 'Colour', type: 'swatches', choices: HOUSE_COLOURS.map((c) => ({ ...c, takenBy: d.houses.find((h) => h._id !== edit?._id && (h.color || '').toLowerCase() === c.value)?.name })), hint: 'Shown on its card. Each house has its own colour. If you pick none, the first free colour is used.' }, { name: 'motto', label: 'Motto (optional)', full: true }];
   return (
-    <Async state={list}>{(d) => (
+    <Async skeleton="cards" state={list}>{(d) => (
       <div className="stack">
         <PageHeader title="Houses" subtitle="The school's own houses. Every student belongs to one, and every teacher mentors one. A student or teacher can be put only in a house listed here."
           actions={<>{(d.unplaced.students > 0 || d.unplaced.teachers > 0) && d.houses.length > 0 && <Button loading={busy} onClick={async () => { const r = await run(() => post('/api/school/houses/distribute'), (x) => `Placed ${x.students} student(s) and ${x.teachers} teacher(s)`); if (r) list.reload(); }}>Place everyone without a house</Button>}
@@ -46,7 +46,7 @@ function Roster({ house, onClose }) {
   const place = async (id, name) => { await run(() => put(`/api/school/houses/teachers/${id}`, { house: name }), name ? 'Added to the house' : 'Removed from the house'); q.reload(); setTeacher(''); };
   return (
     <Modal wide title={`${house.name} · members`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={q}>{(d) => (
+      <Async skeleton="datatable" keep state={q}>{(d) => (
         <div className="stack">
           <Card title="Mentors (teachers)" flush action={<div className="row" style={{ gap: 8 }}>
             <Select aria-label="Add a teacher" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="Add a teacher…" options={L.teachers.filter((t) => t.house !== house.name).map((t) => ({ value: t._id, label: `${t.name}${t.house ? ` (now in ${t.house})` : ''}` }))} />

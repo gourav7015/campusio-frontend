@@ -1,7 +1,7 @@
 import {
   Award, BarChart3, Building2, Bus, CalendarDays, CalendarRange, ClipboardList, Clock, CreditCard, FileSpreadsheet, FileText, GraduationCap,
   IndianRupee, KeyRound, Layers, LayoutDashboard, Mail, Megaphone, MessagesSquare, NotebookPen, PlaneTakeoff, Scale, School, ScrollText, Settings, SlidersHorizontal, TrendingUp,
-  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, Store, Banknote, FileOutput, ListChecks, CalendarClock, CircleArrowUp, Briefcase, UserX, Globe, ChartPie, type LucideIcon,
+  Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, Store, Banknote, FileOutput, CalendarClock, CircleArrowUp, Briefcase, UserX, Globe, ChartPie, type LucideIcon,
 } from 'lucide-react';
 
 export type PortalKey = 'platform' | 'admin' | 'teacher' | 'student' | 'finance' | 'library' | 'transport' | 'staff';
@@ -91,7 +91,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/teacher/classes', label: 'My classes', icon: Layers },
         { to: '/teacher/subjects', label: 'My subjects', icon: BookOpen },
         { to: '/teacher/attendance', label: 'Attendance', icon: UserCheck },
-        { to: '/teacher/period-attendance', label: 'Period attendance', icon: ListChecks },
+        { to: '/teacher/period-attendance', label: 'Attendance', icon: UserCheck }, // shown instead of the daily register when the school takes attendance period by period
         { to: '/teacher/performance', label: 'Student performance', icon: TrendingUp },
         { to: '/teacher/house', label: 'My house', icon: Flag },
       ] },
@@ -230,7 +230,14 @@ export function blockedAdminPage(pathname: string, user?: { adminLevel?: string;
 export function portalFor(p: Portal, user?: { adminLevel?: string; permissions?: string[]; canMarkAttendance?: boolean; periodWise?: boolean; isClassTeacher?: boolean; onlinePayments?: boolean } | null): Portal {
   // Finance sees "Online payments" only in a school where online payment is switched on
   if (p.key === 'finance' && user?.onlinePayments === false) return { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/finance/online') })).filter((g) => g.items.length) };
-  if (p.key === 'teacher') { const drop = new Set(user?.periodWise ? [] : ['/teacher/period-attendance']); return { ...p, groups: p.groups.filter((g) => !g.classTeacherOnly || user?.isClassTeacher).map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)).map((i) => (user?.periodWise && i.to === '/teacher/attendance' ? { ...i, label: 'Daily register' } : i)) })).filter((g) => g.items.length) }; }
+  if (p.key === 'teacher') {
+    // once a day: only a class teacher takes attendance (one register). Period by period: every teacher marks their own periods, under the same "Attendance" name.
+    const pw = !!user?.periodWise; const ct = !!user?.isClassTeacher;
+    const drop = new Set(pw ? ['/teacher/attendance'] : ['/teacher/period-attendance', ...(ct ? [] : ['/teacher/attendance'])]);
+    const groups = p.groups.filter((g) => !g.classTeacherOnly || ct).map((g) => ({ ...g, items: g.items.filter((i) => !drop.has(i.to)) })).filter((g) => g.items.length);
+    const tabs = p.tabs?.map((t) => (pw && t === '/teacher/attendance' ? '/teacher/period-attendance' : t)).filter((t) => groups.some((g) => g.items.some((i) => i.to === t)));
+    return { ...p, groups, tabs };
+  }
   // a staff member sees "Mark attendance" only when the School Admin has given them the attendance desk
   if (p.key === 'staff') return user?.canMarkAttendance ? p : { ...p, groups: p.groups.map((g) => ({ ...g, items: g.items.filter((i) => i.to !== '/staff/attendance-desk') })) };
   if (p.key !== 'admin' || user?.adminLevel !== 'sub') return p;

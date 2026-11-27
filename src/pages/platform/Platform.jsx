@@ -50,7 +50,7 @@ export function Schools() {
       <PageHeader title="Schools" subtitle="Create schools, their administrators and subscriptions" actions={<Button variant="primary" onClick={() => setShow(true)}>+ Add school</Button>} />
       <ListCard>
         <FilterBar search={q} onSearch={setQ} searchLabel="Search schools" placeholder="Search by name or code" />
-        <Async state={schools} empty={<div className="empty">No schools found</div>}>{(rows) => (
+        <Async skeleton="datatable" state={schools} empty={<div className="empty">No schools found</div>}>{(rows) => (
           <DataTable rows={rows} columns={[
             { label: 'School', render: (s) => <Link to={`/platform/schools/${s._id}`}><b>{s.name}</b></Link> }, { label: 'Code', key: 'code' },
             { label: 'Admin', render: (s) => s.admins.map((a) => a.loginId).join(', ') || '—' },
@@ -131,7 +131,7 @@ function FeatureSwitches({ schoolId }) {
   const [run] = useAction();
   return (
     <Card title="Feature switches" action={<span className="muted small">For this school only</span>}>
-      <Async state={q}>{(rows) => (
+      <Async keep state={q}>{(rows) => (
         <div className="stack">
           {rows.map((f) => (
             <div key={f.name} className="row" style={{ justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
@@ -156,7 +156,7 @@ export function PlatformErrors() {
       <PageHeader title="Errors" subtitle="Server errors and screens that crashed in someone's browser. Kept for 30 days."
         actions={<><Select aria-label="Where" value={source} onChange={(e) => setSource(e.target.value)} options={[{ value: '', label: 'All' }, { value: 'server', label: 'Server' }, { value: 'client', label: 'Browser' }]} />
           <ConfirmButton variant="danger" loading={busy} message="Clear the whole error list?" onConfirm={async () => { await run(() => del('/api/platform/errors'), 'Cleared'); q.reload(); }}>Clear all</ConfirmButton></>} />
-      <Async state={q}>{(d) => (
+      <Async skeleton="stats" state={q}>{(d) => (
         <>
           <div className="grid g2"><Stat value={d.last24h.server} label="Server errors, last 24 hours" tone={d.last24h.server ? 'red' : 'green'} /><Stat value={d.last24h.client} label="Browser crashes, last 24 hours" tone={d.last24h.client ? 'amber' : 'green'} /></div>
           <Card title="Latest" flush><DataTable rows={d.rows} rowKey="_id" empty="No errors recorded" columns={[

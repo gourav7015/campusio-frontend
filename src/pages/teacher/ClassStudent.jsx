@@ -23,7 +23,7 @@ function File() {
   const ov = useApi(`${api}/students/${id}/overview`);
   const [open, setOpen] = useState(false);
   return (
-    <Async state={s}>{(st) => {
+    <Async skeleton="datatable" keep state={s}>{(st) => {
       const active = (st.enrolments || []).find((e) => e.status === 'active');
       return (
         <div className="stack">
@@ -31,7 +31,7 @@ function File() {
           <div className="row"><Avatar fileId={st.photoFileId} name={st.name} size={72} /></div>
           <PageHeader title={st.name} subtitle={`Admission no ${st.admissionNo} · ${active ? `${active.className} ${active.section}, roll ${active.rollNo}` : 'No active enrolment'}`}
             actions={<Link className="btn primary" to={`/teacher/students/${id}`}>Remarks, contact details and message the family</Link>} />
-          <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
+          <Async skeleton="stats" state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
           <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams and marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history']]} value={tab} onChange={(t) => setSp({ tab: t })} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
             tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel studentId={id} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}

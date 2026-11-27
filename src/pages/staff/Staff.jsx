@@ -39,7 +39,7 @@ export function StaffEmployees() {
           <Select aria-label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="All designations" options={(list.data?.designations || []).map((d) => ({ value: d.name, label: `${d.name} (${d.n})` }))} />
         </div>
       </div>
-      <Card flush><Async state={list} empty={<Empty title="No one here yet" />}>{(d) => <DataTable rows={d.items} rowKey="id" empty="No one matches" columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No one here yet" />}>{(d) => <DataTable rows={d.items} rowKey="id" empty="No one matches" columns={[
         { label: 'ID', key: 'code' }, { label: 'Name', render: (x) => <b>{x.name}</b> }, { label: 'Designation', render: (x) => <Badge>{x.designation || '—'}</Badge> },
         { label: 'Phone', render: (x) => x.phone || '—' }, { label: 'Joined', render: (x) => fmtDate(x.joiningDate, true) }, { label: 'Status', render: (x) => <Badge tone={x.status === 'active' ? 'green' : 'amber'}>{x.status}</Badge> },
       ]} />}</Async></Card>
@@ -51,7 +51,7 @@ export function StaffProfile() {
   const p = useApi(`${S}/profile`);
   const [edit, setEdit] = useState(false);
   return (
-    <Async state={p}>{(x) => (
+    <Async skeleton="facts" state={p}>{(x) => (
       <div className="stack" style={{ maxWidth: 720 }}>
         <PageHeader title="My profile" actions={<Button onClick={() => setEdit(true)}>Edit contact details</Button>} />
         <Card title="Details"><dl className="kv"><dt>Name</dt><dd>{x.name}</dd><dt>Staff id</dt><dd>{x.staffId}</dd><dt>Designation</dt><dd>{x.designation}</dd><dt>Joined</dt><dd>{fmtDate(x.joiningDate, true)}</dd><dt>Phone</dt><dd>{x.phone || '—'}</dd><dt>Address</dt><dd>{x.address || '—'}</dd></dl></Card>

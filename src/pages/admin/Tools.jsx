@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, put } from '../../api/client.js';
+import AttendanceWay from './AttendanceWay.jsx';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtDateTime, label, Spinner } from '../../components/ui.jsx';
 import { BarsChart } from '../../components/Charts.jsx';
 import NextYearModal from '../../components/NextYearModal.jsx';
@@ -79,7 +80,7 @@ export function Promotion() {
       {done && <div className="alert ok">Promotion {done.fromYear} → {done.toYear} complete: {done.promoted} promoted, {done.retained} repeating, {done.completed} finished school, {done.withdrawn + done.transferredOut} left.</div>}
       {from && (
         <Card title="2. Which classes" flush action={<div className="row"><Button size="sm" onClick={() => setPicked(classes.filter((c) => c.waiting > 0 && c.sessionEnded).map((c) => c.classId))}>Classes whose session has ended</Button><Button size="sm" onClick={() => setPicked(classes.filter((c) => c.waiting > 0).map((c) => c.classId))}>All with students waiting</Button><Button size="sm" onClick={() => setPicked([])}>None</Button></div>}>
-          <Async state={progress}>{() => (
+          <Async skeleton="datatable" keep state={progress}>{() => (
             <DataTable searchable={false} pageSize={50} rowKey="classId" rows={classes} empty="This year has no classes with sections yet" columns={[
               { label: '', render: (c) => <input type="checkbox" aria-label={`Choose ${c.className}`} disabled={!c.waiting} checked={picked.includes(c.classId)} onChange={() => toggle(c.classId)} /> },
               { label: 'Class', render: (c) => <b>{c.className}</b> },
@@ -148,7 +149,7 @@ export function Import() {
         <p className="small muted">{entity === 'students' ? 'Class and section names must match the current academic year exactly (e.g. "Class 8" and "A"). Dates are YYYY-MM-DD. Admission numbers are generated if blank.' : 'Subjects: names separated by ; (e.g. Mathematics;English) — new subjects are created automatically. If an email is given it becomes the login id.'}</p>
         <input ref={file} type="file" accept=".csv,text/csv" onChange={onFile} aria-label="CSV file" />
       </Card>
-      {busy && !report && <Spinner />}
+      {busy && !report && <Spinner kind="datatable" />}
       {report && !result && (<Card title="2. Check results">
         <div className="row wrap"><Badge tone="green">{report.valid} valid</Badge><Badge tone={report.invalid ? 'red' : ''}>{report.invalid} with problems</Badge><span className="muted small">of {report.total} rows</span></div>
         {report.report.filter((r) => !r.ok).length > 0 && <div className="scroll-y" style={{ marginTop: 12 }}><DataTable rows={report.report.filter((r) => !r.ok)} rowKey="row" columns={[{ label: 'Row', key: 'row' }, { label: 'Name', key: 'name' }, { label: 'Problems', render: (r) => r.errors.join(' · ') }]} /></div>}
@@ -157,7 +158,7 @@ export function Import() {
       {result && (<Card title="Import complete">
         <div className="alert ok">{result.created} created · {result.skipped} skipped. Download the temporary logins now — they are not shown again.</div>
         <div className="row" style={{ marginTop: 12 }}><Button variant="primary" onClick={() => saveText(`${entity}-logins.csv`, toCsvText(result.credentials, Object.keys(result.credentials[0] || {})))} disabled={!result.credentials.length}>Download logins (CSV)</Button><Button onClick={reset}>Import another file</Button></div></Card>)}
-      <Card title="Previous imports" flush><Async state={batches} empty={<div className="empty">No imports yet</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'When', render: (b) => fmtDateTime(b.createdAt) }, { label: 'Type', render: (b) => label(b.entity) }, { label: 'Created', key: 'created' }, { label: 'Skipped', key: 'skipped' }, { label: 'By', render: (b) => (b.actingAsSuperAdmin ? <Badge tone="amber">Super Admin</Badge> : 'School admin') }, { label: 'Status', render: (b) => <Badge tone={b.status === 'committed' ? 'green' : ''}>{label(b.status)}</Badge> },
+      <Card title="Previous imports" flush><Async skeleton="datatable" state={batches} empty={<div className="empty">No imports yet</div>}>{(rows) => <DataTable rows={rows} columns={[{ label: 'When', render: (b) => fmtDateTime(b.createdAt) }, { label: 'Type', render: (b) => label(b.entity) }, { label: 'Created', key: 'created' }, { label: 'Skipped', key: 'skipped' }, { label: 'By', render: (b) => (b.actingAsSuperAdmin ? <Badge tone="amber">Super Admin</Badge> : 'School admin') }, { label: 'Status', render: (b) => <Badge tone={b.status === 'committed' ? 'green' : ''}>{label(b.status)}</Badge> },
         { label: '', render: (b) => b.status === 'committed' && <ConfirmButton size="sm" variant="danger" message="Roll back this import? Records that already have attendance or marks are kept." onConfirm={async () => { const r = await run(() => post(`/api/school/imports/${b._id}/rollback`), (x) => `${x.removed} removed${x.kept.length ? `, ${x.kept.length} kept (have records)` : ''}`); if (r) batches.reload(); }}>Roll back</ConfirmButton> }]} />}</Async></Card>
     </div>
   );
@@ -171,7 +172,7 @@ export function Reports() {
     <div className="stack">
       <PageHeader title="Reports and exports" subtitle="Take any list out of the school as a spreadsheet, narrowed to the class, people and dates you need. Exports contain exactly what you are allowed to see on screen." />
       <ExportCentre />
-      <Async state={rep}>{(r) => (<>
+      <Async skeleton="datatable" state={rep}>{(r) => (<>
         <div className="grid g2">
           <Card title="Class strength"><BarsChart data={merged} x="name" bars={[{ key: 'students', name: 'Students' }]} /></Card>
           <Card title="Attendance by section (year to date)"><BarsChart data={merged.filter((m) => m.attendance != null)} x="name" bars={[{ key: 'attendance', name: 'Attendance %', color: 'rgb(var(--c-success))' }]} domain={[0, 100]} unit="%" /></Card>
@@ -206,7 +207,7 @@ export function Settings() {
   const data = v || s.data;
   const set = (patch) => setV({ ...data, ...patch });
   const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, grading: data.grading };
+    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: { lateCountsAsPresent: data.attendance.lateCountsAsPresent, dayRule: data.attendance.dayRule }, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, grading: data.grading };
     const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
   };
   if (!data) return <Async state={s}>{() => null}</Async>;
@@ -226,8 +227,8 @@ export function Settings() {
         </div></Card>
         <Card title="Attendance rules"><div className="stack">
           <label className="row"><input type="checkbox" checked={data.attendance.lateCountsAsPresent} onChange={(e) => set({ attendance: { ...data.attendance, lateCountsAsPresent: e.target.checked } })} /> Late counts as present in the percentage</label>
-          <label className="row"><input type="checkbox" checked={!!data.attendance.periodWise} onChange={(e) => set({ attendance: { ...data.attendance, periodWise: e.target.checked } })} /> Also take attendance period by period (each teacher marks their own period; the class teacher's daily register stays)</label>
-          <div className="alert info small">Only a section's class teacher can take its attendance. Once submitted it is locked for teachers; the school admin corrects it with a reason.</div>
+          <AttendanceWay rule={data.attendance.dayRule} onRule={(dayRule) => set({ attendance: { ...data.attendance, dayRule } })} />
+          <div className="alert info small">Once a register is submitted it is locked; later changes need a reason and are kept in its history.</div>
           <label className="row"><input type="checkbox" checked={data.showAttendanceVsPerformance} onChange={(e) => set({ showAttendanceVsPerformance: e.target.checked })} /> Show attendance-vs-performance analysis to teachers</label>
         </div></Card>
         <Card title="Grading"><div className="stack">

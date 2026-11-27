@@ -26,7 +26,7 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRec
       {adminDecides && <div className="alert" role="note">The school has kept leave approval for the School Admin. Whatever you record here is sent to the admin to decide.</div>}
       <Card title="Staff leave" action={<div className="row"><Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'all', label: 'All' }, { value: 'submitted', label: 'Waiting for a decision' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]} />
         {canRecord && <Button size="sm" variant="primary" onClick={() => setModal(true)}>Record leave</Button>}</div>} flush>
-        <Async state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} empty="No applications" columns={[
+        <Async skeleton="datatable" state={list} empty={<div className="empty">No applications</div>}>{(rows) => <DataTable rows={rows} empty="No applications" columns={[
           { label: 'Staff member', render: (l) => <><b>{l.staffId?.name}</b><div className="small muted">{l.staffId?.staffId}</div></> }, { label: 'Type', render: (l) => label(l.leaveType) },
           { label: 'From', render: (l) => fmtDate(l.startDate, true) }, { label: 'To', render: (l) => fmtDate(l.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' },
           { label: 'Status', render: (l) => <><Badge tone={statusTone(l.status)}>{leaveStatus(l.status)}</Badge>{l.awaitingAdmin && l.status === 'submitted' && <div><Badge tone="amber">With the school admin</Badge></div>}{l.recordedBy && <div className="small muted">recorded by the desk</div>}</> },

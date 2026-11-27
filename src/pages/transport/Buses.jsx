@@ -221,7 +221,7 @@ function AddStudents({ base, bus, onClose, onDone }) {
           <Select aria-label="Section" value={sectionId} onChange={(e) => { setSectionId(e.target.value); setPicked(new Set()); }} placeholder="Section" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!classId} />
         </div>
         <Field label="Boarding stop" hint={`${free} seat(s) free · Finance bills the monthly fare to each rider (${bus.stops.find((s) => s.name === stop)?.fare != null ? fmtMoney(bus.stops.find((s) => s.name === stop).fare) : bus.monthlyFare ? fmtMoney(bus.monthlyFare) : 'no fare set'})`}><Select value={stop} onChange={(e) => setStop(e.target.value)} placeholder="Choose a stop" options={bus.stops.map((s) => s.name)} /></Field>
-        {sectionId && <Async state={students}>{(rows) => <div className="table-wrap" style={{ maxHeight: 280, overflow: 'auto' }}><table><tbody>{rows.map((s) => (
+        {sectionId && <Async skeleton="datatable" keep state={students}>{(rows) => <div className="table-wrap" style={{ maxHeight: 280, overflow: 'auto' }}><table><tbody>{rows.map((s) => (
           <tr key={s.studentId}><td><input type="checkbox" aria-label={`Select ${s.name}`} disabled={!!s.bus && s.bus !== bus.busNo} checked={picked.has(s.studentId)} onChange={() => toggle(s.studentId)} /></td><td>{s.rollNo}</td><td><b>{s.name}</b></td><td>{s.bus ? <Badge tone={s.bus === bus.busNo ? 'green' : ''}>{s.bus === bus.busNo ? 'on this bus' : `on ${s.bus}`}</Badge> : <span className="muted">no bus</span>}</td></tr>))}</tbody></table></div>}</Async>}
         {picked.size > free && <div className="alert">Only {free} seat(s) are free.</div>}
       </div>

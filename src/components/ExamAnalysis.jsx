@@ -20,7 +20,7 @@ export default function ExamAnalysis({ classId, sectionId, view = 'summary' }) {
   const [find, setFind] = useState(''); const [secFilter, setSecFilter] = useState(''); const [result, setResult] = useState('');
   if (!classId && !sectionId) return <Empty title="Choose a class to see its exam analysis" />;
   return (
-    <Async state={q}>{(d) => {
+    <Async skeleton="stats" state={q}>{(d) => {
       if (!d.students.length) return <Empty title="No students in this class this year" />;
       const subjects = [...new Set(d.exams.flatMap((e) => e.subjects.map((s) => s.subject)))].sort();
       const stats = (

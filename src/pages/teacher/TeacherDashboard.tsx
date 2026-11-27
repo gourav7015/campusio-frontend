@@ -8,9 +8,13 @@ import { Badge, Button, Callout, EmptyState, ErrorState, PageHeader, PageSkeleto
 import { DaySchedule, type Period } from '../../components/Schedule';
 import { fmtDate, fmtDateTime } from '../../components/ui.jsx';
 import { TodayRegister } from './TodayRegister';
+import { TodayPeriods } from './TodayPeriods';
+import { ModeNotice } from '../../components/PeriodAttendance.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 interface Dash {
   greeting: { name: string; date: string; working: boolean; firstUpcoming?: { startTime: string; subject?: string } };
+  periodWise?: boolean;
   permissions: { takeAttendance: boolean };
   classGaps?: { sectionId: string; section: string; subjectsWithoutTeacher: string[]; noSubjects: boolean }[];
   today: Period[];
@@ -26,23 +30,27 @@ const short = (v: string) => { const [, m, d] = v.split('-'); return `${Number(d
 
 export default function TeacherDashboard() {
   const { data: x, error, refetch } = useGet<Dash>('/api/teacher/dashboard');
+  const { user } = useAuth() as unknown as { user?: { attendanceChange?: { from: string; periodWise: boolean } | null } };
   const motion = useChartMotion();
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!x) return <PageSkeleton />;
   const date = new Date(x.greeting.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   const periods = x.today.filter((p) => !p.isBreak && !p.free).length;
   const present = x.attendance.present + x.attendance.late;
+  const attendanceTo = x.periodWise ? '/teacher/period-attendance' : '/teacher/attendance';
 
   return (
     <div className="space-y-6">
       <PageHeader title="Today" description={`${date} · ${x.greeting.working ? `${periods} ${periods === 1 ? 'period' : 'periods'}` : 'Not a working day'}${x.greeting.firstUpcoming ? ` · Next at ${x.greeting.firstUpcoming.startTime}` : ''}`}
         actions={<>
-          {x.permissions.takeAttendance && <Button variant="primary" asChild><Link to="/teacher/attendance"><ClipboardCheck />Mark attendance</Link></Button>}
+          {(x.permissions.takeAttendance || (x.periodWise && periods > 0)) && <Button variant="primary" asChild><Link to={attendanceTo}><ClipboardCheck />Mark attendance</Link></Button>}
           <Button asChild><Link to="/teacher/homework?new=1"><NotebookPen />Add homework</Link></Button>
           <Button asChild><Link to="/teacher/exams"><FilePenLine />Marks</Link></Button>
         </>} />
 
-      {x.permissions.takeAttendance && x.greeting.working && <TodayRegister date={x.greeting.date.slice(0, 10)} />}
+      <ModeNotice change={user?.attendanceChange} />
+      {x.periodWise && x.greeting.working && periods > 0 && <TodayPeriods date={x.greeting.date.slice(0, 10)} />}
+      {!x.periodWise && x.permissions.takeAttendance && x.greeting.working && <TodayRegister date={x.greeting.date.slice(0, 10)} />}
 
       {x.classGaps && x.classGaps.length > 0 && (
         <Callout tone="warning">
@@ -58,7 +66,7 @@ export default function TeacherDashboard() {
         <LinkCard className="xl:col-span-2" title="Today's timetable" to="/teacher/timetable" linkLabel="Full week"><DaySchedule rows={x.today} showSection openClass /></LinkCard>
         <div className="space-y-6">
           <AttentionList title="To do" items={[
-            { label: 'Attendance registers not submitted', count: x.cards.pendingAttendance, to: '/teacher/attendance', icon: ClipboardCheck },
+            { label: x.periodWise ? 'Periods not submitted yet' : 'Attendance registers not submitted', count: x.cards.pendingAttendance, to: attendanceTo, icon: ClipboardCheck },
             { label: 'Marks to submit', count: x.exams.awaitingSubmission, to: '/teacher/exams', icon: FilePenLine },
             { label: 'Marks returned for correction', count: x.exams.returned, to: '/teacher/exams', icon: Undo2, tone: 'danger' },
             { label: 'Homework past its due date', count: x.homework.overdue, to: '/teacher/homework', icon: NotebookPen, tone: 'neutral' },
@@ -78,12 +86,12 @@ export default function TeacherDashboard() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Students" value={x.cards.assignedStudents} hint="Across your sections" to="/teacher/classes" />
         <StatCard label="Classes" value={x.cards.assignedClasses} hint="This academic year" to="/teacher/classes" />
-        <StatCard label="Present today" value={x.attendance.totalStudents ? `${present} / ${x.attendance.totalStudents}` : '—'} hint={x.attendance.absent ? `${x.attendance.absent} absent` : 'Where registers are in'} to="/teacher/attendance" />
+        <StatCard label="Present today" value={x.attendance.totalStudents ? `${present} / ${x.attendance.totalStudents}` : '—'} hint={x.attendance.absent ? `${x.attendance.absent} absent` : (x.periodWise ? 'Worked out from the periods marked' : 'Where registers are in')} to={attendanceTo} />
         <StatCard label="Active assignments" value={x.cards.activeAssignments} hint="Published, not yet due" to="/teacher/homework" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard title="Attendance, this week" description="Share of your students present or late" to="/teacher/attendance" height={220}>
+        <ChartCard title="Attendance, this week" description="Share of your students present or late" to={attendanceTo} height={220}>
           {x.attendance.trend?.length ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={x.attendance.trend} margin={{ left: -12, right: 8, top: 4 }}>
             <CartesianGrid {...gridProps} /><XAxis dataKey="date" tickFormatter={short} {...axisProps} /><YAxis domain={[0, 100]} unit="%" {...axisProps} />
             <Tooltip content={<ChartTooltip format={(v) => `${v}%`} />} labelFormatter={short} cursor={{ stroke: chartColor.neutral }} />

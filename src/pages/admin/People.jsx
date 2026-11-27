@@ -53,7 +53,7 @@ function AdmitStudent({ L, onClose, onDone }) {
         {v.sectionId && (
           <div className="full stack-sm">
             <h3>Fees</h3>
-            {!fee && <Spinner />}
+            {!fee && <Spinner kind="facts" />}
             {fee && !fee.structures.length && <p className="muted small" style={{ margin: 0 }}>This class has no fee structure yet, so the student will not be billed and no discount can be given. Ask Finance to set one up first. Fees are collected at the Finance desk.</p>}
             {fee && fee.structures.length > 0 && (<>
               <dl className="kv">
@@ -158,7 +158,7 @@ export function Students() {
           {ids.length > 0 && (
             <div className="stu-bulk" role="status"><b>{ids.length} selected</b><Button size="sm" onClick={() => setBulk(true)}>Change house or section</Button><Button size="sm" onClick={() => setPicked({})} style={{ marginLeft: 'auto' }}>Clear</Button></div>
           )}
-          <Async state={list}>{(d) => (<>
+          <Async skeleton="datatable" keep state={list}>{(d) => (<>
             <DataTable rows={d.items} empty="No students match" onRowClick={(s) => setSel((c) => (c === s._id ? null : s._id))} rowClassName={(s) => (s._id === sel ? 'sel' : '')} columns={[
               { label: '', render: (s) => <input type="checkbox" className="chk" aria-label={`Select ${s.name}`} checked={!!picked[s._id]} onChange={(e) => setPicked((p) => ({ ...p, [s._id]: e.target.checked }))} /> },
               { label: 'Student', sort: (s) => s.name, render: (s) => <div className="row" style={{ gap: 12 }}><Initials name={s.name} /><div><b>{s.name}</b><div className="small muted">{s.admissionNo}</div></div></div> },
@@ -193,7 +193,7 @@ export function StudentDetail() {
   const [creds, setCreds] = useState(null);
   const fileRef = useRef(); const docType = useRef('birth_certificate');
   return (
-    <Async state={s}>{(st) => {
+    <Async skeleton="datatable" keep state={s}>{(st) => {
       const active = st.enrolments.find((e) => e.status === 'active');
       return (
         <div className="stack">
@@ -203,7 +203,7 @@ export function StudentDetail() {
             {st.status === 'active' && <><Button onClick={() => setModal('transfer')} disabled={!active}>Move section</Button><Button variant="danger" onClick={() => setModal('withdraw')}>Withdraw</Button></>}
             {st.status !== 'active' && st.status !== 'archived' && <Button onClick={async () => { await run(() => post(`/api/school/students/${id}/reactivate`), 'Reactivated'); s.reload(); }}>Reactivate</Button>}
             <ResetPasswordButton size="md" url={`/api/school/students/${id}/reset-password`} name={st.name} onDone={setCreds} /></>} />
-          <Async state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
+          <Async skeleton="stats" state={ov}>{(o) => <SummaryStrip o={o} />}</Async>
           <Tabs tabs={[['profile', 'Profile'], ['attendance', 'Attendance'], ['exams', 'Exams and marks'], ['homework', 'Homework'], ['fees', 'Fees'], ['library', 'Library'], ['transport', 'Bus'], ['history', 'Enrolment history'], ['documents', 'Documents'], ...(user?.adminLevel === 'sub' ? [] : [['privacy', 'Privacy']])]} value={tab} onChange={setTab} />
           {['attendance', 'exams', 'homework', 'fees', 'library', 'transport'].includes(tab) && <Async state={ov}>{(o) => (
             tab === 'attendance' ? <AttendancePanel o={o} /> : tab === 'exams' ? <ExamsPanel o={o} /> : tab === 'homework' ? <HomeworkPanel o={o} /> : tab === 'fees' ? <FeesPanel studentId={id} /> : tab === 'library' ? <LibraryPanel o={o} /> : <BusCard bus={o.bus} />)}</Async>}
@@ -226,7 +226,7 @@ export function StudentDetail() {
               <select aria-label="Document type" defaultValue="birth_certificate" onChange={(e) => { docType.current = e.target.value; }} style={{ width: 190 }}>{['birth_certificate', 'transfer_certificate', 'admission_form', 'report_card', 'other'].map((t) => <option key={t} value={t}>{label(t)}</option>)}</select>
               <input type="file" hidden ref={fileRef} onChange={async (e) => { const file = e.target.files[0]; if (!file) return; const fd = new FormData(); fd.append('docType', docType.current); fd.append('file', file); await run(() => upload(`/api/school/students/${id}/documents`, fd), 'Uploaded'); e.target.value = ''; docs.reload(); }} />
               <Button size="sm" variant="primary" loading={busy} onClick={() => fileRef.current.click()}>Upload</Button></div>} flush>
-              <Async state={docs} empty={<Empty title="No documents uploaded" />}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Name', key: 'name' }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Uploaded', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <div className="row"><Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button><ConfirmButton size="sm" variant="danger" message="Delete this document?" onConfirm={async () => { await run(() => del(`/api/school/documents/${d.id}`), 'Deleted'); docs.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>)}
+              <Async skeleton="datatable" state={docs} empty={<Empty title="No documents uploaded" />}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Name', key: 'name' }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Uploaded', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <div className="row"><Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button><ConfirmButton size="sm" variant="danger" message="Delete this document?" onConfirm={async () => { await run(() => del(`/api/school/documents/${d.id}`), 'Deleted'); docs.reload(); }}>Delete</ConfirmButton></div> }]} />}</Async></Card>)}
           {modal === 'edit' && <FormModal wide title="Edit student" initial={st} fields={[{ name: 'name', label: 'Name', required: true }, { name: 'admissionNo', label: 'Admission number', required: true }, { name: 'dob', label: 'Date of birth', type: 'date', required: true }, { name: 'gender', label: 'Gender', type: 'select', options: ['male', 'female', 'other'] }, { name: 'phone', label: 'Phone' }, { name: 'house', label: 'House', type: 'select', options: houses.options }, { name: 'address', label: 'Address' }]}
             onClose={() => setModal(null)} onSubmit={async (v) => { await patch(`/api/school/students/${id}`, { ...v, guardians: st.guardians }); s.reload(); return true; }} />}
           {modal === 'transfer' && <FormModal title="Move to another section" submitLabel="Move student" fields={[{ name: 'toSectionId', label: 'New section', type: 'select', required: true, options: L.sectionOptions.filter((o) => o.value !== active?.sectionId) }, { name: 'effectiveDate', label: 'Effective from', type: 'date' }, { name: 'reason', label: 'Reason', type: 'textarea', required: true }]}
@@ -275,7 +275,7 @@ export function Teachers() {
       <ListCard>
         <FilterBar search={q} onSearch={setQ} searchLabel="Search teachers" placeholder="Search name, employee id, email">
           <Select value={status} onChange={(e) => setStatus(e.target.value)} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} aria-label="Status" /></FilterBar>
-        <Async state={list}>{(d) => <DataTable rows={d.items} empty="No teachers yet" onRowClick={(t) => nav(`/admin/teachers/${t._id}`)} columns={[
+        <Async skeleton="datatable" state={list}>{(d) => <DataTable rows={d.items} empty="No teachers yet" onRowClick={(t) => nav(`/admin/teachers/${t._id}`)} columns={[
           { label: 'Emp. id', key: 'employeeId' }, { label: 'Name', render: (t) => <b>{t.name}</b> }, { label: 'Subjects', render: (t) => (t.subjectIds || []).map((s) => s.name).join(', ') || '—' }, { label: 'Login', render: (t) => t.account?.loginId }, { label: 'Phone', key: 'phone' }, { label: 'Status', render: (t) => <Badge tone={statusTone(t.status)}>{t.status}</Badge> }]} />}</Async>
       </ListCard>
       {modal && <FormModal wide title="Add teacher" fields={teacherFields(ranks.options, houses.options)} onClose={() => setModal(false)}
@@ -296,7 +296,7 @@ export function TeacherDetail() {
   const [run] = useAction(); const toast = useToast();
   const [modal, setModal] = useState(false); const [creds, setCreds] = useState(null);
   return (
-    <Async state={t}>{(x) => (
+    <Async skeleton="datatable" keep state={t}>{(x) => (
       <div className="stack">
         <div className="row"><Avatar fileId={x.photoFileId} name={x.name} size={72} /><PhotoUpload path={`/api/school/teachers/${id}/photo`} upload={upload} label={x.photoFileId ? 'Change photo' : 'Add a photo'} onDone={t.reload} /></div>
         <PageHeader title={x.name} subtitle={`${x.designation || 'Teacher'} · Employee ${x.employeeId}`} actions={<>
@@ -368,7 +368,7 @@ export function Assignments() {
           </FilterMenu>
         </div>
       </Card>
-      <Card title={`Subject teachers${asg.data ? ` (${rows.length}${filtered ? ` of ${everything.length}` : ''})` : ''}`} flush><Async state={asg} empty={<div className="empty">No assignments yet. Assign a teacher to a subject in a section to begin.</div>}>{() => rows.length ? <DataTable rows={rows} columns={[
+      <Card title={`Subject teachers${asg.data ? ` (${rows.length}${filtered ? ` of ${everything.length}` : ''})` : ''}`} flush><Async skeleton="datatable" state={asg} empty={<div className="empty">No assignments yet. Assign a teacher to a subject in a section to begin.</div>}>{() => rows.length ? <DataTable rows={rows} columns={[
         { label: 'Class', sort: (a) => gradeRank(a.classId?.name) * 1000 + String(a.sectionId?.name).charCodeAt(0), render: (a) => `${a.classId?.name} ${a.sectionId?.name}` }, { label: 'Subject', sort: (a) => a.subjectId?.name, render: (a) => <b>{a.subjectId?.name}</b> }, { label: 'Teacher', sort: (a) => a.teacherId?.name, render: (a) => a.teacherId?.name }, { label: 'Periods / week', sort: (a) => a.offeringId?.weeklyPeriods ?? 0, render: (a) => a.offeringId?.weeklyPeriods ?? '—' }, { label: 'Since', sort: (a) => a.effectiveFrom || '', render: (a) => fmtDate(a.effectiveFrom, true) },
         { label: '', render: (a) => <div className="row"><Button size="sm" onClick={() => setModal({ periods: a })}>Periods</Button><ConfirmButton size="sm" message="End this assignment today? Future timetable periods will need a new teacher." onConfirm={async () => { const r = await run(() => post(`/api/school/teaching-assignments/${a._id}/end`), 'Assignment ended'); if (r?.unresolvedPeriods) toast(`${r.unresolvedPeriods} timetable period(s) are now unresolved.`, 'error'); asg.reload(); }}>End</ConfirmButton></div> },
       ]} /> : <Empty title="No assignments match">Try clearing a filter.</Empty>}</Async></Card>

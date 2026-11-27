@@ -5,6 +5,7 @@ import { download } from '../api/client.js';
 import { useOffice } from '../context/ClassOffice.jsx';
 import Heatmap from './Heatmap.jsx';
 import { BarsChart } from './Charts.jsx';
+import { SubjectAttendance, EarlierDays } from './SubjectAttendance.jsx';
 
 const tone = (p) => (p == null ? '' : p >= 75 ? 'green' : p >= 50 ? 'blue' : p >= 33 ? 'amber' : 'red');
 
@@ -12,9 +13,10 @@ const tone = (p) => (p == null ? '' : p >= 75 ? 'green' : p >= 50 ? 'blue' : p >
 export function SummaryStrip({ o }) {
   const last = o.exams[o.exams.length - 1];
   const holding = o.library.filter((l) => l.status === 'issued');
+  const pt = o.attendance.periodWise ? o.attendance.periods?.totals : null; // period by period: the number is lessons attended, not days
   return (
     <div className="grid g4">
-      <Stat value={o.attendance.percentage != null ? `${o.attendance.percentage}%` : '—'} label="Attendance this year" sub={`${o.attendance.absent} absent · ${o.attendance.late} late`} tone={o.attendance.percentage != null && o.attendance.percentage < 75 ? 'red' : 'green'} />
+      <Stat value={pt ? (pt.percentage != null ? `${pt.percentage}%` : '—') : o.attendance.percentage != null ? `${o.attendance.percentage}%` : '—'} label={pt ? 'Attendance in periods' : 'Attendance this year'} sub={pt ? `${pt.absent} periods missed · ${pt.late} late` : `${o.attendance.absent} absent · ${o.attendance.late} late`} tone={(pt ? pt.percentage : o.attendance.percentage) != null && (pt ? pt.percentage : o.attendance.percentage) < (pt ? o.attendance.periods.target : 75) ? 'red' : 'green'} />
       <Stat value={last ? `${last.percentage}%` : '—'} label={last ? `Latest: ${last.exam}` : 'Exams'} sub={last ? `Grade ${last.grade}` : 'No results yet'} tone={tone(last?.percentage)} />
       <Stat value={fmtMoney(o.fees.totals.pending)} label="Fees pending" sub={o.fees.totals.overdue > 0 ? `${fmtMoney(o.fees.totals.overdue)} overdue` : 'Nothing overdue'} tone={o.fees.totals.overdue > 0 ? 'red' : o.fees.totals.pending > 0 ? 'amber' : 'green'} />
       <Stat value={o.bus ? o.bus.busNo : 'No bus'} label={`Library: ${holding.length} book(s) out`} sub={o.bus ? `${o.bus.stop || ''}` : 'Does not use school transport'} tone={o.bus ? 'blue' : ''} />
@@ -24,6 +26,16 @@ export function SummaryStrip({ o }) {
 
 export function AttendancePanel({ o }) {
   const a = o.attendance;
+  const { api } = useOffice();
+  // the school takes attendance period by period: subjects first, and the days of an earlier once-a-day register on their own (no heat map: it counts days)
+  if (a.periodWise) {
+    return (
+      <div className="stack">
+        <SubjectAttendance data={a.periods} who="student" detailUrl={(sid) => `${api}/students/${o.profile.id}/attendance-subject/${sid}`} />
+        <EarlierDays s={a.earlier} byMonth={a.earlier?.byMonth} until={a.earlier?.until} />
+      </div>
+    );
+  }
   return (
     <div className="stack">
       <div className="grid g4"><Stat value={`${a.percentage ?? '—'}%`} label="Attendance" tone="green" /><Stat value={a.present} label="Present" /><Stat value={a.absent} label="Absent" tone={a.absent > 5 ? 'amber' : ''} /><Stat value={a.late} label="Late" /></div>

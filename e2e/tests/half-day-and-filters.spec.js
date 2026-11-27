@@ -26,7 +26,7 @@ test('a teacher can ask for half a day; the form asks for one date and which hal
 test('the exams page of a teacher filters by class and subject; the period menu shows only when the school uses it', async ({ page }) => {
   const problems = watch(page);
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
-  await expect(page.getByRole('link', { name: 'Period attendance' })).toHaveCount(0); // not switched on in this school
+  await expect(page.locator('a[href="/teacher/period-attendance"]')).toHaveCount(0); // this school takes attendance once a day
   await expect(page.getByRole('link', { name: 'Study materials' })).toHaveCount(0);
   await page.goto('/teacher/exams');
   await expect(page.getByRole('row').nth(1)).toBeVisible();

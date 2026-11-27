@@ -77,7 +77,7 @@ export function Expenses({ readOnly }) {
   return (
     <div className="stack">
       <PageHeader title="Expenditure" subtitle={readOnly ? 'What the school has spent. Finance records it with the bills attached and you approve it from Approvals. Money is paid only after your approval.' : 'Record what the school spends and attach the bills. Each expense goes to the School Admin for approval; once approved, record the payment here. Approved spending counts against the budget.'} actions={!readOnly && <Button variant="primary" onClick={() => setModal({})}>+ Add expense</Button>} />
-      <Async state={q}>{(d) => (<>
+      <Async skeleton="stats" keep state={q}>{(d) => (<>
         <div className="grid g4"><Stat value={fmtMoney(d.totals.approved.amount)} label="Approved" sub={`${d.totals.approved.count} expense(s)`} tone="green" /><Stat value={fmtMoney(d.totals.pending.amount)} label="Waiting for approval" sub={`${d.totals.pending.count} expense(s)`} tone="amber" /><Stat value={fmtMoney(d.totals.toPay.amount)} label="Approved, to be paid" sub={`${d.totals.toPay.count} expense(s)`} tone="blue" /><Stat value={fmtMoney(d.totals.rejected.amount)} label="Rejected" sub={`${d.totals.rejected.count} expense(s)`} tone="red" /></div>
         <ListCard>
           <div className="row wrap" style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
@@ -156,7 +156,7 @@ function VendorAccount({ base, readOnly, vendor, onClose, onChanged }) {
   const [tab, setTab] = useState('upcoming'); const [payFor, setPayFor] = useState(null); const [run] = useAction();
   return (
     <Modal wide title={`${vendor.name} · account`} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={led}>{(d) => {
+      <Async skeleton="stats" keep state={led}>{(d) => {
         const t = d.totals;
         return (
           <div className="stack">
@@ -222,7 +222,7 @@ export function VendorPayments({ readOnly }) {
           {(range.from || range.to) && <Button size="sm" onClick={() => setRange({ from: '', to: '' })}>Reset</Button>}
         </div>
       </div>
-      <Async state={rep}>{(d) => (<>
+      <Async skeleton="stats" state={rep}>{(d) => (<>
         <div className="grid g4">
           <Stat value={fmtMoney(d.paidInPeriod)} label="Paid in this range" sub={`${fmtDate(d.from, true)} to ${fmtDate(d.to, true)}`} tone="green" />
           <Stat value={fmtMoney(d.dueInPeriod)} label="Falls due in this range" sub="Unpaid balances by due date" tone="blue" />
@@ -277,7 +277,7 @@ export function SpendingReceipts({ readOnly }) {
           {f.period === 'custom' && <><Input type="date" aria-label="From date" value={f.from} onChange={(e) => set({ from: e.target.value })} style={{ width: 150 }} /><Input type="date" aria-label="To date" value={f.to} onChange={(e) => set({ to: e.target.value })} style={{ width: 150 }} /></>}
         </FilterBar>
         {on && <div className="flex justify-end border-b border-border/70 px-4 py-2 text-[13.5px]"><button type="button" className="rounded-md font-medium text-primary-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setF({ q: '', vendorId: '', department: '', mode: '', nature: '', period: 'all', from: '', to: '', page: 1 })}>Clear filters</button></div>}
-        <Async state={list}>{(d) => (<>
+        <Async skeleton="datatable" state={list}>{(d) => (<>
           <DataTable rows={d.items.map((x) => ({ ...x, key: `${x.expenseId}-${x.paymentId}-${x.index}` }))} rowKey="key" empty="No vouchers match" columns={[
             { label: 'Voucher', render: (x) => <b>{x.voucherNo || '—'}</b> }, { label: 'Date paid', render: (x) => <span className="whitespace-nowrap">{fmtDate(x.paidOn, true)}</span> },
             { label: 'Paid to', render: (x) => x.vendor || <span className="muted">—</span> },
@@ -325,7 +325,7 @@ export function Vendors({ readOnly }) {
     <div className="stack">
       <PageHeader title="Vendors" subtitle={readOnly ? 'The people and firms the school pays. Finance keeps this list and you approve each vendor from Approvals; an expense can only name an approved vendor.' : 'The people and firms the school pays. Each new vendor goes to the School Admin for approval, and only approved vendors can be chosen on an expense. Changing a vendor\'s name, tax number or bank account sends it for approval again.'}
         actions={<div className="row"><Button onClick={() => run(() => download(`${base}/vendors/export.csv`, 'vendors.csv'))}>Download list</Button>{!readOnly && <><Button onClick={() => setBulk(true)}>Import from spreadsheet</Button><Button variant="primary" onClick={() => setModal({})}>+ Add vendor</Button></>}</div>} />
-      <Async state={q}>{(d) => (<>
+      <Async skeleton="stats" keep state={q}>{(d) => (<>
         <div className="grid g4"><Stat value={d.counts.all} label="Vendors" /><Stat value={d.counts.approved} label="Approved" tone="green" /><Stat value={d.counts.pending} label="Waiting for approval" tone="amber" /><Stat value={d.counts.inactive + d.counts.rejected} label="Switched off or rejected" /></div>
         <ListCard>
           <div className="row wrap" style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
@@ -388,7 +388,7 @@ export function Budgets({ readOnly }) {
   return (
     <div className="stack">
       <PageHeader title="Budgets" subtitle="Money set aside for each department and piece of work this year: a revenue budget for running costs and a capital budget for assets. Shows what has been used (approved expenses only) and what is left." actions={!readOnly && <Button variant="primary" onClick={() => setModal({ kind: kind === 'capital' ? 'capital' : 'revenue' })}>+ Set a budget</Button>} />
-      <Async state={q}>{(d) => {
+      <Async skeleton="stats" keep state={q}>{(d) => {
         const t = kind === 'all' ? d.totals : d.byKind[kind]; const items = d.items.filter((b) => kind === 'all' || b.kind === kind);
         return (<>
           <Tabs tabs={[['all', 'All'], ['revenue', 'Revenue budget'], ['capital', 'Capital budget']]} value={kind} onChange={setKind} />
@@ -416,7 +416,7 @@ export function TaxBankProfile() {
   return (
     <div className="stack" style={{ maxWidth: 760 }}>
       <PageHeader title="Tax and bank details" subtitle="Only the Finance team can see and change these. Use them on invoices, receipts and PDFs." />
-      <Async state={q}>{(d) => {
+      <Async skeleton="form" keep state={q}>{(d) => {
         const cur = v || Object.fromEntries(KEYS.map(([k]) => [k, d[k] || '']));
         return <Card action={<Button variant="primary" loading={busy} onClick={async () => { const r = await run(() => put('/api/finance/school-finance-profile', cur), 'Saved'); if (r) { setV(null); q.reload(); } }}>Save</Button>}>
           <div className="form-grid">{KEYS.map(([k, l]) => <Field key={k} label={l}><Input value={cur[k]} onChange={(e) => setV({ ...cur, [k]: e.target.value })} autoComplete="off" /></Field>)}</div>

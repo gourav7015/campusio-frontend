@@ -10,7 +10,7 @@ export default function MyAttendance() {
     <div className="stack">
       <PageHeader title="My attendance" subtitle="Marked by the school office. If something looks wrong, tell the administrator." />
       <PunchCard base="/api/teacher" />
-      <Async state={q}>{(d) => {
+      <Async skeleton="stats" state={q}>{(d) => {
         const s = d.summary;
         const marked = d.days.filter((x) => x.working && x.rawStatus && !['present'].includes(x.rawStatus));
         return (

@@ -48,7 +48,7 @@ function SubjectsTab({ year, L, onChanged }) {
         <Button type="submit" variant="primary" loading={busy} disabled={name.trim().length < 2}>Add subject</Button>
       </form></Card>
       <Card title={`The school's subjects${q.data ? ` (${q.data.filter((s) => s.status === 'active').length})` : ''}`} flush>
-        <Async state={q}>{(rows) => (rows.length
+        <Async skeleton="datatable" state={q}>{(rows) => (rows.length
           ? <DataTable searchable={false} pageSize={50} rowKey="id" rows={rows.filter((s) => s.status === 'active')} columns={[
             { label: 'Subject', sort: (s) => s.name, render: (s) => <><b>{s.name}</b> <span className="small muted">{s.code}</span></> },
             { label: `Studied in (${year.name})`, render: (s) => (s.classes.length ? <span>{s.classes.map((c) => c.className).join(', ')}</span> : <span className="muted">No class yet</span>) },
@@ -94,7 +94,7 @@ export default function ClassStructure() {
       </div></Card>
       <Tabs tabs={[['classes', 'By class'], ['subjects', 'Subjects']]} value={tab} onChange={setTab} />
       {tab === 'subjects' && yearObj && <SubjectsTab year={{ id: yearObj._id, name: yearObj.name, status: yearObj.status }} L={L} onChanged={q.reload} />}
-      {tab === 'classes' && <Async state={q}>{(d) => {
+      {tab === 'classes' && <Async skeleton="form" keep state={q}>{(d) => {
         if (!d.classes.length) return <Card><p className="muted" style={{ margin: 0 }}>This year has no classes with sections yet. Create the sections first (Classes and sections), or create the year from the previous one.</p></Card>;
         // what each class shows under the filters: the class itself, and which of its subject rows
         const nq = fl.q.trim().toLowerCase();

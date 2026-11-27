@@ -8,6 +8,7 @@ import { Overview, SectionStudents, HomeworkDay } from '../admin/ClassHub.jsx';
 import { OfficeProvider, CLASS_OFFICE } from '../../context/ClassOffice.jsx';
 import { Attendance } from './Teacher1.jsx';
 import { ClassPeriods } from './Teacher3.jsx';
+import { ClassAttendanceTabs } from '../../components/ClassPeriodSummary.jsx';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { Performance } from './Teacher2.jsx';
 
@@ -33,13 +34,13 @@ export default function MyClass() {
       <div className="stack">
         <PageHeader title="My class" subtitle={cur ? `${cur.className} ${cur.section} · ${cur.students} students · you are the class teacher, so you see this class as the school office does and can open any student's full file` : 'The class you are the class teacher of'}
           actions={mine.length > 1 && <Select aria-label="Class and section" value={sid} onChange={(e) => go(tab, e.target.value)} options={mine.map((c) => ({ value: c.sectionId, label: `${c.className} ${c.section}` }))} />} />
-        {classes.loading && !classes.data ? <Spinner /> : !mine.length ? <Empty title="You are not a class teacher">When the school makes you the class teacher of a section, it appears here with its register, students, results and marks.</Empty> : (
+        {classes.loading && !classes.data ? <Spinner kind="cards" /> : !mine.length ? <Empty title="You are not a class teacher">When the school makes you the class teacher of a section, it appears here with its register, students, results and marks.</Empty> : (
           <>
             <Tabs tabs={TABS} value={tab} onChange={(t) => go(t)} />
             {tab === 'overview' && <OfficeOverview sid={sid} go={go} />}
             {tab === 'students' && <SectionStudents sectionId={sid} />}
             {tab === 'attendance' && (user?.periodWise
-              ? <ClassPeriods sectionId={sid} className={cur?.className} section={cur?.section}><Attendance sectionId={sid} embedded /></ClassPeriods>
+              ? <ClassAttendanceTabs sectionId={sid}><ClassPeriods sectionId={sid}>{(date) => <Attendance sectionId={sid} embedded date={date} />}</ClassPeriods></ClassAttendanceTabs>
               : <Attendance sectionId={sid} embedded />)}
             {tab === 'homework' && <HomeworkDay sectionId={sid} />}
             {tab === 'exams' && <ExamAnalysis sectionId={sid} />}
@@ -59,7 +60,7 @@ function OfficeOverview({ sid, go }) {
     <Async state={ov}>{(o) => (
       <div className="stack">
         <div className="row wrap" style={{ gap: 8 }}>
-          <Button variant="primary" onClick={() => go('attendance')}>{o.attendanceToday?.status === 'submitted' ? "Open today's register" : 'Take attendance now'}</Button>
+          <Button variant="primary" onClick={() => go('attendance')}>{o.periodWise ? "See today's periods" : o.attendanceToday?.status === 'submitted' ? "Open today's register" : 'Take attendance now'}</Button>
           <Button onClick={() => go('students')}>Students and monitors</Button>
           <Button onClick={() => go('marks')}>Enter marks</Button>
           <Button onClick={() => go('report')}>Class results</Button>
@@ -79,7 +80,7 @@ function ClassMarks({ sid }) {
   return (
     <Card flush title="Marks of every subject in this class" action={<Link className="btn sm" to="/teacher/exams">All examinations and marks</Link>}>
       <div className="card-b small muted">{rows.length ? `${done} of ${rows.length} subject sheets are submitted. As the class teacher you can enter or correct the marks of any subject here, including subjects another teacher teaches.` : ''}</div>
-      <Async state={list} empty={<Empty title="No examinations for this class yet">They appear here once the school schedules one.</Empty>}>{() => (
+      <Async skeleton="datatable" state={list} empty={<Empty title="No examinations for this class yet">They appear here once the school schedules one.</Empty>}>{() => (
         <DataTable rows={rows} rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} empty="No examinations for this class yet" columns={[
           { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge>{label(r.type)}</Badge></> },
           { label: 'Subject', render: (r) => <>{r.subject} {r.viaClassTeacher && <Badge>Other teacher's subject</Badge>}</> },

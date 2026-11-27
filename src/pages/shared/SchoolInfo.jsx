@@ -14,7 +14,7 @@ export function SchoolInfoView({ base, bare }) {
   return (
     <div className="stack">
       {!bare && <PageHeader title="About the school" subtitle="Information from the school office" />}
-      <Async state={q}>{(d) => {
+      <Async skeleton="facts" keep state={q}>{(d) => {
         const p = d.profile;
         const facts = [['Board', p.board], ['Affiliation no.', p.affiliationNo], ['Established', p.established], ['Address', p.address], ['Phone', p.phone], ['Email', p.email], ['Website', p.website]].filter(([, v]) => v);
         return (<>

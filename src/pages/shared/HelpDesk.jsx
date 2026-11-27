@@ -96,7 +96,7 @@ export default function HelpDesk({ base, handler = false, platform = false, titl
         </Card>
       )}
       <Card flush>
-        <Async state={list} empty={<Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : `Use “New ${noun}” to ask for help.`}</Empty>}>
+        <Async skeleton="datatable" state={list} empty={<Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : `Use “New ${noun}” to ask for help.`}</Empty>}>
           {(d) => (rows(d).length ? <DataTable rows={rows(d)} columns={columns} onRowClick={(t) => setOpenId(t._id)} /> : <Empty title={handler ? 'No tickets here' : 'No tickets yet'}>{handler ? 'Nothing matches these filters.' : 'Use “New ticket” to ask for help.'}</Empty>)}
         </Async>
       </Card>
@@ -131,7 +131,7 @@ function Thread({ base, id, handler, platform, noun, onBack }) {
   return (
     <div className="stack">
       <PageHeader title={t ? `${t.reference} · ${t.subject}` : 'Ticket'} actions={<Button onClick={onBack}>← All tickets</Button>} />
-      <Async state={q}>
+      <Async skeleton="form" keep state={q}>
         {() => t && (
           <>
             <Card>

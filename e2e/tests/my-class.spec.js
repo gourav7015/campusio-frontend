@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { signIn, watch } from './helpers.js';
+import { setWay, resetAttendance } from './attendance-way.js';
 
 const API = process.env.API_URL || 'http://localhost:4010';
 const adminToken = async () => (await (await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loginId: 'admin@gps.test', password: 'Admin@12345', portal: 'admin' }) })).json()).token;
-const setPeriodWise = async (on) => fetch(`${API}/api/school/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await adminToken()}` }, body: JSON.stringify({ attendance: { periodWise: on } }) });
 
 async function signOut(page) {
   await page.getByRole('button', { name: 'Profile menu' }).click();
@@ -88,24 +88,24 @@ test('a class teacher gets a My class tab with the register, students and monito
   expect(problems.filter((p) => !/HTTP 40/.test(p))).toEqual([]);
 });
 
-test('in a school that takes attendance period by period, My class opens on the periods and keeps the daily register one switch away', async ({ page }) => {
+test('in a school that takes attendance period by period, My class shows the day as periods and the menu says Attendance for the periods', async ({ page }) => {
+  test.skip(new Date().getDay() === 0, 'the demo school does not work on Sunday');
   const problems = watch(page);
-  expect((await setPeriodWise(true)).status).toBe(200);
+  await setWay(true);
   try {
     await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
     await page.goto('/teacher/my-class?tab=attendance');
-    // the period view first, not the whole-day register
-    const view = page.getByRole('radiogroup', { name: 'Attendance view' });
-    await expect(view.getByRole('radio', { name: 'By period' })).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByRole('columnheader', { name: 'Teacher' })).toBeVisible();
+    // the day as a grid of periods, not the whole-day register
+    await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible(); // the whole class comes first
+    await page.getByRole('tab', { name: 'Day by day' }).click();
+    await expect(page.getByText(/of \d periods submitted/)).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /Day/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mark all present' })).toHaveCount(0);
-    // the daily register is still there, one switch away
-    await view.getByRole('radio', { name: 'Daily register' }).click();
-    await expect(page.getByRole('button', { name: 'Mark all present' })).toBeVisible();
-    // and the menu names the two things differently
+    // the menu has one Attendance entry, for the periods; there is no daily register
     await page.goto('/teacher/classes');
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Daily register', exact: true }).first()).toBeVisible();
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Period attendance', exact: true }).first()).toBeVisible();
-  } finally { await setPeriodWise(false); }
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Attendance', exact: true }).first()).toBeVisible();
+    await expect(page.locator('a[href="/teacher/attendance"]')).toHaveCount(0);
+    await expect(page.locator('a[href="/teacher/period-attendance"]').first()).toBeVisible();
+  } finally { await resetAttendance(); }
   expect(problems, problems.join('\n')).toEqual([]);
 });

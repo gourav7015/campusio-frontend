@@ -17,7 +17,7 @@ function UpcomingExams() {
   if (!sch.loading && !ahead.length) return null;
   return (
     <Card flush title="Coming up" action={<span className="small muted">Dates are in your school's time zone</span>}>
-      <Async state={sch}>{() => <DataTable rows={ahead} empty="No examinations ahead" columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
+      <Async skeleton="datatable" state={sch}>{() => <DataTable rows={ahead} empty="No examinations ahead" columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
           { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />}</Async>
     </Card>
   );
@@ -54,7 +54,7 @@ function MyResults({ Y }) {
   const list = useApi(`${S}/results`, Y.params);
   const nav = useNavigate();
   return (
-    <Card flush><Async state={list} empty={<Empty title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
+    <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
       { label: 'Status', render: (r) => (r.status === 'published' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Upcoming</Badge>) }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" variant="primary" onClick={() => nav(`/student/results/${r.examId}${Y.query}`)}>View report card</Button> }]} />}</Async></Card>
   );
 }
@@ -65,7 +65,7 @@ function ClassResults({ Y }) {
   const [open, setOpen] = useState(null);
   return (
     <div className="stack">
-      <Card flush><Async state={list} empty={<Empty title="No tests have been held for your class yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" onRowClick={(r) => r.status === 'published' && setOpen(r)} columns={[
+      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No tests have been held for your class yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" onRowClick={(r) => r.status === 'published' && setOpen(r)} columns={[
         { label: 'Test', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge><div className="small muted">{r.subjects.join(', ')}</div></> }, { label: 'Date', render: (r) => fmtDate(r.date, true) },
         { label: 'Status', render: (r) => <Badge tone={r.status === 'published' ? 'green' : 'amber'}>{r.status === 'published' ? 'Results out' : r.status === 'upcoming' ? 'Upcoming' : 'Awaiting results'}</Badge> },
         { label: 'My result', render: (r) => (r.status !== 'published' ? '—' : !r.hasResult ? <span className="muted">No result</span> : !r.attempted ? <Badge>Not attempted</Badge> : <><b>{fmtPct(r.myPercentage)}</b> <span className="muted small">{r.myGrade}</span></>) },
@@ -79,7 +79,7 @@ function LeaderboardModal({ exam, params, onClose }) {
   const d = useApi(`${S}/class-results/${exam.examId}`, params);
   return (
     <Modal wide title={`${exam.name} — class results`} onClose={onClose}>
-      <Async state={d}>{(x) => !x.published ? <Empty title="Results are not out yet" /> : (<>
+      <Async skeleton="datatable" state={d}>{(x) => !x.published ? <Empty title="Results are not out yet" /> : (<>
         <div className="row wrap" style={{ marginBottom: 12 }}>{x.me ? <Badge tone="primary">Your rank: {x.me.rank} of {x.classSize}</Badge> : <Badge>You have no result in this test</Badge>}<Badge>Class average {x.average}%</Badge></div>
         <div className="table-wrap"><table>
           <thead><tr><th>Rank</th><th>Roll</th><th>Student</th>{x.subjects.map((s) => <th key={s.code}>{s.subject}<div className="small muted" style={{ textTransform: 'none', fontWeight: 400 }}>/{s.max}</div></th>)}<th>Total</th><th>%</th><th>Grade</th></tr></thead>
@@ -97,7 +97,7 @@ export function ResultDetail() {
   const r = useApi(`${S}/results/${examId}`, yearId ? { yearId } : undefined);
   const [run, busy] = useAction();
   return (
-    <Async state={r}>{(x) => (
+    <Async skeleton="stats" state={r}>{(x) => (
       <div className="stack">
         <PageHeader title={x.exam.name} subtitle={`${x.student.name} · Admission ${x.student.admissionNo}${x.version > 1 ? ` · Revised (version ${x.version})` : ''}`} actions={<><Link className="btn" to={`/student/results${yearId ? `?year=${yearId}` : ''}`}>← All results</Link><Button variant="primary" loading={busy} onClick={() => run(() => download(`${S}/results/${examId}/pdf${yearId ? `?yearId=${yearId}` : ''}`, `report-card-${x.exam.name}.pdf`))}>Download PDF report card</Button></>} />
         {x.correctionReason && <div className="alert info">This report card was revised: {x.correctionReason}</div>}
@@ -131,7 +131,7 @@ function RankingModal({ scope, params, onClose }) {
   const r = useApi(`${S}/class-ranking`, { scope, ...(params || {}) });
   return (
     <Modal wide title={scope === 'class' ? 'Whole class, ranked' : 'My section, ranked'} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
-      <Async state={r}>{(x) => !x.rows.length ? <Empty title="No results are published yet" /> : (<>
+      <Async skeleton="datatable" state={r}>{(x) => !x.rows.length ? <Empty title="No results are published yet" /> : (<>
         <p className="muted small" style={{ marginTop: 0 }}>{x.title} · {x.basis} · {x.tests} test{x.tests === 1 ? '' : 's'}, {x.size} students. <b>Ranked by the latest test: {x.lastExam.name}</b> (average {fmtPct(x.lastExam.average)}); the overall average of all the tests counted is beside it. Only whole-test percentages are shown, never subject marks.</p>
         <DataTable rows={x.rows.map((u, i) => ({ ...u, _id: i }))} pageSize={25} rowClassName={(u) => (u.isMe ? 'sel' : '')} columns={[
           { label: 'Rank', render: (u) => (u.rank == null ? <span className="muted">—</span> : <b>{u.rank}</b>) },
@@ -251,8 +251,8 @@ export function StudentPerformance() {
   const p = useApi(`${S}/performance`, { examId, ...(Y.params || {}) });
   return (
     <div className="stack">
-      <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<>{Y.picker}<Async state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={[{ value: 'all', label: 'All examinations' }, ...d.exams.map((e) => ({ value: e.id, label: e.name }))]} aria-label="Examination" /> : null}</Async></>} />
-      <Async state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
+      <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<>{Y.picker}<Async keep state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={[{ value: 'all', label: 'All examinations' }, ...d.exams.map((e) => ({ value: e.id, label: e.name }))]} aria-label="Examination" /> : null}</Async></>} />
+      <Async skeleton="datatable" state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
         <div className="grid g2">
           <Card title="Examination performance trend"><TrendChart data={d.trend} x="exam" lines={[{ key: 'percentage', name: 'Percentage' }]} /></Card>
           <Card title={`Subject-wise · ${d.latestExam?.name || ''}`}><BarsChart data={d.subjectWise} x="subject" bars={[{ key: 'percentage', name: 'Percentage', color: 'rgb(var(--c-primary))' }]} domain={[0, 100]} unit="%" /></Card>
@@ -303,7 +303,7 @@ export function StudentDocuments() {
   return (
     <div className="stack">
       <PageHeader title="My documents" subtitle="Private to you and the school. Links expire after a few minutes." />
-      <Card flush><Async state={docs} empty={<Empty title="No documents have been added" >The school office uploads certificates and reports here.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Document', render: (d) => <b>{d.name}</b> }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Added', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button> }]} />}</Async></Card>
+      <Card flush><Async skeleton="datatable" state={docs} empty={<Empty title="No documents have been added" >The school office uploads certificates and reports here.</Empty>}>{(rows) => <DataTable rows={rows} rowKey="id" columns={[{ label: 'Document', render: (d) => <b>{d.name}</b> }, { label: 'Type', render: (d) => label(d.type) }, { label: 'Added', render: (d) => fmtDate(d.uploadedAt, true) }, { label: '', render: (d) => <Button size="sm" onClick={() => run(() => openFile(d.id))}>Open</Button> }]} />}</Async></Card>
     </div>
   );
 }
@@ -330,7 +330,7 @@ export function StudentFees() {
   return (
     <div className="stack">
       <PageHeader title="Fee information" subtitle={f.data?.online?.enabled ? 'You can pay online, or at the school\'s finance desk.' : 'Read-only. Payments are made at the school\'s finance desk.'} />
-      <Async state={f} empty={null}>{(d) => !d.charges.length ? <Empty title="No fees have been assigned to you yet" /> : (
+      <Async skeleton="stats" state={f} empty={null}>{(d) => !d.charges.length ? <Empty title="No fees have been assigned to you yet" /> : (
         <div className="stack">
           <div className="grid g4"><Stat value={fmtMoney(d.totals.assigned)} label="Total fee assigned" sub={d.totals.concession ? `after ${fmtMoney(d.totals.concession)} concession` : undefined} /><Stat value={fmtMoney(d.totals.paid)} label="Paid" tone="green" /><Stat value={fmtMoney(d.totals.pending)} label="Pending" tone="amber" sub={d.totals.nextDue ? `Next due ${fmtDate(d.totals.nextDue, true)}` : undefined} /><Stat value={fmtMoney(d.totals.overdue)} label="Overdue" tone={d.totals.overdue ? 'red' : undefined} /></div>
           {d.online?.enabled && d.totals.pending > 0 && <Card><div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}><div><b>{fmtMoney(d.totals.pending)}</b> is outstanding. {d.online.testMode && <Badge tone="amber">Test mode</Badge>}</div><Button variant="primary" onClick={() => setPaying(true)}>Pay online</Button></div></Card>}

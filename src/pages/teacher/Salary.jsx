@@ -12,7 +12,7 @@ export default function Salary({ base = '/api/teacher' }) {
   return (
     <div className="stack">
       <PageHeader title="Salary and payslips" subtitle="Your pay is set by the school office. Contact the administrator if something looks wrong." />
-      <Async state={sal}>{(s) => (
+      <Async skeleton="stats" state={sal}>{(s) => (
         <>
           <div className="grid g4">
             <Stat value={s.current?.levelName || (s.current ? 'Custom' : '—')} label="Pay level" sub={s.teacher.designation || undefined} tone="blue" />
@@ -33,7 +33,7 @@ export default function Salary({ base = '/api/teacher' }) {
         </>
       )}</Async>
       <Card title="Payslips" flush>
-        <Async state={slips}>{(rows) => (
+        <Async skeleton="datatable" state={slips}>{(rows) => (
           <DataTable rows={rows} empty="No payslips yet. They appear here once the school approves the month's payroll." columns={[
             { label: 'Month', render: (p) => <b>{monthLabel(p.month)}</b> }, { label: 'Days paid', render: (p) => `${p.paidDays} / ${p.workingDays}` }, { label: 'Gross', render: (p) => fmtMoney(p.gross) },
             { label: 'Deductions', render: (p) => fmtMoney(p.totalDeductions) }, { label: 'Net pay', render: (p) => <b>{fmtMoney(p.net)}</b> },

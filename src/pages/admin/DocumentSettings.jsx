@@ -16,7 +16,7 @@ export default function DocumentSettings() {
   const [adding, setAdding] = useState(false);
   const [run, busy] = useAction();
   return (
-    <Async state={q}>{(d) => {
+    <Async skeleton="form" keep state={q}>{(d) => {
       const s = edit || d.settings;
       const set = (patch) => setEdit({ ...s, ...patch });
       const setIn = (group, patch) => setEdit({ ...s, [group]: { ...s[group], ...patch } });

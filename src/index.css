@@ -92,6 +92,29 @@ main .rounded-lg.border.bg-card, main .card { border-radius: 20px; box-shadow: 0
 /* a very long table animates only its first rows; the rest stay still, so the screen never gets busy */
 .sk-still .sk::after, .sk-still.sk::after { animation: none; transform: none; opacity: .3; }
 .sk-still .sk-line::after { width: 100%; opacity: .3; }
+/* charts: the line draws itself, the ring fills */
+.sk-svg .sk-grid { stroke: rgb(var(--c-border)); stroke-width: 1; }
+.sk-svg .sk-area { fill: rgb(var(--c-muted)); opacity: .6; }
+.sk-svg .sk-path { fill: none; stroke: rgb(var(--c-border-strong)); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: sk-draw 3s ease-in-out infinite; animation-delay: calc(var(--d, 0) * 150ms); }
+.sk-svg .sk-track { fill: none; stroke: rgb(var(--c-muted)); stroke-width: 9; }
+.sk-svg .sk-arc { fill: none; stroke: rgb(var(--c-border-strong)); stroke-width: 9; stroke-dasharray: 62 100; stroke-dashoffset: 62; animation: sk-ring 3s ease-in-out infinite; animation-delay: calc(var(--d, 0) * 150ms); }
+@keyframes sk-draw { 0% { stroke-dashoffset: 100; opacity: 1; } 58%, 84% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes sk-ring { 0% { stroke-dashoffset: 62; opacity: 1; } 58%, 84% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+/* a button that is working: three small marks in the same hand-drawn style */
+.sk-dots { display: inline-flex; gap: 3px; align-items: center; }
+.sk-dots i { display: block; width: 8px; height: 2px; border-radius: 1px; background: currentColor; opacity: .25; animation: sk-tick 1.2s ease-in-out infinite; }
+.sk-dots i:nth-child(2) { animation-delay: .2s; } .sk-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes sk-tick { 0%, 100% { opacity: .25; transform: scaleX(.5); } 40% { opacity: .9; transform: scaleX(1.2); } }
+/* moving to a new screen or filter: a thin line across the top while the answer is on its way */
+.sk-thread { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; overflow: hidden; pointer-events: none; }
+.sk-thread::after { content: ''; position: absolute; top: 0; bottom: 0; width: 32%; background: rgb(var(--c-primary)); animation: sk-thread 1.5s ease-in-out infinite; }
+@keyframes sk-thread { 0% { left: -35%; } 100% { left: 105%; } }
+@media (prefers-reduced-motion: reduce) {
+  .sk-svg .sk-path, .sk-svg .sk-arc { animation: none; stroke-dashoffset: 0; opacity: .5; }
+  .sk-dots i { animation: none; opacity: .6; }
+  .sk-thread::after { animation: none; left: 0; width: 100%; opacity: .5; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sk::after { animation: none; transform: none; opacity: .3; }
   .sk-line::after { width: 100%; opacity: .5; }

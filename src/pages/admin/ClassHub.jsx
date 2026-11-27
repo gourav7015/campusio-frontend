@@ -3,12 +3,14 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
 import { post, put } from '../../api/client.js';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Input, PageHeader, Select, Stat, Tabs, useAction, fmtDate, label } from '../../components/ui.jsx';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Input, PageHeader, Select, Spinner, Stat, Tabs, useAction, fmtDate, label } from '../../components/ui.jsx';
 import FormModal from '../../components/FormModal.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { ClassBoard as Structure } from './ClassBoard.jsx';
 import { RegisterModal } from './Operations.jsx';
+import { DayGrid } from '../../components/PeriodAttendance.jsx';
+import { ClassAttendanceTabs } from '../../components/ClassPeriodSummary.jsx';
 import { useOffice } from '../../context/ClassOffice.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA');
@@ -44,7 +46,7 @@ function HomeworkByDay() {
       <PageHeader title="Homework by day" subtitle="What every subject set on a day. It opens on the first class; change the class or section to look at another." actions={<>
         <Select aria-label="Class" value={cId} onChange={(e) => { setClassId(e.target.value); setSectionId(''); }} placeholder="Choose a class" options={L.classOptions} />
         <Select aria-label="Section" value={sId} onChange={(e) => setSectionId(e.target.value)} placeholder="Choose a section" options={sections.map((s) => ({ value: s._id, label: s.name }))} disabled={!cId} /></>} />
-      {sId ? <HomeworkDay key={sId} sectionId={sId} /> : <Empty title="No sections yet" />}
+      {!L.ready ? <Spinner kind="datatable" /> : sId ? <HomeworkDay key={sId} sectionId={sId} /> : <Empty title="No sections yet" />}
     </div>
   );
 }
@@ -60,7 +62,7 @@ export function HomeworkDay({ sectionId, url }) {
   const thisWeek = weekStart >= mondayOf(today());
   const weekLabel = `${fmtDate(weekStart)} – ${fmtDate(shiftDay(weekStart, 6))}`;
   return (
-    <Async state={q}>{(d) => (
+    <Async skeleton="datatable" keep state={q}>{(d) => (
       <div className="stack">
         <Card title="Homework given per day" action={<Input type="date" value={date} max={today()} onChange={(e) => pick(e.target.value)} aria-label="Date" />}>
           <div className="row" style={{ alignItems: 'center', gap: 8 }}>
@@ -90,11 +92,10 @@ export function ClassDetail() {
     <Async skeleton="dashboard" state={ov}>{(o) => (
       <div className="stack">
         <PageHeader title={`${o.className} ${o.section}`} subtitle={`Class teacher: ${o.classTeacher || 'not assigned'}${o.room ? ` · Room ${o.room}` : ''} · ${o.students} of ${o.capacity} students`} actions={<Link className="btn" to="/admin/classes">← All classes</Link>} />
-        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ...(o.periodWise ? [['periods', 'By period']] : []), ['homework', 'Homework'], ['subjects', 'Subjects and teachers'], ['exams', 'Exams and performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
+        <Tabs tabs={[['overview', 'Overview'], ['students', 'Students'], ['attendance', 'Attendance'], ['homework', 'Homework'], ['subjects', 'Subjects and teachers'], ['exams', 'Exams and performance'], ['library', 'Library']]} value={tab} onChange={(t) => setSp({ tab: t })} />
         {tab === 'overview' && <Overview o={o} go={(t) => setSp({ tab: t })} />}
         {tab === 'students' && <SectionStudents sectionId={sectionId} />}
-        {tab === 'periods' && o.periodWise && <SectionPeriods sectionId={sectionId} />}
-        {tab === 'attendance' && <SectionAttendance sectionId={sectionId} title={`${o.className} ${o.section}`} />}
+        {tab === 'attendance' && <SectionAttendance sectionId={sectionId} title={`${o.className} ${o.section}`} periodWise={!!o.periodWise} />}
         {tab === 'homework' && <HomeworkDay sectionId={sectionId} />}
         {tab === 'subjects' && <SectionSubjects o={o} sectionId={sectionId} onChange={ov.reload} />}
         {tab === 'exams' && <ExamAnalysis sectionId={sectionId} />}
@@ -131,7 +132,7 @@ export function SectionStudents({ sectionId }) {
   const q = useApi(`${api}/sections/${sectionId}/students`);
   return (
     <Card title="Students — click one for the full picture (attendance, marks, homework, fees, library, bus)" flush action={<Monitors sectionId={sectionId} rows={q.data || []} path={readOnly ? undefined : `/api/school/monitors/${sectionId}`} onSaved={q.reload} />}>
-      <Async state={q}>{(rows) => <DataTable rows={rows} rowKey="studentId" empty="No students" onRowClick={(s) => nav(`${navBase}/students/${s.studentId}`)} columns={[
+      <Async skeleton="datatable" state={q}>{(rows) => <DataTable rows={rows} rowKey="studentId" empty="No students" onRowClick={(s) => nav(`${navBase}/students/${s.studentId}`)} columns={[
         { label: 'Roll', key: 'rollNo' }, { label: 'Student', render: (s) => <><b>{s.name}</b> {s.monitor && <Badge tone="blue">Monitor</Badge>}<div className="small muted">{s.admissionNo}</div></> },
         { label: 'Attendance', render: (s) => s.attendance != null ? <Badge tone={s.attendance < 75 ? 'red' : s.attendance < 90 ? 'amber' : 'green'}>{s.attendance}%</Badge> : '—' },
         { label: 'Latest exam', render: (s) => s.latestScore != null ? `${s.latestScore}%` : '—' }, { label: 'Bus', render: (s) => s.bus || <span className="muted">—</span> },
@@ -141,7 +142,21 @@ export function SectionStudents({ sectionId }) {
   );
 }
 
-function SectionAttendance({ sectionId, title }) {
+/** Period by period: the whole class first (every student's attendance in lessons), then one class and day as a grid of students against periods (corrections and asking a teacher to mark). Once a day: the registers. */
+function SectionAttendance({ sectionId, title, periodWise }) {
+  const [day, setDay] = useState(today());
+  if (!periodWise) return <DailyRegisters sectionId={sectionId} title={title} />;
+  return (
+    <ClassAttendanceTabs sectionId={sectionId}>
+      <div className="stack">
+      <div className="row between wrap"><span className="muted small">This school takes attendance period by period. The day is worked out from the periods by the rule in School settings.</span><Input type="date" aria-label="Date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} /></div>
+      <DayGrid role="admin" sectionId={sectionId} date={day} fallback={<DailyRegisters sectionId={sectionId} title={title} />} />
+      </div>
+    </ClassAttendanceTabs>
+  );
+}
+
+function DailyRegisters({ sectionId, title }) {
   const [date, setDate] = useState('');
   const [open, setOpen] = useState(null);
   const hist = useApi('/api/school/attendance/history', { sectionId, from: daysAgo(45) });
@@ -149,7 +164,7 @@ function SectionAttendance({ sectionId, title }) {
   return (
     <div className="stack">
       <Card title={date ? `Register on ${fmtDate(date, true)}` : 'Registers — last 45 days'} action={<div className="row"><Input type="date" value={date} max={today()} onChange={(e) => pick(e.target.value)} aria-label="Date" />{date && <Button size="sm" onClick={() => setDate('')}>Show all</Button>}<Button size="sm" disabled={!date} onClick={() => setOpen(date)}>Open register for this date</Button></div>} flush>
-        <Async state={hist}>{(rows) => <DataTable rows={date ? rows.filter((r) => r.date === date) : rows} rowKey="id" empty={date ? 'No register was taken on this date — use “Open register for this date” to see or fill it' : 'No registers yet'} columns={[
+        <Async skeleton="datatable" state={hist}>{(rows) => <DataTable rows={date ? rows.filter((r) => r.date === date) : rows} rowKey="id" empty={date ? 'No register was taken on this date — use “Open register for this date” to see or fill it' : 'No registers yet'} columns={[
           { label: 'Date', render: (r) => <b>{fmtDate(r.date, true)}</b> }, { label: 'Register', render: (r) => <Badge tone={r.status === 'submitted' ? 'green' : 'amber'}>{label(r.status)}</Badge> },
           { label: 'Present', render: (r) => r.totals.present + r.totals.late }, { label: 'Absent', render: (r) => r.totals.absent }, { label: 'Leave', render: (r) => r.totals.leave + r.totals.excused }, { label: 'Of', render: (r) => r.totals.total },
           { label: 'Attendance', render: (r) => (r.totals.total ? `${Math.round(((r.totals.present + r.totals.late) / r.totals.total) * 100)}%` : '—') }, { label: '', render: (r) => <Button size="sm" onClick={() => setOpen(r.date)}>Open</Button> },
@@ -176,7 +191,7 @@ function SectionSubjects({ o, sectionId, onChange }) {
         <p className="muted small" style={{ margin: '6px 0 0' }}>The class teacher is the only teacher who takes this section's attendance.</p>
       </Card>
       <Card title="Subject teachers" action={<Button size="sm" variant="primary" onClick={() => setModal('asg')}>+ Assign teacher to a subject</Button>} flush>
-        <Async state={asg} empty={<div className="empty">No subject teachers yet.</div>}>{(rows) => <DataTable rows={rows} empty="No subject teachers yet" columns={[
+        <Async skeleton="datatable" state={asg} empty={<div className="empty">No subject teachers yet.</div>}>{(rows) => <DataTable rows={rows} empty="No subject teachers yet" columns={[
           { label: 'Subject', render: (a) => <b>{a.subjectId?.name}</b> }, { label: 'Teacher', render: (a) => a.teacherId?.name }, { label: 'Periods / week', render: (a) => a.offeringId?.weeklyPeriods }, { label: 'Since', render: (a) => fmtDate(a.effectiveFrom, true) },
           { label: '', render: (a) => <ConfirmButton size="sm" message="End this assignment today? Future timetable periods will need a new teacher." onConfirm={async () => { await run(() => post(`/api/school/teaching-assignments/${a._id}/end`, {}), 'Assignment ended'); reload(); }}>End</ConfirmButton> },
         ]} />}</Async>
@@ -190,13 +205,3 @@ function SectionSubjects({ o, sectionId, onChange }) {
   );
 }
 
-/** Period-by-period attendance for one class and day, when the school takes it that way. */
-function SectionPeriods({ sectionId }) {
-  const [date, setDate] = useState(today());
-  const q = useApi('/api/school/period-attendance', { sectionId, date });
-  return (
-    <Card title="Period attendance" action={<Input type="date" aria-label="Date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />} flush>
-      <Async state={q}>{(d) => (!d.enabled ? <Empty title="Period-wise attendance is off">Turn it on in School settings if this school wants each teacher to mark their own period.</Empty> : <DataTable rows={d.periods} rowKey="period" empty="No period attendance was marked on this day" columns={[{ label: 'Period', key: 'period' }, { label: 'Subject', key: 'subject' }, { label: 'Teacher', key: 'teacher' }, { label: 'Absent', render: (p) => (p.absent ? <Badge tone="red">{p.absent}</Badge> : 0) }, { label: 'Late', key: 'late' }, { label: 'Students', key: 'total' }]} />)}</Async>
-    </Card>
-  );
-}

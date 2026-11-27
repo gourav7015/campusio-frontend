@@ -12,7 +12,7 @@ function ClassProgressModal({ year, onClose }) {
   const q = useApi('/api/school/promotions/progress', { yearId: year._id });
   return (
     <Modal wide title={`Classes in ${year.name}`} onClose={onClose} footer={<><Link className="btn" to="/admin/promotion" onClick={onClose}>Year-end promotion</Link><Button onClick={onClose}>Close</Button></>}>
-      <Async state={q}>{(d) => (
+      <Async skeleton="datatable" state={q}>{(d) => (
         <DataTable searchable={false} pageSize={50} rowKey="classId" rows={d.classes} empty="No classes with sections in this year" columns={[
           { label: 'Class', render: (c) => <b>{c.className}</b> }, { label: 'Status', render: (c) => <Badge tone={PROGRESS_TONE[c.status]}>{c.statusLabel}</Badge> },
           { label: 'Session', render: (c) => <span style={{ whiteSpace: 'nowrap' }}>{fmtDate(c.startDate, true)} – {fmtDate(c.endDate, true)}{c.ownDates && <div className="small muted">its own dates</div>}</span> },
@@ -44,7 +44,7 @@ function ClassDatesModal({ year, onClose, onSaved }) {
   return (
     <Modal title={`Class dates · ${year.name}`} wide onClose={onClose} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={invalid} onClick={save}>Save</Button></>}>
       <p className="muted">The school year runs {fmtDate(year.startDate, true)} to {fmtDate(year.endDate, true)}. A class left blank follows it. Give a class its own start and end when it runs on a different calendar, for example classes 9 and 11 starting in February, or classes 10 and 12 ending with the board exams.</p>
-      <Async state={classes}>{() => (
+      <Async skeleton="datatable" keep state={classes}>{() => (
         <div className="table-wrap"><table className="table">
           <thead><tr><th>Class</th><th>Starts</th><th>Ends</th><th /></tr></thead>
           <tbody>{list.map((c) => { const r = rows[c._id]; return (
@@ -70,7 +70,7 @@ export function Years() {
   return (
     <div className="stack">
       <PageHeader title="Academic years" subtitle="Classes, sections, timetables, enrolments and exams all belong to an academic year" actions={<><Button onClick={() => setNext(true)} disabled={!latest}>+ Create next year</Button><Button variant="primary" onClick={() => setEdit({})}>+ Add academic year</Button></>} />
-      <Card flush><Async state={years} empty={<div className="empty">Create the first academic year to begin setting up the school.</div>}>{(rows) => (
+      <Card flush><Async skeleton="datatable" state={years} empty={<div className="empty">Create the first academic year to begin setting up the school.</div>}>{(rows) => (
         <DataTable rows={rows} columns={[
           { label: 'Year', render: (y) => <b>{y.name}</b> }, { label: 'Starts', render: (y) => fmtDate(y.startDate, true) }, { label: 'Ends', render: (y) => fmtDate(y.endDate, true) },
           { label: 'Status', render: (y) => <>{y.isCurrent && <Badge tone="green">Current</Badge>} <Badge tone={statusTone(y.status)}>{y.status}</Badge></> },
