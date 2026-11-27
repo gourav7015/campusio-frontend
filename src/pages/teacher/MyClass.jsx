@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
-import { Async, Spinner, Badge, Button, Card, DataTable, Empty, PageHeader, Select, Tabs, fmtDate, label, statusTone } from '../../components/ui.jsx';
+import { Async, Spinner, Button, Card, Empty, PageHeader, Select, Stat, Tabs } from '../../components/ui.jsx';
 import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
+import MarksByExam from '../../components/MarksByExam.jsx';
 import { Overview, SectionStudents, HomeworkDay } from '../admin/ClassHub.jsx';
 import { OfficeProvider, CLASS_OFFICE } from '../../context/ClassOffice.jsx';
 import { Attendance } from './Teacher1.jsx';
@@ -71,25 +72,47 @@ function OfficeOverview({ sid, go }) {
   );
 }
 
-/** Every subject's marks sheet for this class, not just the ones the class teacher teaches. */
+/**
+ * The marks of this class, examination by examination. The class teacher enters marks only for the subjects he teaches himself; for every other subject he
+ * can see who teaches it, whether it has been submitted and what was entered, but not change it.
+ */
 function ClassMarks({ sid }) {
-  const list = useApi(`${T}/exams`);
+  const list = useApi(`${T}/exams`, { classView: 1 }); // this page alone also lists the other subjects of his class, to follow them
   const nav = useNavigate();
-  const rows = useMemo(() => (list.data || []).filter((r) => r.sectionId === sid), [list.data, sid]);
-  const done = rows.filter((r) => !EDITABLE.includes(r.status)).length;
+  const [exam, setExam] = useState(''); const [mineOnly, setMineOnly] = useState(false);
+  const all = useMemo(() => (list.data || []).filter((r) => r.sectionId === sid), [list.data, sid]);
+  const exams = useMemo(() => {
+    const by = new Map();
+    for (const r of all) { if (!by.has(r.examId)) by.set(r.examId, { id: r.examId, name: r.exam, type: r.type, rows: [] }); by.get(r.examId).rows.push(r); }
+    return [...by.values()].map((e) => ({ ...e, rows: e.rows.sort((a, b) => Number(b.canEnter) - Number(a.canEnter) || (a.date || '9999').localeCompare(b.date || '9999') || a.subject.localeCompare(b.subject)), first: e.rows.map((r) => r.date).filter(Boolean).sort()[0] || '9999' }))
+      .sort((a, b) => a.first.localeCompare(b.first));
+  }, [all]);
+  const mine = all.filter((r) => r.canEnter);
+  const toEnter = mine.filter((r) => EDITABLE.includes(r.status)).length;
   return (
-    <Card flush title="Marks of every subject in this class" action={<Link className="btn sm" to="/teacher/exams">All examinations and marks</Link>}>
-      <div className="card-b small muted">{rows.length ? `${done} of ${rows.length} subject sheets are submitted. As the class teacher you can enter or correct the marks of any subject here, including subjects another teacher teaches.` : ''}</div>
-      <Async skeleton="datatable" state={list} empty={<Empty title="No examinations for this class yet">They appear here once the school schedules one.</Empty>}>{() => (
-        <DataTable rows={rows} rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} empty="No examinations for this class yet" columns={[
-          { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge>{label(r.type)}</Badge></> },
-          { label: 'Subject', render: (r) => <>{r.subject} {r.viaClassTeacher && <Badge>Other teacher's subject</Badge>}</> },
-          { label: 'Date', render: (r) => (r.date ? fmtDate(r.date, true) : '—') },
-          { label: 'Deadline', render: (r) => <>{r.deadline ? fmtDate(r.deadline) : '—'} {r.overdue && <Badge tone="red">Overdue</Badge>}</> },
-          { label: 'Marks', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status || 'not_started')}</Badge> },
-          { label: '', render: (r) => <Button size="sm" variant={EDITABLE.includes(r.status) ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{EDITABLE.includes(r.status) ? 'Enter marks' : 'View'}</Button> },
-        ]} />
-      )}</Async>
-    </Card>
+    <div className="stack">
+      <Async skeleton="datatable" state={list} empty={<Empty title="No examinations for this class yet">They appear here once the school schedules one.</Empty>}>{() => (all.length ? (
+        <>
+          <div className="grid g4">
+            <Stat value={toEnter} label="Your sheets to enter" tone={toEnter ? 'amber' : 'green'} sub={mine.length ? `${mine.length - toEnter} of ${mine.length} of yours submitted` : 'You teach no subject in this class'} />
+            <Stat value={`${all.filter((r) => !EDITABLE.includes(r.status)).length} of ${all.length}`} label="Sheets submitted, whole class" sub={`${exams.length} ${exams.length === 1 ? 'examination' : 'examinations'}`} />
+          </div>
+          <div className="row between wrap">
+            <span className="muted small" style={{ maxWidth: 640 }}>You enter marks for the subjects you teach. For the other subjects you can see who teaches them and whether their marks are in, but only that subject's teacher can enter or change them.</span>
+            <div className="row" style={{ gap: 8 }}>
+              <Select aria-label="Examination" value={exam} onChange={(e) => setExam(e.target.value)} placeholder="All examinations" options={exams.map((e) => ({ value: e.id, label: e.name }))} />
+              <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} /> My subjects only</label>
+              <Link className="btn sm" to="/teacher/exams">All examinations and marks</Link>
+            </div>
+          </div>
+          {(() => {
+            const rows = all.filter((r) => (!exam || r.examId === exam) && (!mineOnly || r.canEnter));
+            return rows.length ? <MarksByExam showTeacher rows={rows} actions={(r) => {
+              const enter = r.canEnter && EDITABLE.includes(r.status);
+              return <Button size="sm" variant={enter ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{enter ? (r.status === 'draft' ? 'Continue' : 'Enter marks') : 'View'}</Button>;
+            }} /> : <Card><Empty title="Nothing in this view" /></Card>;
+          })()}
+        </>) : <Empty title="No examinations for this class yet">They appear here once the school schedules one.</Empty>)}</Async>
+    </div>
   );
 }

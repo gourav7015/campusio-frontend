@@ -6,6 +6,7 @@ import { useApi, useForm } from '../../hooks/useApi.js';
 import { post, put, patch, del } from '../../api/client.js';
 import { FilterBar, ListCard } from '../../design/ui';
 import { useAuth } from '../../auth/AuthContext.jsx';
+import { AttendanceWayPlan } from '../admin/AttendanceWay.jsx';
 import {
   Async, Badge, Button, Card, CredentialsModal, DataTable, Field, Input, Modal, PageHeader, Select, Stat, useAction, fmtDateTime, statusTone, label, ConfirmButton,
 } from '../../components/ui.jsx';
@@ -107,6 +108,7 @@ export function SchoolDetail() {
             ]} />
           </Card>
         </div>
+        <Card title="Student attendance" action={<span className="muted small">Part of this school's plan</span>}><AttendanceWayPlan schoolId={id} /></Card>
         <FeatureSwitches schoolId={id} />
         {addAdmin && <Modal title="Add school administrator" onClose={() => setAddAdmin(false)} footer={<><Button onClick={() => setAddAdmin(false)}>Cancel</Button><Button variant="primary" loading={busy} disabled={!adm.values.name || !adm.values.email || String(adm.values.phone || '').replace(/\D/g, '').length < 10 || !adm.values.dob} onClick={async () => {
           const r = await run(() => post(`/api/platform/schools/${id}/admins`, adm.values), 'Admin created'); if (r) { setAddAdmin(false); adm.reset(); s.reload(); setCreds(r); } }}>Create</Button></>}>

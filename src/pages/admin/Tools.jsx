@@ -2,9 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { useLookups } from '../../hooks/useLookups.js';
-import { post, put } from '../../api/client.js';
-import AttendanceWay from './AttendanceWay.jsx';
-import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, Input, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtDateTime, label, Spinner } from '../../components/ui.jsx';
+import { post } from '../../api/client.js';
+import { Async, Badge, Button, Card, ConfirmButton, DataTable, Field, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtDateTime, label, Spinner } from '../../components/ui.jsx';
 import { BarsChart } from '../../components/Charts.jsx';
 import NextYearModal from '../../components/NextYearModal.jsx';
 import AuditLog from '../../components/AuditLog.jsx';
@@ -182,133 +181,12 @@ export function Reports() {
   );
 }
 
-// ───────────── Settings ─────────────
-/** How leave may be applied for. Teaching and non-teaching staff have their own rules (0 means no limit). */
-function LeaveRules({ who, data, set }) {
-  const r = { maxDays: 0, noticeDays: 0, halfDay: true, ...(data.leaveRules?.[who] || {}) };
-  const put = (patch) => set({ leaveRules: { teaching: { maxDays: 0, noticeDays: 0, halfDay: true }, nonTeaching: { maxDays: 0, noticeDays: 0, halfDay: true }, ...(data.leaveRules || {}), [who]: { ...r, ...patch } } });
-  const name = who === 'teaching' ? 'teaching staff' : 'non-teaching staff';
-  return (
-    <div className="stack-sm" style={{ marginTop: 14 }}>
-      <div className="bold">Rules for applying ({name})</div>
-      <div className="form-grid">
-        <Field label="Most days in one application" hint="0 means no limit"><Input type="number" min="0" max="365" aria-label={`Most days in one application, ${name}`} value={r.maxDays} onChange={(e) => put({ maxDays: Number(e.target.value) })} /></Field>
-        <Field label="Days of notice needed" hint="0 means none. Sick leave never needs notice"><Input type="number" min="0" max="60" aria-label={`Days of notice needed, ${name}`} value={r.noticeDays} onChange={(e) => put({ noticeDays: Number(e.target.value) })} /></Field>
-      </div>
-      <label className="row"><input type="checkbox" checked={r.halfDay} onChange={(e) => put({ halfDay: e.target.checked })} /> Half-day leave is allowed for {name}</label>
-    </div>
-  );
-}
-
-export function Settings() {
-  const s = useApi('/api/school/settings');
-  const [v, setV] = useState(null);
-  const [run, busy] = useAction();
-  const data = v || s.data;
-  const set = (patch) => setV({ ...data, ...patch });
-  const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: { lateCountsAsPresent: data.attendance.lateCountsAsPresent, dayRule: data.attendance.dayRule }, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, grading: data.grading };
-    const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
-  };
-  if (!data) return <Async state={s}>{() => null}</Async>;
-  const days = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  return (
-    <div className="stack">
-      <PageHeader title="School settings" subtitle="Changes apply going forward. Published report cards keep the grading they were published with." actions={<Button variant="primary" loading={busy} onClick={save}>Save settings</Button>} />
-      <div className="grid g2">
-        <Card title="General"><div className="stack">
-          <Field label="School name"><Input value={data.schoolName} onChange={(e) => set({ schoolName: e.target.value })} /></Field>
-          <Field label="Time zone" hint="Used for 'today', countdowns and scheduling"><Input value={data.timezone} onChange={(e) => set({ timezone: e.target.value })} /></Field>
-          <Field label="Starting password format" hint="Used for new students, teachers and staff, and when you reset a password. {NAME4} first 4 letters of the name in capitals, {name4} in small letters, {DDMMYYYY} {DDMM} {YYYY} {YY} date of birth, {PHONE4} last 4 digits of the phone. Leave empty for a random password each time. People must choose their own at first sign-in.">
-            <Input value={data.passwordFormat ?? ''} placeholder="{NAME4}{DDMMYYYY}" onChange={(e) => set({ passwordFormat: e.target.value })} />
-            <span className="small muted">Example for Aarav Singh, born 10 Jan 2013: <b>{exampleFormat(data.passwordFormat ?? '')}</b></span></Field>
-          <Field label="Admission number format" hint="{YYYY} year, {SEQ:4} zero-padded counter"><Input value={data.admissionFormat} onChange={(e) => set({ admissionFormat: e.target.value })} /></Field>
-          <div><div className="bold" style={{ marginBottom: 6 }}>Working days</div><div className="row wrap">{[1, 2, 3, 4, 5, 6, 7].map((d) => <label key={d} className="chip"><input type="checkbox" checked={data.workingDays.includes(d)} onChange={(e) => set({ workingDays: e.target.checked ? [...data.workingDays, d].sort() : data.workingDays.filter((x) => x !== d) })} /> {days[d]}</label>)}</div></div>
-        </div></Card>
-        <Card title="Attendance rules"><div className="stack">
-          <label className="row"><input type="checkbox" checked={data.attendance.lateCountsAsPresent} onChange={(e) => set({ attendance: { ...data.attendance, lateCountsAsPresent: e.target.checked } })} /> Late counts as present in the percentage</label>
-          <AttendanceWay rule={data.attendance.dayRule} onRule={(dayRule) => set({ attendance: { ...data.attendance, dayRule } })} />
-          <div className="alert info small">Once a register is submitted it is locked; later changes need a reason and are kept in its history.</div>
-          <label className="row"><input type="checkbox" checked={data.showAttendanceVsPerformance} onChange={(e) => set({ showAttendanceVsPerformance: e.target.checked })} /> Show attendance-vs-performance analysis to teachers</label>
-        </div></Card>
-        <Card title="Grading"><div className="stack">
-          <Field label="Pass percentage"><Input type="number" min="0" max="100" value={data.grading.passPercentage} onChange={(e) => set({ grading: { ...data.grading, passPercentage: Number(e.target.value) } })} /></Field>
-          <table><thead><tr><th>Minimum %</th><th>Grade</th><th /></tr></thead><tbody>{data.grading.scale.map((b, i) => <tr key={i}>
-            <td><Input type="number" value={b.min} onChange={(e) => set({ grading: { ...data.grading, scale: data.grading.scale.map((x, j) => (j === i ? { ...x, min: Number(e.target.value) } : x)) } })} /></td>
-            <td><Input value={b.grade} onChange={(e) => set({ grading: { ...data.grading, scale: data.grading.scale.map((x, j) => (j === i ? { ...x, grade: e.target.value } : x)) } })} /></td>
-            <td><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: data.grading.scale.filter((_, j) => j !== i) } })} disabled={data.grading.scale.length <= 2}>Remove</Button></td></tr>)}</tbody></table>
-          <div><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: [...data.grading.scale, { min: 0, grade: '' }] } })}>+ Add band</Button></div>
-        </div></Card>
-        <Card title="Teacher leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.leaveBalances[k]} onChange={(e) => set({ leaveBalances: { ...data.leaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><LeaveRules who="teaching" data={data} set={set} />
-        </Card>
-      </div>
-      <StaffPolicies data={data} set={set} />
-    </div>
-  );
-}
-
 // ───────────── Audit ─────────────
 export function Audit() {
   return (
     <div className="stack">
       <PageHeader title="Audit log" subtitle="Who did what, and when. Includes actions taken by the platform administrator on your behalf. It opens on today: change the days, or narrow it by person, role, kind of action or words." />
       <AuditLog base="/api/school" />
-    </div>
-  );
-}
-
-/** Staff working hours, the school's location for check-in, staff leave allowances, and statutory deductions. */
-/** The same rules as the server, to preview a starting password while the format is being typed. */
-function exampleFormat(f) {
-  if (!f) return 'a random password';
-  if (!/\{(NAME4|NAME3|name4|DDMMYYYY|DDMM|YYYY|YY|PHONE4)\}/.test(f)) return 'not valid yet: use at least one {token}';
-  return f.replace(/\{NAME4\}/g, 'AARA').replace(/\{NAME3\}/g, 'AAR').replace(/\{name4\}/g, 'aara').replace(/\{DDMMYYYY\}/g, '10012013').replace(/\{DDMM\}/g, '1001').replace(/\{YYYY\}/g, '2013').replace(/\{YY\}/g, '13').replace(/\{PHONE4\}/g, '4321');
-}
-
-function StaffPolicies({ data, set }) {
-  const sa = data.staffAttendance; const st = data.statutory;
-  const [locating, setLocating] = useState(false);
-  const setSa = (patch) => set({ staffAttendance: { ...sa, ...patch } });
-  const setSt = (k, patch) => set({ statutory: { ...st, [k]: { ...st[k], ...patch } } });
-  const useHere = () => { setLocating(true); navigator.geolocation.getCurrentPosition((p) => { setSa({ location: { lat: Number(p.coords.latitude.toFixed(6)), lng: Number(p.coords.longitude.toFixed(6)), radiusMeters: sa.location?.radiusMeters || 200 } }); setLocating(false); }, () => { setLocating(false); window.alert('Could not get your location. Allow location access, or type the coordinates.'); }); };
-  const num = (v) => (v === '' ? '' : Number(v));
-  return (
-    <div className="grid g2">
-      <Card title="Staff working hours and check-in"><div className="stack">
-        <div className="form-grid">
-          <Field label="Shift starts"><Input type="time" value={sa.shiftStart} onChange={(e) => setSa({ shiftStart: e.target.value })} /></Field>
-          <Field label="Shift ends"><Input type="time" value={sa.shiftEnd} onChange={(e) => setSa({ shiftEnd: e.target.value })} /></Field>
-          <Field label="Grace period (minutes)" hint="Arriving within this is on time"><Input type="number" min="0" value={sa.graceMinutes} onChange={(e) => setSa({ graceMinutes: num(e.target.value) })} /></Field>
-          <Field label="Full day (hours)"><Input type="number" min="1" step="0.5" value={sa.fullDayHours} onChange={(e) => setSa({ fullDayHours: num(e.target.value) })} /></Field>
-          <Field label="Half day below (hours)"><Input type="number" min="0.5" step="0.5" value={sa.halfDayHours} onChange={(e) => setSa({ halfDayHours: num(e.target.value) })} /></Field>
-          <Field label="Check-in opens (minutes before shift)" hint="Staff cannot check in earlier than this"><Input type="number" min="0" max="600" value={sa.checkInOpensBeforeMinutes ?? 60} onChange={(e) => setSa({ checkInOpensBeforeMinutes: num(e.target.value) })} /></Field>
-          <label className="row full"><input type="checkbox" checked={sa.checkInClosesAtShiftEnd !== false} onChange={(e) => setSa({ checkInClosesAtShiftEnd: e.target.checked })} /> Check-in closes when the shift ends (the office can still enter a time)</label>
-        </div>
-        <div className="bold">Check in only from the school <span className="muted">(optional)</span></div>
-        <label className="row"><input type="checkbox" checked={!!sa.location} onChange={(e) => setSa({ location: e.target.checked ? { lat: 0, lng: 0, radiusMeters: 200 } : null })} /> Staff may check in only within a distance of the school</label>
-        {sa.location && <div className="form-grid">
-          <Field label="Latitude"><Input type="number" step="any" value={sa.location.lat} onChange={(e) => setSa({ location: { ...sa.location, lat: num(e.target.value) } })} /></Field>
-          <Field label="Longitude"><Input type="number" step="any" value={sa.location.lng} onChange={(e) => setSa({ location: { ...sa.location, lng: num(e.target.value) } })} /></Field>
-          <Field label="Allowed distance (metres)"><Input type="number" min="20" value={sa.location.radiusMeters} onChange={(e) => setSa({ location: { ...sa.location, radiusMeters: num(e.target.value) } })} /></Field>
-          <div style={{ alignSelf: 'end' }}><Button size="sm" loading={locating} onClick={useHere}>Use my current location</Button></div>
-        </div>}
-        <p className="muted small" style={{ margin: 0 }}>Stand at the school and press “Use my current location”. A check-in from outside the distance is refused. Staff without a login, and machine imports, are not affected.</p>
-      </div></Card>
-      <Card title="Who approves transport staff leave"><div className="stack">
-        <Field label="Approved by"><Select value={data.transportLeaveApprover || 'officer'} onChange={(e) => set({ transportLeaveApprover: e.target.value })} options={[{ value: 'officer', label: 'The Transport officer (the admin is told)' }, { value: 'admin', label: 'The School Admin (the officer can only pass applications on)' }]} /></Field>
-        <p className="muted small" style={{ margin: 0 }}>Either way, the Transport officer can also send any single leave to you. Those waiting for you are under Staff leave, Transport staff.</p>
-      </div></Card>
-      <Card title="Staff leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.staffLeaveBalances[k]} onChange={(e) => set({ staffLeaveBalances: { ...data.staffLeaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><LeaveRules who="nonTeaching" data={data} set={set} /><p className="muted small">For non-teaching and transport staff. Unpaid leave has no limit.</p></Card>
-      <Card title="Statutory deductions (India)"><div className="stack">
-        <p className="muted small" style={{ margin: 0 }}>Switch on what applies to your school. These are deducted on every payslip, unless a pay level already has its own line for that deduction (it is then used, never added twice). Employer shares are shown in the monthly statutory report.</p>
-        <label className="row"><input type="checkbox" checked={st.pf.enabled} onChange={(e) => setSt('pf', { enabled: e.target.checked })} /> <b>Provident Fund (PF)</b></label>
-        {st.pf.enabled && <div className="form-grid"><Field label="Employee %"><Input type="number" step="0.01" value={st.pf.employeeRate} onChange={(e) => setSt('pf', { employeeRate: num(e.target.value) })} /></Field><Field label="Employer %"><Input type="number" step="0.01" value={st.pf.employerRate} onChange={(e) => setSt('pf', { employerRate: num(e.target.value) })} /></Field><Field label="Wage ceiling (₹/month)"><Input type="number" value={st.pf.wageCeiling} onChange={(e) => setSt('pf', { wageCeiling: num(e.target.value) })} /></Field></div>}
-        <label className="row"><input type="checkbox" checked={st.esi.enabled} onChange={(e) => setSt('esi', { enabled: e.target.checked })} /> <b>ESI</b></label>
-        {st.esi.enabled && <div className="form-grid"><Field label="Employee %"><Input type="number" step="0.01" value={st.esi.employeeRate} onChange={(e) => setSt('esi', { employeeRate: num(e.target.value) })} /></Field><Field label="Employer %"><Input type="number" step="0.01" value={st.esi.employerRate} onChange={(e) => setSt('esi', { employerRate: num(e.target.value) })} /></Field><Field label="Applies up to gross (₹/month)"><Input type="number" value={st.esi.grossCeiling} onChange={(e) => setSt('esi', { grossCeiling: num(e.target.value) })} /></Field></div>}
-        <label className="row"><input type="checkbox" checked={st.pt.enabled} onChange={(e) => setSt('pt', { enabled: e.target.checked })} /> <b>Professional Tax</b></label>
-        {st.pt.enabled && <div className="stack-sm">{st.pt.slabs.map((sl, i) => (
-          <div className="row" key={i}><span className="muted">Gross up to ₹</span><Input aria-label={`Slab ${i + 1} up to`} type="number" value={sl.upTo >= 1e9 ? '' : sl.upTo} placeholder="no limit" onChange={(e) => setSt('pt', { slabs: st.pt.slabs.map((x, j) => (j === i ? { ...x, upTo: e.target.value === '' ? 1000000000 : num(e.target.value) } : x)) })} style={{ maxWidth: 140 }} /><span className="muted">tax ₹</span><Input aria-label={`Slab ${i + 1} amount`} type="number" value={sl.amount} onChange={(e) => setSt('pt', { slabs: st.pt.slabs.map((x, j) => (j === i ? { ...x, amount: num(e.target.value) } : x)) })} style={{ maxWidth: 110 }} /></div>))}</div>}
-      </div></Card>
     </div>
   );
 }

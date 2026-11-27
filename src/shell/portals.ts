@@ -1,11 +1,12 @@
 import {
   Award, BarChart3, Building2, Bus, CalendarDays, CalendarRange, ClipboardList, Clock, CreditCard, FileSpreadsheet, FileText, GraduationCap,
-  IndianRupee, KeyRound, Layers, LayoutDashboard, Mail, Megaphone, MessagesSquare, NotebookPen, PlaneTakeoff, Scale, School, ScrollText, Settings, SlidersHorizontal, TrendingUp,
+  IndianRupee, KeyRound, Layers, LayoutDashboard, Mail, Megaphone, NotebookPen, PlaneTakeoff, Scale, School, ScrollText, Settings, SlidersHorizontal, TrendingUp,
   Upload, UserCheck, UserRound, Users, Wallet, BookMarked, BookOpen, ArrowLeftRight, BadgeCheck, ShieldCheck, Landmark, PiggyBank, Receipt, MessageCircle, MessageSquareWarning, Repeat, Info, HelpCircle, LifeBuoy, Smartphone, AlertTriangle, Flag, Inbox, FilePenLine, Store, Banknote, FileOutput, CalendarClock, CircleArrowUp, Briefcase, UserX, Globe, ChartPie, type LucideIcon,
 } from 'lucide-react';
+import { SETTINGS_GROUPS } from './settingsGroups';
 
 export type PortalKey = 'platform' | 'admin' | 'teacher' | 'student' | 'finance' | 'library' | 'transport' | 'staff';
-export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; /** API path that returns { count }: shown as a small number beside the label */ badge?: string }
+export interface NavItem { to: string; label: string; icon: LucideIcon; end?: boolean; /** pages inside this one, listed under it while it is open (School settings: its groups) */ children?: { key: string; to: string; label: string }[]; /** API path that returns { count }: shown as a small number beside the label */ badge?: string }
 export interface NavGroup {
   /** shown only to a class teacher */
   classTeacherOnly?: boolean; label?: string; /** the area's icon in the School admin rail */ icon?: LucideIcon; items: NavItem[] }
@@ -59,7 +60,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/admin/documents', label: 'Receipts and payslips', icon: FilePenLine },
       ] },
       { label: 'Messages', icon: Mail, items: [
-        { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
+        { to: '/admin/announcements', label: 'Notices', icon: Megaphone },
         { to: '/admin/events', label: 'School calendar', icon: CalendarDays },
         { to: '/admin/messages', label: 'Messages', icon: Mail },
         { to: '/admin/queries', label: 'Teachers\' queries', icon: Inbox, badge: '/api/school/queries/summary' },
@@ -72,7 +73,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Settings', icon: SlidersHorizontal, items: [
         { to: '/admin/school-info', label: 'School information', icon: Info },
-        { to: '/admin/settings', label: 'School settings', icon: Settings },
+        { to: '/admin/settings', label: 'School settings', icon: Settings, children: SETTINGS_GROUPS.map((g) => ({ key: g.key, to: g.to, label: g.label })) },
         { to: '/admin/guide', label: 'Quick guide', icon: HelpCircle },
       ] },
     ],
@@ -102,7 +103,6 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/teacher/exams', label: 'Examinations and marks', icon: ClipboardList },
       ] },
       { label: 'Messages', icon: Mail, items: [
-        { to: '/teacher/communication', label: 'Communication', icon: MessagesSquare },
         { to: '/teacher/chats', label: 'Parent messages', icon: MessageCircle },
         { to: '/teacher/remarks', label: 'Remarks', icon: MessageSquareWarning },
         { to: '/teacher/queries', label: 'Queries to the office', icon: Inbox, badge: '/api/teacher/queries/summary' },
@@ -115,6 +115,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/teacher/salary', label: 'Salary and payslips', icon: Wallet },
         { to: '/teacher/profile', label: 'My profile', icon: UserRound },
         { to: '/teacher/library', label: 'Library', icon: BookMarked },
+        { to: '/teacher/notices', label: 'Notices', icon: Megaphone },
         { to: '/teacher/school-info', label: 'School information', icon: Info },
         { to: '/teacher/guide', label: 'Quick guide', icon: HelpCircle },
       ] },
@@ -130,7 +131,7 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/student/results', label: 'Results and class ranks', icon: Award }, { to: '/student/performance', label: 'My performance', icon: TrendingUp }, { to: '/student/class', label: 'Class analysis', icon: ChartPie },
       ] },
       { label: 'School', icon: School, items: [
-        { to: '/student/attendance', label: 'My attendance', icon: UserCheck }, { to: '/student/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/student/announcements', label: 'Announcements', icon: Megaphone },
+        { to: '/student/attendance', label: 'My attendance', icon: UserCheck }, { to: '/student/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/student/announcements', label: 'Notices', icon: Megaphone },
         { to: '/student/fees', label: 'Fee information', icon: IndianRupee }, { to: '/student/library', label: 'Library', icon: BookMarked },
         { to: '/student/remarks', label: 'Teacher remarks', icon: MessageSquareWarning }, { to: '/student/chats', label: 'Message a teacher', icon: MessageCircle }, { to: '/student/school-info', label: 'School information', icon: Info },
       ] },
@@ -153,8 +154,9 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Reports', icon: BarChart3, items: [{ to: '/finance/reports', label: 'Reports', icon: BarChart3 }] },
       { label: 'Office', icon: Landmark, items: [
-        { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays },
-        { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/school-info', label: 'School information', icon: Info },
+        { to: '/finance/profile', label: 'Tax and bank details', icon: Landmark },
+        { to: '/finance/notices', label: 'Notices', icon: Megaphone }, { to: '/finance/queries', label: 'Queries to the office', icon: Inbox, badge: '/api/finance/queries/summary' },
+        { to: '/finance/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/finance/tickets/summary' }, { to: '/finance/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/finance/school-info', label: 'School information', icon: Info },
       ] },
     ],
   },
@@ -168,8 +170,9 @@ export const PORTALS: Record<PortalKey, Portal> = {
       ] },
       { label: 'Catalogue', icon: BookMarked, items: [{ to: '/library/books', label: 'Catalogue', icon: BookMarked }] },
       { label: 'Office', icon: Landmark, items: [
-        { to: '/library/settings', label: 'Library rules', icon: Scale }, { to: '/library/calendar', label: 'School calendar', icon: CalendarDays },
-        { to: '/library/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/library/tickets/summary' }, { to: '/library/school-info', label: 'School information', icon: Info },
+        { to: '/library/settings', label: 'Library rules', icon: Scale },
+        { to: '/library/notices', label: 'Notices', icon: Megaphone }, { to: '/library/queries', label: 'Queries to the office', icon: Inbox, badge: '/api/library/queries/summary' },
+        { to: '/library/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/library/tickets/summary' }, { to: '/library/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/library/school-info', label: 'School information', icon: Info },
       ] },
     ],
   },
@@ -183,18 +186,25 @@ export const PORTALS: Record<PortalKey, Portal> = {
         { to: '/transport/staff', label: 'Drivers and staff', icon: Users }, { to: '/transport/attendance', label: 'Staff attendance', icon: UserCheck }, { to: '/transport/leave', label: 'Staff leave', icon: PlaneTakeoff },
       ] },
       { label: 'Office', icon: Landmark, items: [
-        { to: '/transport/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/transport/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/transport/tickets/summary' }, { to: '/transport/school-info', label: 'School information', icon: Info },
+        { to: '/transport/notices', label: 'Notices', icon: Megaphone }, { to: '/transport/queries', label: 'Queries to the office', icon: Inbox, badge: '/api/transport/queries/summary' },
+        { to: '/transport/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/transport/tickets/summary' }, { to: '/transport/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/transport/school-info', label: 'School information', icon: Info },
       ] },
     ],
   },
   staff: {
     key: 'staff', title: 'Staff', home: '/staff', variant: 'top', api: null, search: false,
     tabs: ['/staff', '/staff/attendance-desk', '/staff/leave', '/staff/queries'],
-    groups: [{ items: [
-      dash('/staff'), { to: '/staff/attendance-desk', label: 'Attendance', icon: UserCheck }, { to: '/staff/leave', label: 'Leave', icon: PlaneTakeoff }, { to: '/staff/employees', label: 'Employees', icon: Users },
-      { to: '/staff/queries', label: 'Teachers\' queries', icon: Inbox, badge: '/api/staff/queries/summary' }, { to: '/staff/calendar', label: 'School calendar', icon: CalendarDays },
-      { to: '/staff/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/staff/tickets/summary' }, { to: '/staff/school-info', label: 'School information', icon: Info }, { to: '/staff/profile', label: 'My profile', icon: UserRound },
-    ] }],
+    groups: [
+      { label: 'Home', icon: LayoutDashboard, items: [dash('/staff')] },
+      { label: 'Desk', icon: UserCheck, items: [
+        { to: '/staff/attendance-desk', label: 'Attendance', icon: UserCheck }, { to: '/staff/leave', label: 'Leave', icon: PlaneTakeoff }, { to: '/staff/employees', label: 'Employees', icon: Users },
+        { to: '/staff/queries', label: 'Teachers\' queries', icon: Inbox, badge: '/api/staff/queries/summary' },
+      ] },
+      { label: 'Office', icon: Landmark, items: [
+        { to: '/staff/notices', label: 'Notices', icon: Megaphone }, { to: '/staff/helpdesk', label: 'Help desk', icon: LifeBuoy, badge: '/api/staff/tickets/summary' },
+        { to: '/staff/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/staff/school-info', label: 'School information', icon: Info }, { to: '/staff/profile', label: 'My profile', icon: UserRound },
+      ] },
+    ],
   },
 };
 

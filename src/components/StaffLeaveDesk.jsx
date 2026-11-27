@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw } from './leaveForm.js';
+import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw, takeBackWords } from './leaveForm.js';
 import { useApi } from '../hooks/useApi.js';
 import { post, patch } from '../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Select, useAction, fmtDate, label, statusTone } from './ui.jsx';
@@ -36,7 +36,7 @@ export default function StaffLeaveDesk({ base, staffBase, canEdit = true, canRec
             : <span className="small muted">Waiting for the school admin</span>) }, { label: 'Edit', render: (l) => l.status !== 'cancelled' && (
               <div className="row" style={{ gap: 6 }}>
                 <Button size="sm" onClick={() => setEdit(l)}>Edit</Button>
-                {canWithdraw(l) && <ConfirmButton size="sm" message={l.status === 'approved' ? `Cancel the approved leave of ${l.staffId?.name}? The attendance for those days is no longer marked as leave.` : `Withdraw the leave application of ${l.staffId?.name}?`} onConfirm={async () => { await run(() => post(`${base}/${l._id}/withdraw`), l.status === 'approved' ? 'Leave cancelled' : 'Application withdrawn'); list.reload(); }}>{l.status === 'approved' ? 'Cancel leave' : 'Withdraw'}</ConfirmButton>}
+                {canWithdraw(l) && (l.status === 'approved' ? (() => { const w = takeBackWords(l, `the approved leave of ${l.staffId?.name}`); return <ConfirmButton size="sm" message={w.message} onConfirm={async () => { await run(() => post(`${base}/${l._id}/withdraw`), w.done); list.reload(); }}>{w.button}</ConfirmButton>; })() : <ConfirmButton size="sm" message={`Withdraw the leave application of ${l.staffId?.name}?`} onConfirm={async () => { await run(() => post(`${base}/${l._id}/withdraw`), 'Application withdrawn'); list.reload(); }}>Withdraw</ConfirmButton>)}
               </div>) }] : []),
         ]} />}</Async>
       </Card>

@@ -1,4 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
+import { useDirtyGroups } from './settingsStore';
 import { useQueries } from '@tanstack/react-query';
 import { get } from '../api/client.js';
 import { cn } from '../design/lib/cn';
@@ -48,6 +49,7 @@ export function AreaRail({ portal, pathname }: { portal: Portal; pathname: strin
 
 export function AreaPanel({ portal, pathname, open }: { portal: Portal; pathname: string; open: boolean }) {
   const g = areaOf(portal.groups, pathname);
+  const dirtyGroups = useDirtyGroups();
   if (!g) return null;
   return (
     <aside aria-label={`${g.label} pages`} className={cn('sticky top-0 hidden h-dvh shrink-0 overflow-hidden border-border/60 bg-card transition-[width,opacity] duration-200 lg:block', open ? 'w-[244px] border-r opacity-100' : 'invisible w-0 border-0 opacity-0')}>
@@ -66,6 +68,15 @@ export function AreaPanel({ portal, pathname, open }: { portal: Portal; pathname
                     {it.badge && <PageCount url={it.badge} />}
                   </>)}
                 </NavLink>
+                {it.children && (pathname === it.to || pathname.startsWith(`${it.to}/`)) && (
+                  <ul className="ml-[22px] mt-0.5 flex flex-col gap-px border-l border-border pl-2">
+                    {it.children.map((c) => (
+                      <li key={c.to}>
+                        <NavLink to={c.to} end className={({ isActive }) => cn('flex items-center justify-between gap-2 rounded-[9px] px-3 py-2 text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', isActive ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground')}>
+                          {c.label}{dirtyGroups.includes(c.key) && <span role="img" aria-label="Unsaved changes" className="size-[7px] rounded-full bg-warning" />}
+                        </NavLink>
+                      </li>))}
+                  </ul>)}
               </li>
             ))}
           </ul>
@@ -87,10 +98,10 @@ function PageCount({ url }: { url: string }) {
 export function TopNav({ portal, pathname }: { portal: Portal; pathname: string }) {
   const flat = portal.groups.length === 1;
   const current = areaOf(portal.groups, pathname);
-  const link = (active: boolean) => cn('relative flex items-center gap-2 whitespace-nowrap rounded-[10px] px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', active ? 'bg-tone-soft text-tone-ink' : 'text-muted-foreground hover:bg-muted hover:text-foreground');
+  const link = (active: boolean) => cn('relative flex items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:px-3.5', active ? 'bg-tone-soft text-tone-ink' : 'text-muted-foreground hover:bg-muted hover:text-foreground');
   if (flat) {
     return (
-      <nav aria-label="Main" className="hidden min-w-0 flex-1 gap-0.5 overflow-x-auto lg:flex">
+      <nav aria-label="Main" className="hidden min-w-0 flex-1 gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
         {portal.groups[0].items.map((it) => (
           <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => link(isActive)}>{it.label}{it.badge && <PageCount url={it.badge} />}</NavLink>
         ))}
@@ -98,7 +109,7 @@ export function TopNav({ portal, pathname }: { portal: Portal; pathname: string 
     );
   }
   return (
-    <nav aria-label="Areas" className="hidden min-w-0 flex-1 gap-0.5 overflow-x-auto lg:flex">
+    <nav aria-label="Areas" className="hidden min-w-0 flex-1 gap-0.5 overflow-x-auto [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
       {portal.groups.map((g) => <TopArea key={g.label} g={g} active={g === current} cls={link(g === current)} />)}
     </nav>
   );

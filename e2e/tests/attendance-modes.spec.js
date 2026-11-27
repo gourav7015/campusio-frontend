@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signIn, watch } from './helpers.js';
-import { resetAttendance, setWay } from './attendance-way.js';
+import { resetAttendance, setWay, schoolId } from './attendance-way.js';
 
 // Not a school day on a Sunday: the demo school does not work then, so nothing can be marked
 test.skip(new Date().getDay() === 0, 'the demo school does not work on Sunday');
@@ -8,28 +8,44 @@ test.skip(new Date().getDay() === 0, 'the demo school does not work on Sunday');
 test.describe.configure({ mode: 'serial' });
 test.afterAll(async () => { await resetAttendance(); }); // leave the shared demo school the way it was found
 
-test('the School Admin switches the school to period by period, with a dialog that says what will happen', async ({ page }) => {
+test('only AtKaksha switches the way, from the school page on the platform, with a dialog that says what will happen; the School Admin sees it and cannot change it', async ({ page, browser }) => {
   const problems = watch(page);
   await resetAttendance();
+  // the School Admin: looks, cannot change
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/settings');
-  const way = page.getByRole('radiogroup', { name: 'How student attendance is taken' });
-  await expect(way.getByRole('radio', { name: /Once a day/ })).toHaveAttribute('aria-checked', 'true');
+  await page.goto('/admin/settings/attendance');
+  await expect(page.getByText('How this school takes student attendance')).toBeVisible();
+  await expect(page.getByText('Your plan')).toBeVisible();
+  await expect(page.getByText(/part of your school's plan with AtKaksha/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'write to AtKaksha support' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Review and switch/ })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'How student attendance is taken' })).toHaveCount(0);
   await expect(page.getByText('How a day is worked out')).toHaveCount(0); // only for period by period
+  // AtKaksha: the platform school page
+  const ctx = await browser.newContext(); const pp = await ctx.newPage(); const pproblems = watch(pp);
+  await signIn(pp, 'platform', 'superadmin@erp.local', 'Super@12345');
+  await pp.goto(`/platform/schools/${await schoolId()}`);
+  const way = pp.getByRole('radiogroup', { name: 'How student attendance is taken' });
+  await expect(way.getByRole('radio', { name: /Once a day/ })).toHaveAttribute('aria-checked', 'true');
   await way.getByRole('radio', { name: /Period by period/ }).click();
-  await expect(page.getByText('How a day is worked out')).toBeVisible();
-  await expect(page.getByText(/5 to 6 present is Present, 3 to 4 is Half day/)).toBeVisible();
-  await page.getByRole('button', { name: 'Review and switch to period by period' }).click();
-  const dlg = page.getByRole('dialog', { name: 'Switch to period by period?' });
+  await pp.getByRole('button', { name: 'Review and switch to period by period' }).click();
+  const dlg = pp.getByRole('dialog', { name: 'Switch to period by period?' });
   await expect(dlg.getByText('Recommended')).toBeVisible();
   await expect(dlg.getByText(/Records before that date stay exactly as they are/)).toBeVisible();
   await dlg.getByRole('radio', { name: /From today/ }).check(); // nothing has been taken today in the freshly reset demo
   await dlg.getByRole('button', { name: 'Switch from today' }).click();
-  const done = page.getByRole('dialog', { name: 'Done' }); // the answer comes at once: it never waits for the notices
+  const done = pp.getByRole('dialog', { name: 'Done' }); // the answer comes at once: it never waits for the notices
   await expect(done.getByText(/From today attendance is taken period by period/)).toBeVisible();
   await done.getByRole('button', { name: 'Close' }).last().click();
-  await expect(page.getByRole('radio', { name: /Period by period/ })).toContainText('In use now');
+  await expect(pp.getByRole('radio', { name: /Period by period/ })).toContainText('In use now');
+  await ctx.close();
+  // and the School Admin now sees it, with the day rule to look after
+  await page.reload();
+  await expect(page.getByText('Period by period').first()).toBeVisible();
+  await expect(page.getByText('How a day is worked out')).toBeVisible();
+  await expect(page.getByText(/5 to 6 present is Present, 3 to 4 is Half day/)).toBeVisible();
   expect(problems, problems.join('\n')).toEqual([]);
+  expect(pproblems.filter((p) => !/HTTP 40/.test(p)), pproblems.join('\n')).toEqual([]);
 });
 
 test('a teacher marks their own period; the class teacher has no daily register; the student, the board and the day follow', async ({ page, browser }) => {
@@ -119,8 +135,8 @@ test('switching back is booked for tomorrow once a period was marked today, and 
   const mine8A = list.periods.find((p) => p.className === 'Class 8' && p.section === 'A');
   const reg = await (await fetch(`${API}/api/teacher/period-attendance/register?entryId=${mine8A.entryId}&date=${list.date}`, { headers: { Authorization: `Bearer ${T}` } })).json();
   await fetch(`${API}/api/teacher/period-attendance/register/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${T}` }, body: JSON.stringify({ entryId: mine8A.entryId, date: list.date, entries: reg.students.map((s) => ({ studentId: s.studentId, status: 'present' })) }) });
-  await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
-  await page.goto('/admin/settings');
+  await signIn(page, 'platform', 'superadmin@erp.local', 'Super@12345');
+  await page.goto(`/platform/schools/${await schoolId()}`);
   const way = page.getByRole('radiogroup', { name: 'How student attendance is taken' });
   await way.getByRole('radio', { name: /Once a day/ }).click();
   await page.getByRole('button', { name: 'Review and switch to once a day' }).click();

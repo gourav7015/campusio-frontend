@@ -78,8 +78,16 @@ test('a class teacher gets a My class tab with the register, students and monito
   await expect(page.getByText(/overall results \(you are the class teacher\)|No published results for this class yet/)).toBeVisible();
   // the marks of every subject of the class: more than the one he teaches
   await page.getByRole('tab', { name: 'Enter marks' }).click();
-  await expect(page.getByText('Marks of every subject in this class')).toBeVisible();
-  await expect(page.getByText("Other teacher's subject").first()).toBeVisible();
+  await expect(page.getByText(/You enter marks for the subjects you teach/)).toBeVisible();
+  await expect(page.getByText('Your sheets to enter')).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Taught by' }).first()).toBeVisible();
+  await expect(page.getByText('You', { exact: true }).first()).toBeVisible(); // his own subject
+  // a subject of another teacher: listed with its teacher, and only "View"
+  const other = page.getByRole('row').filter({ hasNot: page.getByText('You', { exact: true }) }).filter({ has: page.getByRole('button', { name: 'View' }) }).first();
+  await expect(other).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enter marks' }).first()).toBeVisible(); // and a real "Enter marks" for his own
+  await page.getByLabel('My subjects only').check();
+  await expect(page.getByRole('row').filter({ hasNot: page.getByText('You', { exact: true }) }).filter({ has: page.getByRole('button', { name: 'View' }) })).toHaveCount(0);
   await signOut(page);
 
   // a subject teacher who is nobody's class teacher has no such tab, and the page itself says why

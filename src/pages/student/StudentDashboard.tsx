@@ -127,7 +127,7 @@ export default function StudentDashboard() {
           </ul>
         </LinkCard>
         <div className="space-y-6">
-          <LinkCard title="Announcements" to="/student/announcements" linkLabel="All">
+          <LinkCard title="Notices" to="/student/announcements" linkLabel="All">
             {x.announcements.length ? <ul className="space-y-3">{x.announcements.slice(0, 4).map((a) => <li key={a._id} className="flex items-start justify-between gap-3 text-sm"><div className="min-w-0"><p className="truncate font-medium">{a.title}</p><p className="text-xs text-muted-foreground">{label(a.category)} · {fmtDate(a.createdAt)}</p></div>{!a.read && <Badge tone="primary">New</Badge>}</li>)}</ul> : <p className="text-sm text-muted-foreground">No announcements.</p>}
           </LinkCard>
           <LinkCard title="Coming up" to="/student/calendar" linkLabel="Calendar">

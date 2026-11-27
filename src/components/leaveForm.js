@@ -24,5 +24,9 @@ export const daysText = (l) => (l.halfDay ? `½ (${l.halfSession === 'first' ? '
 
 /** What a leave's status is called on screen: an application taken back is "Withdrawn" (the stored word is cancelled). */
 export const leaveStatus = (s) => (s === 'cancelled' ? 'Withdrawn' : String(s || '').replace(/^./, (c) => c.toUpperCase()));
-/** Can this leave still be taken back? Waiting for a decision, or approved and not yet begun. */
-export const canWithdraw = (l, today = new Date().toLocaleDateString('en-CA')) => ['draft', 'submitted'].includes(l.status) || (l.status === 'approved' && l.startDate > today);
+/** Can this leave still be taken back? Waiting for a decision, or approved while its dates have not all gone (not begun: cancelled; running: it ends yesterday). */
+export const canWithdraw = (l, today = new Date().toLocaleDateString('en-CA')) => ['draft', 'submitted'].includes(l.status) || (l.status === 'approved' && l.endDate >= today);
+/** The words for taking an approved leave back: a running leave is ended early, one that has not begun is cancelled. `who` = "the leave of Ravi" / "this leave". */
+export const takeBackWords = (l, who, today = new Date().toLocaleDateString('en-CA')) => (l.startDate < today
+  ? { button: 'End leave early', done: 'Leave ended', message: `End ${who} today? The days already taken stay as leave; from today the person is back at work and the attendance is no longer marked as leave.` }
+  : { button: 'Cancel leave', done: 'Leave cancelled', message: `Cancel ${who}? The days go back to the balance and the attendance is no longer marked as leave.` });

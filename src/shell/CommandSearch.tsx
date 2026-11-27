@@ -17,7 +17,8 @@ const adminHref = (g: string, x: Hit) => ({
 const hrefFor = (role: string, g: string, x: Hit) => role === 'teacher' ? (g === 'students' ? `/teacher/students/${x.id}` : `/teacher/classes/${x.sectionId}`) : adminHref(g, x);
 
 /** Command-style quick search, opened from the header or with Cmd/Ctrl+K. */
-export function CommandSearch({ base, role, pages }: { base: string; role: 'admin' | 'teacher'; pages?: { label: string; to: string; area: string }[] }) {
+/** `compact`: a bar of areas runs along the top (Teacher), so the search is just its icon until the screen is wide. */
+export function CommandSearch({ base, role, pages, compact }: { base: string; role: 'admin' | 'teacher'; pages?: { label: string; to: string; area: string }[]; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -45,8 +46,8 @@ export function CommandSearch({ base, role, pages }: { base: string; role: 'admi
   return (
     <D.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(''); }}>
       <D.Trigger asChild>
-        <Button variant="secondary" className="hidden h-9 w-64 justify-start gap-2 font-normal text-muted-foreground md:inline-flex xl:w-80" aria-label="Search">
-          <Search aria-hidden /><span className="flex-1 text-left">{pages ? 'Search pages, students, staff' : 'Search'}</span><Kbd>⌘K</Kbd>
+        <Button variant="secondary" className={compact ? 'hidden h-9 w-9 justify-center gap-2 px-0 font-normal text-muted-foreground md:inline-flex 2xl:w-72 2xl:justify-start 2xl:px-3' : 'hidden h-9 w-64 justify-start gap-2 font-normal text-muted-foreground md:inline-flex xl:w-80'} aria-label="Search">
+          <Search aria-hidden /><span className={compact ? 'hidden flex-1 text-left 2xl:inline' : 'flex-1 text-left'}>{pages ? 'Search pages, students, staff' : 'Search'}</span><Kbd className={compact ? 'hidden 2xl:inline-flex' : undefined}>⌘K</Kbd>
         </Button>
       </D.Trigger>
       <D.Trigger asChild><Button variant="ghost" size="icon" className="md:hidden" aria-label="Search"><Search /></Button></D.Trigger>

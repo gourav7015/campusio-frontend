@@ -6,12 +6,12 @@ import { Badge } from '../design/ui';
  * Classes finish their year on their own dates, so a school can have classes in two academic years at once. When it does, the header offers a
  * year to look at (the default is the school's current year); everything on screen then shows that year. With one year there is nothing to pick.
  */
-export default function YearSwitcher({ area, fallback }) {
+export default function YearSwitcher({ area, fallback, compact = false }) {
   const years = useApi(area === 'teacher' ? '/api/teacher/years' : '/api/school/years');
   const list = (years.data || []).map((y) => ({ id: y.id || y._id, name: y.name, isCurrent: y.isDefault ?? y.isCurrent, closed: y.status === 'closed' }));
   const open = list.filter((y) => !y.closed || y.id === getViewYear());
   const name = fallback || list.find((y) => y.isCurrent)?.name;
-  if (open.length < 2) return name ? <Badge className="hidden xl:inline-flex" title="Current academic year">Academic year {name}</Badge> : null;
+  if (open.length < 2) return name ? <Badge className={compact ? 'hidden 2xl:inline-flex' : 'hidden xl:inline-flex'} title="Current academic year">{compact ? name : `Academic year ${name}`}</Badge> : null;
   const chosen = getViewYear();
   const current = list.find((y) => y.isCurrent)?.id || '';
   return (

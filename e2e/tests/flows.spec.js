@@ -156,8 +156,8 @@ test('teacher adds a class test with their own mark fields, enters marks field b
   await expect(page.getByText('Total maximum: 20')).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Add exam' }).click();
   await expect(page.getByText('Test added')).toBeVisible();
-  const myRow = page.getByRole('row').filter({ hasText: `Class Test ${uid}` });
-  await expect(myRow).toContainText('Written 15 + Oral 5');
+  const myRow = page.locator('section', { hasText: `Class Test ${uid}` }).getByRole('row').filter({ hasText: 'Written 15 + Oral 5' }); // one card per examination, its subjects as rows
+  await expect(myRow).toBeVisible();
   await expect(myRow.getByRole('button', { name: 'Delete' })).toBeVisible(); // own, unused → deletable
   await myRow.getByRole('button', { name: 'Enter marks' }).click();
 
@@ -242,7 +242,7 @@ test('student: every test of the class (attempted or not), everyone\'s results a
 test('a wrongly sent class notice can be deleted: it disappears for students', async ({ page }) => {
   const title = `WRONG notice ${uid}`;
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
-  await page.goto('/teacher/communication');
+  await page.goto('/teacher/notices');
   await page.getByRole('button', { name: '+ Notice to my class' }).click();
   await page.getByLabel('Class', { exact: true }).selectOption({ label: 'Class 8 A' });
   await page.getByLabel('Title').fill(title);
@@ -255,7 +255,7 @@ test('a wrongly sent class notice can be deleted: it disappears for students', a
   await expect(page.getByText(title)).toBeVisible();
   await signOut(page);
   await signIn(page, 'teacher', 'sharma@gps.test', 'Teach@12345');
-  await page.goto('/teacher/communication');
+  await page.goto('/teacher/notices');
   await page.locator('section', { hasText: title }).getByRole('button', { name: /Delete/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText('Notice deleted')).toBeVisible();
@@ -265,17 +265,17 @@ test('a wrongly sent class notice can be deleted: it disappears for students', a
   await page.goto('/student/announcements');
   await expect(page.getByText('Annual Sports Day', { exact: true })).toBeVisible();
   await expect(page.getByText(title)).toHaveCount(0);
-  // the admin can delete an announcement too
+  // the admin can delete a notice too
   await signOut(page);
   await signIn(page, 'admin', 'admin@gps.test', 'Admin@12345');
   await page.goto('/admin/announcements');
-  await page.getByRole('button', { name: '+ Add announcement' }).click();
+  await page.getByRole('button', { name: '+ Add notice' }).click();
   await page.getByLabel('Title').fill(`Admin mistake ${uid}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('cell', { name: `Admin mistake ${uid}` })).toBeVisible();
   await page.getByRole('row').filter({ hasText: `Admin mistake ${uid}` }).getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
-  await expect(page.getByText('Announcement deleted')).toBeVisible();
+  await expect(page.getByText('Notice deleted')).toBeVisible();
   await expect(page.getByRole('cell', { name: `Admin mistake ${uid}` })).toHaveCount(0);
 });
 

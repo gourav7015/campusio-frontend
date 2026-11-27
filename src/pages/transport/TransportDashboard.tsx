@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Bus, FileWarning, UserX } from 'lucide-react';
+import { Bus, ClipboardCheck, FileWarning, UserX } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useGet } from '../../api/query';
 import { axisProps, ChartCard, ChartTooltip, chartColor, gridProps, useChartMotion } from '../../design/charts';
 import { AttentionList, LinkCard } from '../../design/patterns';
-import { Badge, DataTable, ErrorState, PageHeader, PageSkeleton, Segmented, StatCard } from '../../design/ui';
+import { Badge, Button, DataTable, ErrorState, PageHeader, PageSkeleton, Segmented, StatCard } from '../../design/ui';
 import { fmtDate } from '../../components/ui.jsx';
 import { RoutesPanel } from './RoutesPanel';
+import { TodayCrewRegister } from './TodayCrewRegister';
 
 type CertState = 'valid' | 'expiring' | 'expired' | 'missing';
 interface Cert { busId: string; bus: string; doc: string; label: string; date: string | null; daysLeft: number | null; state: CertState }
@@ -37,10 +38,12 @@ const idleCols: ColumnDef<Dash['idleCrew'][number]>[] = [
 ];
 
 /** Transport desk dashboard: fleet, crew, seats, and what needs attention. View-only for the School Admin. */
-export default function TransportDashboard({ base, links = {} }: { base: string; links?: { buses?: string } }) {
+export default function TransportDashboard({ base, links = {}, markAttendance = false }: { base: string; links?: { buses?: string }; /** the Transport officer's own home: shows today's crew register with its Take attendance button (not in the School Admin's read-only view) */ markAttendance?: boolean }) {
   const { data: x, error, refetch } = useGet<Dash>(`${base}/dashboard`);
   const motion = useChartMotion();
   const [certView, setCertView] = useState<'all' | 'attention'>('all');
+  const [regOpen, setRegOpen] = useState(false);
+  const openRegister = () => { setRegOpen(true); setTimeout(() => document.getElementById('crew-register')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); };
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!x) return <PageSkeleton />;
   const buses = links.buses;
@@ -48,7 +51,8 @@ export default function TransportDashboard({ base, links = {} }: { base: string;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Transport" description="Your fleet, crew and riders at a glance" />
+      <PageHeader title="Transport" description="Your fleet, crew and riders at a glance" actions={markAttendance && <Button variant="primary" onClick={openRegister}><ClipboardCheck aria-hidden />Mark attendance</Button>} />
+      {markAttendance && <TodayCrewRegister base={base} open={regOpen} onToggle={() => setRegOpen((o) => !o)} />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2"><AttentionList items={[

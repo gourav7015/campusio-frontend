@@ -109,7 +109,7 @@ export default function TeacherDashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LinkCard title="Homework" to="/teacher/homework" linkLabel="Manage"><Facts rows={[{ label: 'Published', value: x.homework.published }, { label: 'Scheduled', value: x.homework.scheduled }, { label: 'Drafts', value: x.homework.draft }, { label: 'Past due', value: x.homework.overdue }]} /></LinkCard>
-        <LinkCard title="School announcements" to="/teacher/communication" linkLabel="All">
+        <LinkCard title="School notices" to="/teacher/notices" linkLabel="All">
           {x.announcements.length ? <ul className="space-y-3">{x.announcements.map((a) => <li key={a._id} className="flex items-start justify-between gap-3 text-sm"><div className="min-w-0"><p className="truncate font-medium">{a.title}</p><p className="text-xs text-muted-foreground">{fmtDateTime(a.createdAt)}</p></div>{!a.read && <Badge tone="primary">New</Badge>}</li>)}</ul> : <EmptyState title="No announcements" className="py-6" />}
         </LinkCard>
       </div>

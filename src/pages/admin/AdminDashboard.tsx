@@ -104,7 +104,7 @@ export default function AdminDashboard() {
   return (
     <div className="dash-look space-y-6">
       <PageHeader title={hello} description={`${longDay(x.today)} · Academic year ${x.year?.name || 'not set yet'}`}
-        actions={<><Button asChild variant="secondary"><Link to="/admin/announcements"><Megaphone aria-hidden />Announcement</Link></Button><Button asChild><Link to="/admin/students"><Plus aria-hidden />Add student</Link></Button></>} />
+        actions={<><Button asChild variant="secondary"><Link to="/admin/announcements"><Megaphone aria-hidden />Notice</Link></Button><Button asChild><Link to="/admin/students"><Plus aria-hidden />Add student</Link></Button></>} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active students" value={x.cards.students.toLocaleString('en-IN')} to="/admin/students" />

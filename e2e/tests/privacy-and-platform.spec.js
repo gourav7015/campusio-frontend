@@ -35,9 +35,10 @@ test('the platform admin sees errors and can switch a feature on for one school'
   await page.goto('/platform/schools');
   await page.getByRole('link', { name: /Greenfield|Demo|Public School|gps/i }).first().click();
   await expect(page.getByText('Feature switches', { exact: true })).toBeVisible();
-  const sel = page.getByLabel('Period-wise attendance');
-  await sel.selectOption('true');
-  await expect(sel).toHaveValue('true');
+  await expect(page.getByText('Student attendance', { exact: true })).toBeVisible(); // the attendance way is the school's plan, set from here
+  const sel = page.getByLabel('Stamps and signatures on documents');
+  await sel.selectOption('false');
+  await expect(sel).toHaveValue('false');
   await expect(page.getByText('Changed').first()).toBeVisible();
   await sel.selectOption('default');
   await expect(sel).toHaveValue('default');

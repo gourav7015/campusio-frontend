@@ -130,3 +130,20 @@ test('period by period with nothing marked: subjects and teachers instead of an 
   await setWay(false);
   expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
 });
+
+/** The Transport officer takes the crew's attendance from the home page, like a class teacher does from Today. */
+test('transport: the home page has Mark attendance and today\'s crew register that opens in place', async ({ page }) => {
+  const problems = watch(page);
+  await signIn(page, 'transport', 'transport@gps.test', 'Transport@12345');
+  await page.goto('/transport');
+  await expect(page.getByRole('button', { name: 'Mark attendance' })).toBeVisible();
+  await expect(page.getByText(/Today.s crew register/)).toBeVisible();
+  await expect(page.getByText(/Not taken yet|Started, not submitted|Submitted/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Mark attendance' }).click();
+  await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Daily register' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark all present' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('tab', { name: 'Daily register' })).toHaveCount(0);
+  expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
+});

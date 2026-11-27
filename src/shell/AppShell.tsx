@@ -113,8 +113,8 @@ export function AppShell({ area }: { area: PortalKey }) {
             <Button variant="ghost" size="icon" className={cn('hidden', !top && 'lg:inline-flex')} aria-label={areas ? (collapsed ? 'Show the page list' : 'Hide the page list') : (collapsed ? 'Expand sidebar' : 'Collapse sidebar')} onClick={toggle}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
             {!top && <Breadcrumbs items={crumbs} className="hidden min-w-0 sm:block" />}
             {!top && <div className="flex-1" />}
-            {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch base={portal.api} role={area} pages={areas ? portal.groups.flatMap((g) => g.items.map((i) => ({ label: i.label, to: i.to, area: g.label || '' }))) : undefined} />}
-            {(area === 'admin' || area === 'teacher') ? <YearSwitcher area={area} fallback={school?.academicYear} /> : (school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>)}
+            {portal.search && portal.api && (area === 'admin' || area === 'teacher') && <CommandSearch compact={top} base={portal.api} role={area} pages={areas ? portal.groups.flatMap((g) => g.items.map((i) => ({ label: i.label, to: i.to, area: g.label || '' }))) : undefined} />}
+            {(area === 'admin' || area === 'teacher') ? <YearSwitcher compact={top} area={area} fallback={school?.academicYear} /> : (school?.academicYear && area !== 'finance' && <Badge className="hidden xl:inline-flex" title="Current academic year">{school.academicYear}</Badge>)}
             <ThemeToggle />
             {portal.api && <Notifications base={portal.api} role={area} />}
             <UserMenu hasProfile={area === 'teacher' || area === 'student' || area === 'staff'} area={area} />

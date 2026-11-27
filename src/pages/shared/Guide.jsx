@@ -7,7 +7,7 @@ const GUIDES = {
       ['Sign in and change your starting password', 'The first time, you are asked to choose your own password. Use at least 10 characters with a letter and a number.'],
             ['Take attendance (class teachers)', 'Attendance → pick the date → Mark all present → mark the exceptions → Submit. A submitted register is locked. Missed or late students can be Regularised within a week, with a reason.'],
       ['Attendance on a Sunday or holiday', 'If the school is open for a test or duty, open that day in Attendance and press “Ask the admin to allow it”. You are told when it is approved.'],
-      ['Homework and notices', 'Homework and assignments → New. Communication → Notice to my class. Choose one class, or “All my classes”. Mark it Urgent for things like a holiday tomorrow.'],
+      ['Homework and notices', 'Homework and assignments → New. Me and school → Notices → Notice to my class. Choose one class, or “All my classes”. Mark it Urgent for things like a holiday tomorrow.'],
       ['Marks', 'Examinations and marks → open the sheet → enter marks field by field → Submit. The school admin approves, then results are published to students.'],
       ['Remarks and guidelines', 'Open a student → Teacher remarks → write it → Send. The family is reminded every day until they acknowledge. Remarks → Not acknowledged yet shows who has not.'],
       ['Messages from parents', 'Parent messages lists the conversations. You can start one from a student’s page with “Message the family”.'],

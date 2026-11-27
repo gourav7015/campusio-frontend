@@ -71,11 +71,12 @@ test('the Staff portal is the office desk: attendance, leave, employees and quer
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 900 } }); const sp = await ctx.newPage(); const problems = watch(sp);
   try {
     await signIn(sp, 'staff', 'gps.s0001', 'Staff@12345'); // Neha Shah, the office clerk
+    await expect(sp.getByText("Today's attendance")).toBeVisible();
+    await expect(sp.getByText('Desk queue')).toBeVisible(); // waiting leave and queries are listed there when there are any
+    await sp.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Desk/ }).click(); // the desk's pages are under Desk
     const nav = sp.getByRole('navigation', { name: 'Main' });
     for (const n of ['Attendance', 'Leave', 'Employees', 'Teachers\' queries']) await expect(nav.getByRole('link', { name: new RegExp(`^${n}( \\d+ \\w+)?$`) })).toBeVisible(); // a count badge may be part of the name
     for (const n of ['My attendance', 'Salary and payslips']) await expect(nav.getByRole('link', { name: n })).toHaveCount(0); // not a personal portal
-    await expect(sp.getByText("Today's attendance")).toBeVisible();
-    await expect(sp.getByText('Desk queue')).toBeVisible(); // waiting leave and queries are listed there when there are any
     // employees: no transport crew
     await nav.getByRole('link', { name: 'Employees', exact: true }).click();
     await expect(sp.getByRole('row', { name: /Rajesh Sharma/ })).toBeVisible();

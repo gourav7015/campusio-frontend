@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw } from '../../components/leaveForm.js';
+import { leaveFields, leavePayload, daysText, leaveStatus, canWithdraw, takeBackWords } from '../../components/leaveForm.js';
 import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { post, put, patch, del, upload, openFile } from '../../api/client.js';
 import { ComponentsEditor, cleanComponents, componentsText } from '../../components/Marks.jsx';
+import MarksByExam from '../../components/MarksByExam.jsx';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtDateTime, fmtPct, label, statusTone, Spinner } from '../../components/ui.jsx';
 import { TrendChart, BarsChart, ScatterPlot } from '../../components/Charts.jsx';
 import FormModal from '../../components/FormModal.jsx';
@@ -167,6 +168,13 @@ export function Exams() {
   return (
     <div className="stack">
       <PageHeader title="Examinations and marks" subtitle="Exams for your classes and subjects — add your own tests, enter marks, and follow them through approval" actions={<Button variant="primary" onClick={() => setModal({})} disabled={!pairs.length}>+ Add exam</Button>} />
+      {list.data && (() => { const c = (f) => all.filter(f).length; return (
+        <div className="grid g4">
+          <Stat value={c((r) => EDITABLE.includes(r.status))} label="Marks to enter" tone={c((r) => EDITABLE.includes(r.status)) ? 'amber' : 'green'} sub={`${all.length} sheets in all`} />
+          <Stat value={c((r) => ['submitted', 'under_review'].includes(r.status))} label="Waiting for approval" />
+          <Stat value={(corr.data || []).length} label="Returned to you" tone={(corr.data || []).length ? 'red' : ''} sub={(corr.data || []).length ? 'See Correction requests below' : 'Nothing to correct'} />
+          <Stat value={c((r) => r.status === 'published')} label="Published" tone="green" />
+        </div>); })()}
       <div className="row between" style={{ alignItems: 'center' }}>
         <Tabs tabs={[['all', 'All'], ['todo', 'Marks to enter'], ['done', 'Submitted / done'], ['mine', 'Tests I added']]} value={tab} onChange={setTab} />
         <div className="row" style={{ alignItems: 'center', gap: 10 }}>
@@ -175,11 +183,11 @@ export function Exams() {
           {(fClass || fSubject) && <Button size="sm" onClick={() => { setFClass(''); setFSubject(''); }}>Clear</Button>}
         </div>
       </div>
-      <Card flush><Async skeleton="datatable" state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => <DataTable rows={filtered(rows)} empty="Nothing in this view" rowKey={(r) => `${r.examSubjectId}-${r.sectionId}`} columns={[
-        { label: 'Examination', render: (r) => <><b>{r.exam}</b> <Badge tone={r.type === 'surprise_test' ? 'amber' : r.createdByMe ? 'blue' : ''}>{label(r.type)}</Badge></> }, { label: 'Class', render: (r) => `${r.className} ${r.section}` }, { label: 'Subject', key: 'subject' }, { label: 'Date', render: (r) => fmtDate(r.date) },
-        { label: 'Marks fields', render: (r) => componentsText(r.components) }, { label: 'Max', key: 'max' }, { label: 'Deadline', render: (r) => <>{fmtDate(r.deadline)} {r.overdue && <Badge tone="red">Overdue</Badge>}</> }, { label: 'Marks status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> },
-        { label: '', render: (r) => <div className="row"><Button size="sm" variant={EDITABLE.includes(r.status) ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{EDITABLE.includes(r.status) ? 'Enter marks' : 'View'}</Button>
-          {r.createdByMe && <Button size="sm" onClick={() => setModal(r)}>Edit</Button>}{r.canDelete && <ConfirmButton size="sm" variant="danger" message={`Delete ${r.exam}? Only possible before any marks are entered.`} onConfirm={async () => { await run(() => del(`${T}/exams/${r.examId}`), 'Test deleted'); list.reload(); }}>Delete</ConfirmButton>}</div> }]} />}</Async></Card>
+      <Async skeleton="datatable" state={list} empty={<Empty title="No examinations for your subjects yet">Add a class test or surprise test, or wait for the school to schedule one.</Empty>}>{(rows) => {
+        const shown = filtered(rows);
+        return shown.length ? <MarksByExam showClass rows={shown} actions={(r) => (<><Button size="sm" variant={EDITABLE.includes(r.status) ? 'primary' : undefined} onClick={() => nav(`/teacher/exams/${r.examSubjectId}/${r.sectionId}`)}>{EDITABLE.includes(r.status) ? 'Enter marks' : 'View'}</Button>
+          {r.createdByMe && <Button size="sm" onClick={() => setModal(r)}>Edit</Button>}{r.canDelete && <ConfirmButton size="sm" variant="danger" message={`Delete ${r.exam}? Only possible before any marks are entered.`} onConfirm={async () => { await run(() => del(`${T}/exams/${r.examId}`), 'Test deleted'); list.reload(); }}>Delete</ConfirmButton>}</>)} /> : <Card><Empty title="Nothing in this view" /></Card>;
+      }}</Async>
       <Card title="Correction requests" flush><Async skeleton="datatable" state={corr} empty={<div className="empty small">No mark sheets have been returned to you</div>}>{(rows) => <DataTable rows={rows} rowKey="sheetId" columns={[{ label: 'Exam', key: 'exam' }, { label: 'Subject', key: 'subject' }, { label: 'Section', key: 'section' }, { label: 'Status', render: (r) => <Badge tone={statusTone(r.status)}>{label(r.status)}</Badge> }, { label: 'Reason', render: (r) => r.returnReason || r.history.at(-1)?.reason }]} />}</Async></Card>
       {modal && <ExamForm pairs={pairs} initial={modal.examId ? modal : null} onClose={() => setModal(null)} onDone={() => { setModal(null); list.reload(); }} />}
     </div>
@@ -238,7 +246,8 @@ export function MarksSheet() {
       <PageHeader title={`${d.examSubject.subject} · ${d.exam.name}`} subtitle={`Section ${d.section.name} · ${componentsText(comps)} = ${d.examSubject.max} · Pass ${d.examSubject.passMarks} · Deadline ${fmtDate(d.examSubject.deadline, true)}`} actions={<><Badge tone={statusTone(d.status)}>{label(d.status)}</Badge>
         {d.canEdit && <><label className="btn">Import CSV<input type="file" accept=".csv" hidden onChange={importCsv} /></label><Button onClick={() => save(true).then((ok) => ok && sheet.reload())}>Save draft</Button><Button variant="primary" loading={busy} onClick={submit}>Submit for approval</Button></>}</>} />
       {d.returnReason && <div className="alert">↩ Returned for correction: {d.returnReason}</div>}
-      {!d.canEdit && <div className="alert info">{d.status === 'published' ? 'These marks are published. Changes need a formal correction from the school admin.' : 'Marks are locked while they are under review.'}</div>}
+      {d.readOnlyForYou && <div className="alert info" role="note">You are the class teacher, so you can see these marks. Only the teacher of {d.examSubject.subject} can enter or change them.</div>}
+      {!d.canEdit && !d.readOnlyForYou && <div className="alert info">{d.status === 'published' ? 'These marks are published. Changes need a formal correction from the school admin.' : 'Marks are locked while they are under review.'}</div>}
       <Card flush>
         <div className="table-wrap"><table><thead><tr><th>Roll</th><th>Student</th>{comps.map((c) => <th key={c.key}>{c.label} /{c.max}</th>)}<th>Total /{d.examSubject.max}</th><th>Absent</th><th>Exempt</th><th>Remarks</th></tr></thead>
           <tbody>{rows.map((r) => (
@@ -315,7 +324,7 @@ export function Leave() {
         {d.grants?.length > 0 && <Card title="Extra leave given to me this year" flush><DataTable rows={d.grants} rowKey="_id" columns={[{ label: 'Type', render: (g) => label(g.leaveType) }, { label: 'Days', key: 'days' }, { label: 'Reason', key: 'reason' }, { label: 'Given on', render: (g) => fmtDate(g.createdAt, true) }]} /></Card>}
         <Card title="My applications" flush><DataTable rows={d.applications} empty="No applications yet" columns={[{ label: 'Type', render: (x) => label(x.leaveType) }, { label: 'From', render: (x) => fmtDate(x.startDate, true) }, { label: 'To', render: (x) => fmtDate(x.endDate, true) }, { label: 'Days', render: daysText }, { label: 'Reason', key: 'reason' }, { label: 'Status', render: (x) => <Badge tone={statusTone(x.status)}>{leaveStatus(x.status)}</Badge> }, { label: 'Remarks', key: 'decisionRemark' },
           { label: '', render: (x) => canWithdraw(x) && (x.status === 'approved'
-            ? <ConfirmButton size="sm" message="Cancel this approved leave? The days go back to your balance and the office is told." onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/withdraw`), 'Leave cancelled'); l.reload(); }}>Cancel leave</ConfirmButton>
+            ? (() => { const w = takeBackWords(x, 'this approved leave'); return <ConfirmButton size="sm" message={`${w.message} The office is told.`} onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/withdraw`), w.done); l.reload(); }}>{w.button}</ConfirmButton>; })()
             : <ConfirmButton size="sm" message="Withdraw this application? It will no longer wait for a decision." onConfirm={async () => { await run(() => post(`${T}/leave/${x._id}/withdraw`), 'Application withdrawn'); l.reload(); }}>Withdraw</ConfirmButton>) }]} /></Card></>)}</Async>
       {modal && <FormModal title="Apply for leave" fields={leaveFields({ typeHint: 'Unpaid leave is deducted from your salary for those days.' })}
         onClose={() => setModal(false)} onSubmit={async (v) => { await post(`${T}/leave`, leavePayload(v)); l.reload(); return true; }} />}

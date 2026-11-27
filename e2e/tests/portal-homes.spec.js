@@ -65,6 +65,7 @@ test('teacher and staff: areas along the top bar, the open area\'s pages beneath
   try {
     await signIn(sp, 'staff', 'gps.s0001', 'Staff@12345');
     await expect(sp.getByText('Desk queue')).toBeVisible();
+    await sp.getByRole('navigation', { name: 'Areas' }).getByRole('link', { name: /^Desk/ }).click();
     await expect(sp.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Employees' })).toBeVisible();
   } finally { await ctx.close(); }
 });
