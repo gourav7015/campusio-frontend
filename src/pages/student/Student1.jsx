@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { safeHref } from '../../design/lib/url';
 import { FileText, Image, NotebookPen, Presentation, Video } from 'lucide-react';
 import { useApi } from '../../hooks/useApi.js';
-import { post, patch, upload, openFile } from '../../api/client.js';
+import { post, upload, openFile } from '../../api/client.js';
 import { Avatar, PhotoUpload } from '../../components/FileImage.jsx';
 import { Async, Badge, Button, Card, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Stat, Tabs, useAction, fmtDate, fmtPct, dayName, label, statusTone, cls } from '../../components/ui.jsx';
 import { TrendChart, BarsChart } from '../../components/Charts.jsx';
@@ -36,15 +36,12 @@ function MyBus() {
 
 export function StudentProfile() {
   const p = useApi(`${S}/profile`);
-  const [edit, setEdit] = useState(false);
-  const [v, setV] = useState({});
-  const [run, busy] = useAction();
   return (
     <Async skeleton="profile" state={p}>{(x) => (
       <div className="stack">
-        <PageHeader title="My profile" actions={<><PhotoUpload path={`${S}/profile/photo`} upload={upload} label={x.personal.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} />{x.editableFields.length > 0 && <Button onClick={() => { setV({ phone: x.personal.phone || '', address: x.personal.address || '', email: x.personal.email || '' }); setEdit(true); }}>Edit my details</Button>}</>} />
+        <PageHeader title="My profile" actions={<><PhotoUpload path={`${S}/profile/photo`} upload={upload} label={x.personal.photoFileId ? 'Change photo' : 'Add a photo'} onDone={p.reload} /></>} />
         <div className="row"><Avatar fileId={x.personal.photoFileId} name={x.personal.name} size={84} /><div><b>{x.personal.name}</b>{x.academic.monitor && <> <Badge tone="blue">Class monitor</Badge></>}<div className="small muted">{x.academic.className} {x.academic.section} · Roll {x.academic.rollNo}</div></div></div>
-        {x.editableFields.length === 0 && <p className="small muted" style={{ margin: 0 }}>Your details are kept up to date by the school. If something is wrong, ask your class teacher or the school office to correct it.</p>}
+        <p className="small muted" style={{ margin: 0 }}>Your class teacher keeps your details up to date. If something is wrong, tell your class teacher and they will correct it.</p>
         <div className="grid g2">
           <Card title="Personal information"><dl className="kv"><dt>Name</dt><dd>{x.personal.name}</dd><dt>Date of birth</dt><dd>{fmtDate(x.personal.dob, true)}</dd><dt>Gender</dt><dd>{label(x.personal.gender) || '—'}</dd><dt>Phone</dt><dd>{x.personal.phone || '—'}</dd><dt>Email</dt><dd>{x.personal.email || '—'}</dd><dt>Address</dt><dd>{x.personal.address || '—'}</dd></dl></Card>
           <Card title="Academic information"><dl className="kv"><dt>Admission number</dt><dd>{x.academic.admissionNo}</dd><dt>Academic year</dt><dd>{x.academic.academicYear}</dd><dt>Class</dt><dd>{x.academic.className}</dd><dt>Section</dt><dd>{x.academic.section}</dd><dt>Roll number</dt><dd>{x.academic.rollNo}</dd><dt>Admission date</dt><dd>{fmtDate(x.academic.admissionDate, true)}</dd><dt>School</dt><dd>{x.academic.schoolName}</dd></dl></Card>
@@ -52,8 +49,6 @@ export function StudentProfile() {
           <Card title="Other"><dl className="kv"><dt>House</dt><dd>{x.other.house || '—'}</dd><dt>Blood group</dt><dd>{x.other.bloodGroup || '—'}</dd><dt>Emergency contact</dt><dd>{x.other.emergencyContact?.name ? `${x.other.emergencyContact.name} · ${x.other.emergencyContact.phone}` : '—'}</dd></dl><p className="small muted" style={{ marginTop: 10 }}>Class, section, roll number and admission number can only be changed by the school office.</p></Card>
         </div>
         <MyBus />
-        {edit && <Modal title="Edit my details" onClose={() => setEdit(false)} footer={<><Button onClick={() => setEdit(false)}>Cancel</Button><Button variant="primary" loading={busy} onClick={async () => { const body = Object.fromEntries(x.editableFields.map((f) => [f, v[f]]).filter(([, val]) => val !== undefined && val !== '')); const r = await run(() => patch(`${S}/profile`, body), 'Profile updated'); if (r) { setEdit(false); p.reload(); } }}>Save</Button></>}>
-          <div className="stack">{x.editableFields.map((f) => <Field key={f} label={label(f)}><Input value={v[f] ?? ''} onChange={(e) => setV({ ...v, [f]: e.target.value })} /></Field>)}</div></Modal>}
       </div>)}</Async>
   );
 }

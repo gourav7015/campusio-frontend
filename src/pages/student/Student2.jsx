@@ -1,6 +1,6 @@
 import FeeSchedule from '../../components/FeeSchedule.jsx';
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi.js';
 import { patch, download, openFile } from '../../api/client.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
@@ -10,43 +10,58 @@ import PayOnline from './PayOnline.jsx';
 
 const S = '/api/student';
 
-export function StudentExams() {
+/** What is coming up: the date sheet of every exam still ahead, soonest first. Exams already held are in the lists below, with their results. */
+function UpcomingExams() {
   const sch = useApi(`${S}/exams/schedule`);
+  const ahead = (sch.data || []).filter((r) => r.daysLeft >= 0).sort((a, b) => a.daysLeft - b.daysLeft);
+  if (!sch.loading && !ahead.length) return null;
   return (
-    <div className="stack">
-      <PageHeader title="Examinations" subtitle="Dates are shown in your school's time zone" />
-      <Card flush><Async state={sch} empty={<Empty title="No examination schedule has been published" />}>{(rows) => {
-        // one list: what is coming first (soonest at the top), then what is done (latest at the top)
-        const f = [...rows.filter((r) => r.daysLeft >= 0).sort((a, b) => a.daysLeft - b.daysLeft), ...rows.filter((r) => r.daysLeft < 0).sort((a, b) => b.daysLeft - a.daysLeft)];
-        return <DataTable rows={f} empty="No examinations yet" columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
-          { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />; }}</Async></Card>
-    </div>
+    <Card flush title="Coming up" action={<span className="small muted">Dates are in your school's time zone</span>}>
+      <Async state={sch}>{() => <DataTable rows={ahead} empty="No examinations ahead" columns={[{ label: 'Examination', render: (r) => <>{r.exam} <Badge>{label(r.type)}</Badge></> }, { label: 'Subject', render: (r) => <b>{r.subject}</b> }, { label: 'Date', render: (r) => fmtDate(r.date, true) }, { label: 'Time', render: (r) => (r.startTime ? `${r.startTime}${r.endTime ? `–${r.endTime}` : ''}` : '—') }, { label: 'Room', render: (r) => r.room || '—' },
+          { label: '', render: (r) => (r.daysLeft > 0 ? <Badge tone="amber">{r.daysLeft} days left</Badge> : r.daysLeft === 0 ? <Badge tone="red">Today</Badge> : <Badge>Done</Badge>) }]} />}</Async>
+    </Card>
   );
+}
+
+/** The years the student has been at this school. `?year=<id>` looks at an earlier one; the picker appears only when there is more than one. */
+function useYear() {
+  const [sp, setSp] = useSearchParams();
+  const years = useApi(`${S}/years`);
+  const list = years.data || [];
+  const yearId = sp.get('year') || '';
+  const dflt = (list.find((y) => y.current) || list[0])?.id || '';
+  const picker = list.length > 0 ? (
+    <Select aria-label="Academic year" value={yearId || dflt} onChange={(e) => setSp(e.target.value && e.target.value !== dflt ? { year: e.target.value } : {})}
+      options={list.map((y) => ({ value: y.id, label: `${y.name} · ${[y.className, y.section].filter(Boolean).join(' ')}${y.id === dflt ? ' (now)' : ''}` }))} />
+  ) : null;
+  return { yearId, many: list.length > 1, params: yearId ? { yearId } : undefined, picker, query: yearId ? `?year=${yearId}` : '' };
 }
 
 export function StudentResults() {
   const [tab, setTab] = useState('mine');
+  const Y = useYear();
   return (
     <div className="stack">
-      <PageHeader title="Results, report cards and class ranks" subtitle="Only published results are shown" />
+      <PageHeader title="Results, report cards and class ranks" subtitle={Y.yearId ? 'An earlier academic year: its results are kept here' : `Only published results are shown.${Y.many ? '' : ' Results of earlier academic years are kept under the year list once you have been promoted.'}`} actions={Y.picker} />
+      {!Y.yearId && <UpcomingExams />}
       <Tabs tabs={[['mine', 'My results'], ['class', 'All tests of my class']]} value={tab} onChange={setTab} />
-      {tab === 'mine' ? <MyResults /> : <ClassResults />}
+      {tab === 'mine' ? <MyResults Y={Y} /> : <ClassResults Y={Y} />}
     </div>
   );
 }
 
-function MyResults() {
-  const list = useApi(`${S}/results`);
+function MyResults({ Y }) {
+  const list = useApi(`${S}/results`, Y.params);
   const nav = useNavigate();
   return (
     <Card flush><Async state={list} empty={<Empty title="No results yet" />}>{(rows) => <DataTable rows={rows} rowKey="examId" columns={[{ label: 'Examination', render: (r) => <><b>{r.name}</b> <Badge>{label(r.type)}</Badge></> }, { label: 'Date', render: (r) => fmtDate(r.date) }, { label: 'Percentage', render: (r) => (r.status === 'published' ? fmtPct(r.percentage) : '—') }, { label: 'Grade', render: (r) => r.grade || '—' },
-      { label: 'Status', render: (r) => (r.status === 'published' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Upcoming</Badge>) }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" variant="primary" onClick={() => nav(`/student/results/${r.examId}`)}>View report card</Button> }]} />}</Async></Card>
+      { label: 'Status', render: (r) => (r.status === 'published' ? <Badge tone="green">Published</Badge> : <Badge tone="amber">Upcoming</Badge>) }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" variant="primary" onClick={() => nav(`/student/results/${r.examId}${Y.query}`)}>View report card</Button> }]} />}</Async></Card>
   );
 }
 
 /** Every test held for the student's class — attempted or not — with everyone's results and the student's rank. */
-function ClassResults() {
-  const list = useApi(`${S}/class-results`);
+function ClassResults({ Y }) {
+  const list = useApi(`${S}/class-results`, Y.params);
   const [open, setOpen] = useState(null);
   return (
     <div className="stack">
@@ -55,13 +70,13 @@ function ClassResults() {
         { label: 'Status', render: (r) => <Badge tone={r.status === 'published' ? 'green' : 'amber'}>{r.status === 'published' ? 'Results out' : r.status === 'upcoming' ? 'Upcoming' : 'Awaiting results'}</Badge> },
         { label: 'My result', render: (r) => (r.status !== 'published' ? '—' : !r.hasResult ? <span className="muted">No result</span> : !r.attempted ? <Badge>Not attempted</Badge> : <><b>{fmtPct(r.myPercentage)}</b> <span className="muted small">{r.myGrade}</span></>) },
         { label: 'Rank', render: (r) => (r.status === 'published' && r.hasResult ? <b>{r.myRank} <span className="muted small">of {r.classSize}</span></b> : '—') }, { label: '', render: (r) => r.status === 'published' && <Button size="sm" onClick={() => setOpen(r)}>See everyone</Button> }]} />}</Async></Card>
-      {open && <LeaderboardModal exam={open} onClose={() => setOpen(null)} />}
+      {open && <LeaderboardModal exam={open} params={Y.params} onClose={() => setOpen(null)} />}
     </div>
   );
 }
 
-function LeaderboardModal({ exam, onClose }) {
-  const d = useApi(`${S}/class-results/${exam.examId}`);
+function LeaderboardModal({ exam, params, onClose }) {
+  const d = useApi(`${S}/class-results/${exam.examId}`, params);
   return (
     <Modal wide title={`${exam.name} — class results`} onClose={onClose}>
       <Async state={d}>{(x) => !x.published ? <Empty title="Results are not out yet" /> : (<>
@@ -77,12 +92,14 @@ function LeaderboardModal({ exam, onClose }) {
 
 export function ResultDetail() {
   const { examId } = useParams();
-  const r = useApi(`${S}/results/${examId}`);
+  const [sp] = useSearchParams();
+  const yearId = sp.get('year') || '';
+  const r = useApi(`${S}/results/${examId}`, yearId ? { yearId } : undefined);
   const [run, busy] = useAction();
   return (
     <Async state={r}>{(x) => (
       <div className="stack">
-        <PageHeader title={x.exam.name} subtitle={`${x.student.name} · Admission ${x.student.admissionNo}${x.version > 1 ? ` · Revised (version ${x.version})` : ''}`} actions={<><Link className="btn" to="/student/results">← All results</Link><Button variant="primary" loading={busy} onClick={() => run(() => download(`${S}/results/${examId}/pdf`, `report-card-${x.exam.name}.pdf`))}>Download PDF report card</Button></>} />
+        <PageHeader title={x.exam.name} subtitle={`${x.student.name} · Admission ${x.student.admissionNo}${x.version > 1 ? ` · Revised (version ${x.version})` : ''}`} actions={<><Link className="btn" to={`/student/results${yearId ? `?year=${yearId}` : ''}`}>← All results</Link><Button variant="primary" loading={busy} onClick={() => run(() => download(`${S}/results/${examId}/pdf${yearId ? `?yearId=${yearId}` : ''}`, `report-card-${x.exam.name}.pdf`))}>Download PDF report card</Button></>} />
         {x.correctionReason && <div className="alert info">This report card was revised: {x.correctionReason}</div>}
         <div className="grid g4"><Stat value={fmtPct(x.percentage)} label="Overall percentage" tone="blue" /><Stat value={x.grade} label="Grade" /><Stat value={`${x.totalObtained} / ${x.totalMax}`} label="Total marks" /><Stat value={label(x.resultStatus)} label="Result" tone={x.resultStatus === 'pass' ? 'green' : 'red'} /></div>
         <Card title="Subject-wise" flush><DataTable rows={x.subjects} rowKey="subject" columns={[{ label: 'Subject', render: (s) => <b>{s.subject}</b> }, { label: 'Marks by field', render: (s) => (s.absent ? <Badge tone="red">Absent</Badge> : s.exempt ? 'Exempt' : (s.components || []).map((c) => `${c.label} ${c.value ?? '—'}/${c.max}`).join(' · ')) }, { label: 'Obtained', render: (s) => (s.exempt ? 'EX' : s.obtained ?? '—') }, { label: 'Max', key: 'max' }, { label: '%', render: (s) => fmtPct(s.percentage) }, { label: 'Grade', render: (s) => <Badge tone={s.passed ? 'green' : 'red'}>{s.grade}</Badge> }, { label: 'Teacher remarks', key: 'remarks' }]} /></Card>
@@ -94,22 +111,43 @@ export function ResultDetail() {
 
 /** Where the student stands in the whole class: rank, spread of marks, subjects against the class, attendance against the class. Classmates are never named. */
 export function StudentClassAnalysis() {
-  const a = useApi(`${S}/class-analysis`);
+  const Y = useYear();
+  const a = useApi(`${S}/class-analysis`, Y.params);
   const tone = { top: 'green', leading: 'green', above: 'blue', near: 'amber', below: 'red' };
   return (
     <div className="stack">
       <Async state={a}>{(d) => (
         <>
-          <PageHeader title="Class analysis" subtitle={`${[d.className, d.section].filter(Boolean).join('-')}${d.classSize ? ` · ${d.classSize} students` : ''} · built from published results and submitted attendance; classmates stay anonymous`} />
-          {!d.ready ? <Empty title="Your class standing will appear here">Once results of a test are published for your class, you will see where you stand.</Empty> : <ClassAnalysisBody d={d} tone={tone} />}
+          <PageHeader title="Class analysis" subtitle={`${[d.className, d.section].filter(Boolean).join('-')}${d.classSize ? ` · ${d.classSize} students` : ''} · built from published results and submitted attendance; the lists show whole-test percentages, never subject marks`} actions={Y.picker} />
+          {!d.ready ? <Empty title="Your class standing will appear here">Once results of a test are published for your class, you will see where you stand.</Empty> : <ClassAnalysisBody d={d} tone={tone} params={Y.params} />}
         </>
       )}</Async>
     </div>
   );
 }
 
-function ClassAnalysisBody({ d, tone }) {
+/** The ranked list of the section or of the whole class: each student's average over the tests counted and their latest test, whole tests only. */
+function RankingModal({ scope, params, onClose }) {
+  const r = useApi(`${S}/class-ranking`, { scope, ...(params || {}) });
+  return (
+    <Modal wide title={scope === 'class' ? 'Whole class, ranked' : 'My section, ranked'} onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
+      <Async state={r}>{(x) => !x.rows.length ? <Empty title="No results are published yet" /> : (<>
+        <p className="muted small" style={{ marginTop: 0 }}>{x.title} · {x.basis} · {x.tests} test{x.tests === 1 ? '' : 's'}, {x.size} students. <b>Ranked by the latest test: {x.lastExam.name}</b> (average {fmtPct(x.lastExam.average)}); the overall average of all the tests counted is beside it. Only whole-test percentages are shown, never subject marks.</p>
+        <DataTable rows={x.rows.map((u, i) => ({ ...u, _id: i }))} pageSize={25} rowClassName={(u) => (u.isMe ? 'sel' : '')} columns={[
+          { label: 'Rank', render: (u) => (u.rank == null ? <span className="muted">—</span> : <b>{u.rank}</b>) },
+          { label: 'Student', render: (u) => <>{u.name} {u.isMe && <Badge tone="primary">You</Badge>}</> },
+          ...(scope === 'class' ? [{ label: 'Section', render: (u) => u.section || '—' }] : [{ label: 'Roll', render: (u) => u.rollNo ?? '—' }]),
+          { label: 'Latest test', render: (u) => (u.lastAverage == null ? <span className="muted">Absent</span> : <b>{fmtPct(u.lastAverage)}</b>) },
+          { label: 'Overall average', render: (u) => fmtPct(u.average) },
+          { label: 'Tests', render: (u) => u.tests }]} />
+      </>)}</Async>
+    </Modal>
+  );
+}
+
+function ClassAnalysisBody({ d, tone, params }) {
   const o = d.overall;
+  const [list, setList] = useState(null); // 'section' | 'class': which ranked list is open
   const maxBand = Math.max(1, ...d.distribution.map((b) => b.count));
   const weak = d.subjects.filter((x) => x.gap < 0).sort((x, y) => x.gap - y.gap);
   const strong = d.subjects.filter((x) => x.gap > 0);
@@ -121,7 +159,7 @@ function ClassAnalysisBody({ d, tone }) {
   const trend = d.tests.map((t) => ({ test: t.name, you: t.myPercentage, 'Class average': t.average }));
   return (
     <>
-      <Card>
+      <Card title="In your section" action={<Button size="sm" onClick={() => setList('section')}>See the full list</Button>} subtitle="Overall: the average of all the tests held for your section">
         <div className="row wrap" style={{ gap: 24, alignItems: 'center' }}>
           <div style={{ flex: '1 1 260px' }}>
             <Badge tone={tone[d.standing.key]}>{d.standing.label}</Badge>
@@ -138,6 +176,27 @@ function ClassAnalysisBody({ d, tone }) {
           </div>
         </div>
       </Card>
+
+      {d.wholeClass && (
+        <Card title={`Across all of ${d.wholeClass.className}`} action={<Button size="sm" onClick={() => setList('class')}>See the full list</Button>} subtitle={`All ${d.wholeClass.sections} sections together, on the standard examinations (Unit Tests, Half-Yearly, Final Exam) · ${d.wholeClass.overall.of} students`}>
+          <div className="row wrap" style={{ gap: 24, alignItems: 'center' }}>
+            <div style={{ flex: '1 1 220px' }}>
+              <div style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.15 }}>Rank {d.wholeClass.overall.rank} <span className="muted" style={{ fontSize: 18, fontWeight: 500 }}>of {d.wholeClass.overall.of}</span></div>
+              <p className="muted" style={{ marginTop: 6 }}>{d.wholeClass.overall.ahead > 0 ? `You are ahead of ${d.wholeClass.overall.ahead} student${d.wholeClass.overall.ahead === 1 ? '' : 's'} in the whole class` : 'Nobody in the whole class is behind you yet'}, across {d.wholeClass.overall.testsCounted} test{d.wholeClass.overall.testsCounted === 1 ? '' : 's'}.</p>
+            </div>
+            <div className="grid g3" style={{ flex: '2 1 420px' }}>
+              <Stat value={fmtPct(d.wholeClass.overall.myAverage)} label="Your average" tone="blue" />
+              <Stat value={fmtPct(d.wholeClass.overall.classAverage)} label={`${d.wholeClass.className} average`} sub={`${d.wholeClass.overall.gap >= 0 ? '+' : ''}${d.wholeClass.overall.gap} points for you`} />
+              <Stat value={fmtPct(d.wholeClass.overall.highest)} label="Best average in the class" />
+            </div>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <DataTable rows={d.wholeClass.tests} rowKey="examId" empty="No tests yet" columns={[
+              { label: 'Test', render: (t) => <b>{t.name}</b> }, { label: 'Your result', render: (t) => (t.myPercentage == null ? '—' : fmtPct(t.myPercentage)) },
+              { label: 'Your rank', render: (t) => (t.myRank == null ? '—' : <>{t.myRank} <span className="muted small">of {t.takers}</span></>) }, { label: 'Class average', render: (t) => fmtPct(t.average) }]} />
+          </div>
+        </Card>
+      )}
 
       <div className="grid g2">
         <Card title="Where the class stands" subtitle={d.distributionExam ? `${d.distributionExam} · number of students in each marks band` : undefined}>
@@ -181,16 +240,18 @@ function ClassAnalysisBody({ d, tone }) {
           { label: 'Class average', render: (t) => fmtPct(t.average) }, { label: 'Median', render: (t) => fmtPct(t.median) }, { label: 'Highest', render: (t) => fmtPct(t.highest) }, { label: 'Lowest', render: (t) => fmtPct(t.lowest) },
         ]} />
       </Card>
+      {list && <RankingModal scope={list} params={params} onClose={() => setList(null)} />}
     </>
   );
 }
 
 export function StudentPerformance() {
   const [examId, setExamId] = useState('');
-  const p = useApi(`${S}/performance`, { examId });
+  const Y = useYear();
+  const p = useApi(`${S}/performance`, { examId, ...(Y.params || {}) });
   return (
     <div className="stack">
-      <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<Async state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={d.exams.map((e) => ({ value: e.id, label: e.name }))} aria-label="Examination" /> : null}</Async>} />
+      <PageHeader title="My performance" subtitle="Built only from your published results and attendance" actions={<>{Y.picker}<Async state={p}>{(d) => d.exams.length > 1 ? <Select value={examId || d.latestExam?.id || ''} onChange={(e) => setExamId(e.target.value)} options={[{ value: 'all', label: 'All examinations' }, ...d.exams.map((e) => ({ value: e.id, label: e.name }))]} aria-label="Examination" /> : null}</Async></>} />
       <Async state={p}>{(d) => (!d.trend.length && !d.attendanceTrend.length ? <Empty title="Your charts will appear here" >Once results are published and attendance is recorded.</Empty> : (
         <div className="grid g2">
           <Card title="Examination performance trend"><TrendChart data={d.trend} x="exam" lines={[{ key: 'percentage', name: 'Percentage' }]} /></Card>

@@ -206,7 +206,7 @@ export function Settings() {
   const data = v || s.data;
   const set = (patch) => setV({ ...data, ...patch });
   const save = async () => {
-    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, studentCanEditProfile: data.studentCanEditProfile, grading: data.grading };
+    const body = { schoolName: data.schoolName, timezone: data.timezone, workingDays: data.workingDays, admissionFormat: data.admissionFormat, passwordFormat: data.passwordFormat ?? '', attendance: data.attendance, leaveBalances: data.leaveBalances, staffLeaveBalances: data.staffLeaveBalances, leaveRules: data.leaveRules, transportLeaveApprover: data.transportLeaveApprover || 'officer', staffAttendance: data.staffAttendance, statutory: data.statutory, showAttendanceVsPerformance: data.showAttendanceVsPerformance, grading: data.grading };
     const r = await run(() => put('/api/school/settings', body), 'Settings saved'); if (r) { setV(null); s.reload(); }
   };
   if (!data) return <Async state={s}>{() => null}</Async>;
@@ -239,8 +239,6 @@ export function Settings() {
           <div><Button size="sm" onClick={() => set({ grading: { ...data.grading, scale: [...data.grading.scale, { min: 0, grade: '' }] } })}>+ Add band</Button></div>
         </div></Card>
         <Card title="Teacher leave allowance (days per year)"><div className="form-grid">{['casual', 'sick', 'earned', 'other'].map((k) => <Field key={k} label={label(k)}><Input type="number" min="0" value={data.leaveBalances[k]} onChange={(e) => set({ leaveBalances: { ...data.leaveBalances, [k]: Number(e.target.value) } })} /></Field>)}</div><LeaveRules who="teaching" data={data} set={set} />
-          <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '14px 0' }} />
-          <div className="bold" style={{ marginBottom: 6 }}>Students may edit their own</div><div className="row wrap">{['phone', 'address', 'email'].map((f) => <label key={f} className="chip"><input type="checkbox" checked={data.studentCanEditProfile.includes(f)} onChange={(e) => set({ studentCanEditProfile: e.target.checked ? [...data.studentCanEditProfile, f] : data.studentCanEditProfile.filter((x) => x !== f) })} /> {label(f)}</label>)}</div>
         </Card>
       </div>
       <StaffPolicies data={data} set={set} />

@@ -79,12 +79,12 @@ export default function StudentDashboard() {
             : <div className="grid size-16 place-items-center rounded-full bg-muted text-xl text-muted-foreground" aria-hidden>—</div>}
           <div className="min-w-0"><p className="text-[13px] text-muted-foreground">Attendance</p><p className="text-sm font-medium">{att == null ? 'No attendance recorded yet' : streak ? `${streak}-day streak` : 'This year'}</p></div>
         </Link>
-        <button type="button" onClick={() => document.getElementById('student-homework')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="rounded-lg border border-border/70 bg-card p-4 text-left shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link to="/student/homework" className="rounded-lg border border-border/70 bg-card p-4 text-left shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="text-[13px] text-muted-foreground">Homework due</p>
           {nextHw ? <><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{dueWord(nextHw.dueDate, x.welcome.date)}</p><p className="mt-1 truncate text-xs text-muted-foreground">{nextHw.subject}{x.homework.length > 1 ? ` and ${x.homework.length - 1} more` : ''}</p></>
             : <><p className="mt-1 text-3xl font-semibold tracking-tight">—</p><p className="mt-1 text-xs text-muted-foreground">No homework given</p></>}
-        </button>
-        <Link to="/student/exams" className="rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        </Link>
+        <Link to="/student/results" className="rounded-lg border border-border/70 bg-card p-4 shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="text-[13px] text-muted-foreground">Next exam</p>
           {x.upcomingExam ? <><p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">{x.upcomingExam.daysLeft === 0 ? 'Today' : <>{x.upcomingExam.daysLeft}<span className="text-base font-normal text-muted-foreground"> {x.upcomingExam.daysLeft === 1 ? 'day' : 'days'}</span></>}</p><p className="mt-1 truncate text-xs text-muted-foreground">{x.upcomingExam.subject} · {fmtDate(x.upcomingExam.date)}</p></>
             : <><p className="mt-1 text-3xl font-semibold tracking-tight">—</p><p className="mt-1 text-xs text-muted-foreground">None scheduled</p></>}
@@ -98,13 +98,13 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <LinkCard className="xl:col-span-2" title="Today" to="/student/timetable" linkLabel="Full timetable"><DaySchedule rows={x.timetable.rows} showTeacher empty="No classes today" /></LinkCard>
-        <div id="student-homework" className="scroll-mt-24"><LinkCard title="Homework">
+        <LinkCard title="Homework" to="/student/homework" linkLabel="All homework">
           {x.homework.length ? <ul className="space-y-4">{x.homework.map((h) => (
             <li key={h._id} className="text-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{h.title}</p><p className="text-xs text-muted-foreground">{h.subject}</p></div><Badge tone="neutral">Due {fmtDate(h.dueDate)}</Badge></div>
               {h.description && <p className="mt-1 whitespace-pre-line text-[13px] text-muted-foreground">{h.description}</p>}
               {h.attachmentFiles?.length ? <p className="mt-1 flex flex-wrap gap-2">{h.attachmentFiles.map((f) => <a key={f._id} className="chip" href="#!" onClick={(e) => { e.preventDefault(); openFile(f._id); }}>{f.originalName}</a>)}</p> : null}</li>))}</ul>
             : <EmptyState icon={Sparkles} title="No homework" description="Nothing has been given right now." className="py-6" />}
-        </LinkCard></div>
+        </LinkCard>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

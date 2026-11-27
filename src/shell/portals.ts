@@ -126,8 +126,8 @@ export const PORTALS: Record<PortalKey, Portal> = {
     groups: [
       { label: 'Home', icon: LayoutDashboard, items: [{ ...dash('/student'), label: 'Home' }] },
       { label: 'Learning', icon: BookOpen, items: [
-        { to: '/student/timetable', label: 'My timetable', icon: CalendarClock }, 
-        { to: '/student/exams', label: 'Examinations', icon: ClipboardList }, { to: '/student/results', label: 'Results and class ranks', icon: Award }, { to: '/student/performance', label: 'My performance', icon: TrendingUp }, { to: '/student/class', label: 'Class analysis', icon: ChartPie },
+        { to: '/student/timetable', label: 'My timetable', icon: CalendarClock }, { to: '/student/homework', label: 'Homework', icon: NotebookPen }, 
+        { to: '/student/results', label: 'Results and class ranks', icon: Award }, { to: '/student/performance', label: 'My performance', icon: TrendingUp }, { to: '/student/class', label: 'Class analysis', icon: ChartPie },
       ] },
       { label: 'School', icon: School, items: [
         { to: '/student/attendance', label: 'My attendance', icon: UserCheck }, { to: '/student/calendar', label: 'School calendar', icon: CalendarDays }, { to: '/student/announcements', label: 'Announcements', icon: Megaphone },

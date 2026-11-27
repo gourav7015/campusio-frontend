@@ -49,11 +49,12 @@ function HomeworkByDay() {
   );
 }
 
-export function HomeworkDay({ sectionId }) {
+/** Homework of one day with a week strip. The office reads a section's by `sectionId`; a student's own page passes `url` (their own section). */
+export function HomeworkDay({ sectionId, url }) {
   const { api } = useOffice();
   const [date, setDate] = useState(today());
   const [weekStart, setWeekStart] = useState(mondayOf(today()));
-  const q = useApi(`${api}/sections/${sectionId}/homework`, { date, weekStart });
+  const q = useApi(url || `${api}/sections/${sectionId}/homework`, { date, weekStart });
   const pick = (d) => { if (!validDay(d)) return; setDate(d); setWeekStart(mondayOf(d)); };
   const moveWeek = (n) => { const w = shiftDay(weekStart, 7 * n); setWeekStart(w); setDate((cur) => { const d = shiftDay(cur, 7 * n); return d > today() ? today() : d; }); };
   const thisWeek = weekStart >= mondayOf(today());
