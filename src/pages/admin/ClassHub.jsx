@@ -9,7 +9,7 @@ import ExamAnalysis from '../../components/ExamAnalysis.jsx';
 import ClassBorrowers from '../../components/ClassBorrowers.jsx';
 import { ClassBoard as Structure } from './ClassBoard.jsx';
 import { RegisterModal } from './Operations.jsx';
-import { DayGrid } from '../../components/PeriodAttendance.jsx';
+import { DayGrid, DateStep } from '../../components/PeriodAttendance.jsx';
 import { ClassAttendanceTabs } from '../../components/ClassPeriodSummary.jsx';
 import { useOffice } from '../../context/ClassOffice.jsx';
 
@@ -149,7 +149,7 @@ function SectionAttendance({ sectionId, title, periodWise }) {
   return (
     <ClassAttendanceTabs sectionId={sectionId}>
       <div className="stack">
-      <div className="row between wrap"><span className="muted small">This school takes attendance period by period. The day is worked out from the periods by the rule in School settings.</span><Input type="date" aria-label="Date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} /></div>
+      <div className="row between wrap"><span className="muted small">This school takes attendance period by period. The day is worked out from the periods by the rule in School settings.</span><DateStep value={day} max={today()} onChange={setDay} /></div>
       <DayGrid role="admin" sectionId={sectionId} date={day} fallback={<DailyRegisters sectionId={sectionId} title={title} />} />
       </div>
     </ClassAttendanceTabs>

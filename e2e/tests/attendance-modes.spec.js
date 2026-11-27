@@ -57,7 +57,7 @@ test('a teacher marks their own period; the class teacher has no daily register;
   await page.getByRole('tab', { name: 'Day by day' }).click();
   await expect(page.getByText(/of 6 periods submitted/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark all present' })).toHaveCount(0);
-  await expect(page.getByRole('columnheader', { name: /Day/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /^Student/ })).toBeVisible();
   await page.goto('/teacher/attendance');
   await expect(page.getByText('There is no daily register')).toBeVisible();
   // the student of 8-A sees today period by period and what has not been marked yet is not counted as absent
@@ -95,7 +95,7 @@ test('the School Admin sees how far each class is, asks for a waiting period and
   await card.getByRole('button', { name: 'Open day' }).click();
   const grid = page.getByRole('dialog');
   await expect(grid.getByText(/of \d periods submitted/)).toBeVisible();
-  await expect(grid.getByText(/Waiting:/)).toBeVisible();
+  await expect(grid.getByText('Waiting').first()).toBeVisible(); // each waiting period says so in its own header
   await expect(grid.getByRole('button', { name: /^Ask .* to mark Period/ }).first()).toBeVisible();
   await grid.getByRole('button', { name: /^Ask .* to mark Period/ }).first().click();
   await expect(page.getByText(/Asked .* to mark it|was already asked/)).toBeVisible();

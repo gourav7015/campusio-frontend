@@ -101,7 +101,7 @@ test('in a school that takes attendance period by period, My class shows the day
     await expect(page.getByRole('tab', { name: 'Whole class', selected: true })).toBeVisible(); // the whole class comes first
     await page.getByRole('tab', { name: 'Day by day' }).click();
     await expect(page.getByText(/of \d periods submitted/)).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: /Day/ })).toBeVisible();
+    await expect(page.getByText('The student grid appears when the first period is submitted.')).toBeVisible(); // nothing is in yet: the lessons, not a wall of empty boxes
     await expect(page.getByRole('button', { name: 'Mark all present' })).toHaveCount(0);
     // the menu has one Attendance entry, for the periods; there is no daily register
     await page.goto('/teacher/classes');

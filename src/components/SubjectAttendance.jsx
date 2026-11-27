@@ -38,10 +38,44 @@ function SubjectSheet({ url, name, onClose }) {
   );
 }
 
+/** A subject on the class's timetable that has no lesson marked yet: its teacher and its lessons a week. */
+function PlannedCard({ p }) {
+  return (
+    <div role="listitem" className="sa-card none" style={{ cursor: 'default' }}>
+      <span className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <span className="sa-ring" style={{ '--p': 0 }} role="img" aria-label="Not marked yet"><b>—</b></span>
+        <span className="grow" style={{ minWidth: 0 }}><b className="sa-name">{p.subject}</b><span className="small muted" style={{ display: 'block' }}>{p.teacher || 'No teacher assigned'}</span><Badge>Not marked yet</Badge></span>
+      </span>
+      <span className="small muted">{plural(p.weekly, 'lesson')} a week. The percentage appears after the first lesson is marked.</span>
+    </div>
+  );
+}
+
+/** The page before any lesson has been marked: what the class studies and who teaches it, so it is never an empty box. */
+function SubjectsBeforeMarks({ planned, target, who }) {
+  const weekly = planned.reduce((n, p) => n + p.weekly, 0);
+  return (
+    <div className="stack">
+      <div className="grid g4">
+        <Stat value="—" label="Attendance in lessons" sub="No lesson marked yet" />
+        <Stat value={planned.length} label="Subjects" sub={`${plural(weekly, 'lesson')} a week`} />
+        <Stat value={0} label="Lessons marked" />
+        <Stat value={`${target}%`} label="Target" sub="Below it, a subject is flagged" />
+      </div>
+      <div className="alert" role="note">No lesson has been marked yet. Each subject's attendance appears here as soon as its teacher submits a period{who === 'you' ? '. You can see what to attend next in each subject.' : '.'}</div>
+      <h3 style={{ margin: '4px 0 0' }}>Attendance by subject</h3>
+      <div className="sa-grid" role="list" aria-label="Attendance by subject">{planned.map((p) => <PlannedCard key={p.subjectId} p={p} />)}</div>
+    </div>
+  );
+}
+
 export function SubjectAttendance({ data, detailUrl, who = 'you' }) {
   const [open, setOpen] = useState(null);
-  if (!data?.subjects?.length) return <Empty title="No periods marked yet">Attendance subject by subject appears here once teachers mark their periods.</Empty>;
+  const planned = data?.planned || [];
+  if (!data?.subjects?.length && !planned.length) return <Empty title="No periods marked yet">Attendance subject by subject appears here once teachers mark their periods.</Empty>;
+  if (!data.subjects.length) return <SubjectsBeforeMarks planned={planned} target={data.target} who={who} />;
   const t = data.totals; const target = data.target;
+  const unmarked = planned.filter((p) => !data.subjects.some((s) => s.subjectId === p.subjectId)); // subjects with no lesson marked yet are still listed
   const low = data.subjects.filter((s) => s.state === 'low');
   const tone = t.percentage == null ? '' : t.percentage >= target ? 'green' : t.percentage >= target - 15 ? 'amber' : 'red';
   return (
@@ -69,6 +103,7 @@ export function SubjectAttendance({ data, detailUrl, who = 'you' }) {
             <span className="small">{nextStep(s, target, who)}</span>
             <span className="small muted">{s.absent ? `${plural(s.absent, 'period')} missed${s.lastAbsent ? `, last on ${fmtDate(s.lastAbsent, true)}` : ''}` : 'No period missed'}{s.late ? ` · ${plural(s.late, 'late arrival')}` : ''}{s.leave ? ` · ${s.leave} on leave` : ''}</span>
           </button>))}
+        {unmarked.map((p) => <PlannedCard key={p.subjectId} p={p} />)}
       </div>
       {data.weekly.length > 1 && <Card title="Week by week"><TrendChart data={data.weekly.map((w) => ({ week: fmtDate(w.week), percentage: w.percentage }))} x="week" lines={[{ key: 'percentage', name: 'Attendance %' }]} /></Card>}
       <p className="muted small" style={{ margin: 0 }}>Counted period by period in each subject. Leave and excused periods are left out; {data.lateCountsAsPresent ? 'a late arrival counts as present' : 'a late arrival is not counted as present'}; a half day counts half. The target is {target}%.</p>

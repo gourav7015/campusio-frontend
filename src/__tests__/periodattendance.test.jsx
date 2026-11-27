@@ -34,11 +34,11 @@ describe('Attendance period by period', () => {
     mockApi({ '/api/school/period-attendance': DAY });
     mount(<DayGrid role="admin" sectionId="sec" date="2026-11-26" />);
     expect(await screen.findByText('1 of 2 periods submitted')).toBeInTheDocument();
-    expect(screen.getByText(/Waiting: Period 2 \(Mrs Gupta\)/)).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument(); // the period header says so, and carries its own Ask button
     expect(screen.getByRole('button', { name: 'Aarav Singh, Period 1: Absent' })).toBeInTheDocument(); // the admin can open it to correct it
     expect(screen.getAllByRole('img', { name: /not marked yet/ })).toHaveLength(2);
-    expect(screen.getByText('Not complete yet')).toBeInTheDocument(); // Aarav has no day yet
-    expect(screen.getByText('Present', { selector: '.badge' })).toBeInTheDocument(); // Bhavna's day
+    expect(screen.queryByText('Not complete yet')).toBeNull(); // no Day column any more
+    expect(document.body.textContent).toMatch(/1\s*present/); // Bhavna's day, counted once in the line under the progress bar
   });
 
   it('the admin corrects one mark with a reason, and can ask the teacher of a waiting period', async () => {

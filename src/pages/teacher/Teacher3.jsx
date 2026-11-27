@@ -4,7 +4,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { post } from '../../api/client.js';
 import { Async, Badge, Button, Card, ConfirmButton, DataTable, Empty, Field, Input, Modal, PageHeader, Select, Tabs, useAction, fmtDate, label } from '../../components/ui.jsx';
 import ChatView from '../../components/ChatView.jsx';
-import { YourPeriods, DayGrid, ModeNotice } from '../../components/PeriodAttendance.jsx';
+import { YourPeriods, DayGrid, DateStep, ModeNotice } from '../../components/PeriodAttendance.jsx';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { useDialogs } from '../../design/ui';
 
@@ -80,7 +80,7 @@ export function PeriodAttendance() {
   const { user } = useAuth();
   return (
     <div className="stack">
-      <PageHeader title="Attendance" subtitle="Mark who is in your class for each period you teach, including periods you are covering. A submitted period is locked, and the day is worked out from all the periods." actions={<Input type="date" aria-label="Date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />} />
+      <PageHeader title="Attendance" subtitle="Mark who is in your class for each period you teach, including periods you are covering. A submitted period is locked, and the day is worked out from all the periods." actions={<DateStep value={date} max={todayStr()} onChange={setDate} />} />
       <ModeNotice change={user?.attendanceChange} />
       <Card flush><YourPeriods date={date} /></Card>
     </div>

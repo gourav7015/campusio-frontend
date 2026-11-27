@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { post, put } from '../api/client.js';
 import { Async, Badge, Button, Card, Empty, Field, Input, Modal, Select, useAction } from './ui.jsx';
@@ -114,7 +115,6 @@ function CorrectModal({ target, onClose, onSave, busy }) {
   );
 }
 
-const dayText = (d) => (d ? (d.status === 'half_day' ? 'Half day' : word(d.status)) : null);
 
 /**
  * One class on one day, period by period: each lesson (teacher, covering, submitted or waiting), every student's mark in each, and the day
@@ -124,55 +124,93 @@ const dayText = (d) => (d ? (d.status === 'half_day' ? 'Half day' : word(d.statu
 export function DayGrid({ role, sectionId, date, fallback }) {
   const admin = role === 'admin';
   const q = useApi(sectionId ? (admin ? '/api/school/period-attendance' : `${T}/class-periods`) : null, { sectionId, date });
-  const [open, setOpen] = useState(null); const [fix, setFix] = useState(null);
+  const [open, setOpen] = useState(null); const [fix, setFix] = useState(null); const [all, setAll] = useState(false);
   const [run, busy] = useAction();
+  const ask = (periodId) => run(() => post('/api/school/period-attendance/remind', { sectionId, date, periodId }), (x) => (x.sent ? `Asked ${x.asked} to mark it` : `${x.asked} was already asked a moment ago`));
+  const at = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
   return (
     <Async skeleton="datatable" state={q}>{(d) => {
       if (!d.enabled) return fallback || <Card><Empty title="Taken once a day on this date">The school took attendance with one register for the whole day then. Pick a later date to see it period by period.</Empty></Card>;
       if (!d.periods.length) return <Card><Empty title="No lessons this day">This class has nothing on its timetable for this weekday.</Empty></Card>;
+      const canAsk = admin && date === d.date;
       const waiting = d.periods.filter((p) => p.state !== 'submitted');
+      const dayCount = (k) => d.students.filter((s) => s.day?.status === k).length;
+      const dayShown = d.students.some((s) => s.day); // the day is worked out once at least half of the periods are in
+      const rows = all ? d.students : d.students.slice(0, 8);
       return (
         <div className="stack">
           <Card>
             <div className="stack" style={{ gap: 10 }}>
               <div className="row between wrap"><b>{d.submitted} of {d.expected} periods submitted</b>
-                <span className="muted small">{d.complete ? 'The day is worked out from all of them.' : waiting.length ? `Waiting: ${waiting.map((p) => `${p.period}${p.teacher ? ` (${p.teacher})` : ''}`).join(', ')}` : ''}</span></div>
+                {canAsk && d.submitted === 0 && d.expected > 1 && <Button size="sm" loading={busy} onClick={async () => { for (const p of waiting) await ask(p.periodId); }}>Ask all {d.expected}</Button>}</div>
               <div className="pg-prog" role="img" aria-label={`${d.submitted} of ${d.expected} periods submitted`}>{d.periods.map((p) => <i key={p.periodId} className={p.state === 'submitted' ? '' : p.state === 'draft' ? 'd' : 'e'} />)}</div>
-              <div className="muted small">A day is <b>Present</b> with at least {d.rule.presentPct}% of the periods taken, <b>Half day</b> with at least {d.rule.halfPct}%, otherwise <b>Absent</b>. A day shows only once at least half of its periods are submitted.</div>
+              {dayShown && <div className="row wrap small" style={{ gap: 18 }}><span><b>{dayCount('present')}</b> present</span><span><b>{dayCount('half_day')}</b> half day</span><span><b>{dayCount('absent')}</b> absent</span></div>}
             </div>
           </Card>
-          <Card flush>
-            <div className="pg-scroll">
-              <table className="pg-grid">
-                <thead><tr><th scope="col">Student</th>
-                  {d.periods.map((p) => (
-                    <th scope="col" key={p.periodId}>
-                      {p.period}<small>{p.subject}</small><small>{p.teacher}{p.covering ? ' (covering)' : ''}</small>
-                      {!admin && p.mine && <Button size="sm" variant={p.state === 'submitted' ? undefined : 'primary'} onClick={() => setOpen(p)}>{p.state === 'submitted' ? 'Review' : 'Mark'}</Button>}
-                      {admin && p.state !== 'submitted' && date === d.date && <Button size="sm" loading={busy} aria-label={`Ask ${p.teacher || 'the teacher'} to mark ${p.period}`} onClick={() => run(() => post('/api/school/period-attendance/remind', { sectionId, date, periodId: p.periodId }), (x) => (x.sent ? `Asked ${x.asked} to mark it` : `${x.asked} was already asked a moment ago`))}>Ask</Button>}
-                    </th>))}
-                  <th scope="col">Day</th></tr></thead>
-                <tbody>
-                  {d.students.map((s) => (
-                    <tr key={s.studentId}>
-                      <td><b>{s.name}</b>{s.rollNo != null && <span className="muted small"> · {s.rollNo}</span>}</td>
-                      {d.periods.map((p) => <td key={p.periodId}><Cell status={s.cells[p.periodId]} label={`${s.name}, ${p.period}`}
-                        onClick={admin && p.state === 'submitted' && s.cells[p.periodId] ? () => setFix({ student: s, period: p, status: s.cells[p.periodId] }) : undefined} /></td>)}
-                      <td>{s.day ? <Badge tone={s.day.status === 'absent' ? 'red' : s.day.status === 'present' ? 'green' : 'amber'}>{dayText(s.day)}{s.day.status === 'half_day' && s.day.halfSession ? ` · ${s.day.halfSession === 'first' ? '1st' : '2nd'} half` : ''}</Badge> : <span className="muted small">Not complete yet</span>}</td>
-                    </tr>))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-          <Legend />
-          {admin && <p className="muted small">Select a mark to correct it. The change is kept with your reason, the family is told, and the day is worked out again.</p>}
-          {!admin && <p className="muted small">You mark only your own periods. Everything else is read-only here; ask the office if a mark is wrong.</p>}
+          {d.submitted === 0 ? (
+            // nothing in yet: the lessons and who is to mark them, not a wall of empty boxes
+            <Card flush>
+              <div role="list" aria-label="Periods">{d.periods.map((p) => (
+                <div key={p.periodId} role="listitem" className="pg-row">
+                  <span className="pg-n" aria-hidden>{String(p.period).replace(/^Period\s*/i, 'P')}</span>
+                  <div className="pg-main"><b>{p.subject || p.period}</b><div className="small muted">{p.period} · {p.time}{p.covering ? ' · covering' : ''}</div></div>
+                  <span className="muted small">{p.teacher}</span>
+                  {!admin && p.mine && <Button size="sm" variant="primary" onClick={() => setOpen(p)}>Mark</Button>}
+                  {canAsk && <Button size="sm" loading={busy} aria-label={`Ask ${p.teacher || 'the teacher'} to mark ${p.period}`} onClick={() => ask(p.periodId)}>Ask</Button>}
+                </div>))}</div>
+              <div className="muted small" style={{ padding: '10px 16px' }}>The student grid appears when the first period is submitted.</div>
+            </Card>
+          ) : (
+            <Card flush>
+              <div className="pg-scroll">
+                <table className="pg-grid">
+                  <thead><tr><th scope="col">Student</th>
+                    {d.periods.map((p) => (
+                      <th scope="col" key={p.periodId}>
+                        <b style={{ fontSize: 14 }}>{String(p.period).replace(/^Period\s*/i, 'P')}</b><small>{p.subject}</small><small>{p.teacher}{p.covering ? ' (covering)' : ''}</small>
+                        <small style={{ marginTop: 4, fontWeight: 600, color: p.state === 'submitted' ? 'rgb(var(--c-success-ink))' : 'rgb(var(--c-warning-ink))' }}>{p.state === 'submitted' ? `Submitted${p.submittedAt ? ` ${at(p.submittedAt)}` : ''}` : 'Waiting'}</small>
+                        {!admin && p.mine && <Button size="sm" variant={p.state === 'submitted' ? undefined : 'primary'} onClick={() => setOpen(p)}>{p.state === 'submitted' ? 'Review' : 'Mark'}</Button>}
+                        {canAsk && p.state !== 'submitted' && <Button size="sm" loading={busy} aria-label={`Ask ${p.teacher || 'the teacher'} to mark ${p.period}`} onClick={() => ask(p.periodId)}>Ask</Button>}
+                      </th>))}</tr></thead>
+                  <tbody>
+                    {rows.map((s) => (
+                      <tr key={s.studentId}>
+                        <td><b>{s.name}</b>{s.rollNo != null && <span className="muted small"> · {s.rollNo}</span>}</td>
+                        {d.periods.map((p) => <td key={p.periodId}><Cell status={s.cells[p.periodId]} label={`${s.name}, ${p.period}`}
+                          onClick={admin && p.state === 'submitted' && s.cells[p.periodId] ? () => setFix({ student: s, period: p, status: s.cells[p.periodId] }) : undefined} /></td>)}
+                      </tr>))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="row between wrap small muted" style={{ padding: '10px 16px', gap: 8 }}>
+                <span>{d.students.length > 8 ? <>Showing {rows.length} of {d.students.length} students · <button type="button" style={{ background: 'none', border: 0, padding: 0, font: 'inherit', cursor: 'pointer', textDecoration: 'underline', color: 'rgb(var(--c-primary-ink))' }} onClick={() => setAll(!all)}>{all ? 'Show fewer' : 'Show all'}</button></> : `${d.students.length} students`}</span>
+                <span>P present · A absent · L late · – not marked yet.{admin ? ' Select a mark to correct it.' : ''}</span>
+              </div>
+            </Card>)}
+          <div className="muted small">Day rule: Present at {d.rule.presentPct}% of the periods, Half day at {d.rule.halfPct}%. A day shows once at least half of its periods are submitted.{admin && <> <Link to="/admin/settings">Change in School settings</Link></>}</div>
+          {admin && <p className="muted small" style={{ margin: 0 }}>A correction is kept with your reason, the family is told, and the day is worked out again.</p>}
+          {!admin && <p className="muted small" style={{ margin: 0 }}>You mark only your own periods. Everything else is read-only here; ask the office if a mark is wrong.</p>}
           {open && <PeriodRegisterModal entry={open} date={date} onClose={() => setOpen(null)} onSaved={q.reload} />}
           {fix && <CorrectModal target={fix} busy={busy} onClose={() => setFix(null)}
             onSave={async (status, reason) => { const r = await run(() => put('/api/school/period-attendance/correct', { sectionId, date, periodId: fix.period.periodId, studentId: fix.student.studentId, status, reason }), 'Correction recorded'); if (r) { setFix(null); q.reload(); } }} />}
         </div>
       );
     }}</Async>
+  );
+}
+
+/** One day at a time: "‹ Fri 27 Nov 2026 ›". Tap the date to pick any day (a real date box sits behind it, so the keyboard and screen readers still work). */
+export function DateStep({ value, onChange, max }) {
+  const ref = useRef(null);
+  const shift = (n) => { const d = new Date(`${value}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); const v = d.toISOString().slice(0, 10); if (!max || v <= max) onChange(v); };
+  const label = new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return (
+    <span className="row" style={{ gap: 4, position: 'relative' }}>
+      <Button size="sm" aria-label="Previous day" onClick={() => shift(-1)}>‹</Button>
+      <Button size="sm" onClick={() => ref.current?.showPicker?.()}>{label}</Button>
+      <Button size="sm" aria-label="Next day" disabled={!!max && value >= max} onClick={() => shift(1)}>›</Button>
+      <input ref={ref} type="date" aria-label="Date" value={value} max={max} onChange={(e) => e.target.value && onChange(e.target.value)} style={{ position: 'absolute', opacity: 0, width: 1, height: 1, left: 40, bottom: 0, pointerEvents: 'none' }} />
+    </span>
   );
 }
 

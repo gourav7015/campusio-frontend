@@ -100,3 +100,33 @@ test('once a day: the whole class in one table for the class teacher and the off
   await admin.close();
   expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
 });
+
+/** Period by period, nothing marked yet: the pages still say what the class studies and who teaches it, and keep the earlier days' analysis. */
+test('period by period with nothing marked: subjects and teachers instead of an empty box, and the earlier days analysed', async ({ page }) => {
+  const problems = watch(page);
+  await setWay(true);
+  await signIn(page, 'student', 'gps.adm20260001', 'Student@12345');
+  await page.goto('/student/attendance');
+  await expect(page.getByText(/No lesson has been marked yet/)).toBeVisible();
+  const cards = page.getByRole('list', { name: 'Attendance by subject' }).getByRole('listitem');
+  await expect(cards.first()).toContainText(/a week/);
+  await expect(cards.first()).toContainText('Not marked yet');
+  const admin = await page.context().browser().newContext(); const ap = await admin.newPage();
+  await signIn(ap, 'admin', 'admin@gps.test', 'Admin@12345');
+  await ap.goto('/admin/classes');
+  await ap.getByRole('navigation', { name: 'Classes' }).getByText('Class 8', { exact: true }).first().click();
+  await ap.getByRole('link', { name: 'Open' }).first().click();
+  await ap.getByRole('tab', { name: 'Attendance' }).click();
+  await expect(ap.getByText('The class, subject by subject')).toBeVisible();
+  await expect(ap.getByText(/lessons? a week/).first()).toBeVisible();
+  await expect(ap.getByText('Earlier days, when one register was taken for the whole day')).toBeVisible();
+  // day by day: the lessons and who is to mark them, then no wall of empty boxes
+  await ap.getByRole('tab', { name: 'Day by day' }).click();
+  await expect(ap.getByText(/0 of \d+ periods submitted/)).toBeVisible();
+  await expect(ap.getByText('The student grid appears when the first period is submitted.')).toBeVisible();
+  await expect(ap.getByRole('button', { name: 'Next day' })).toBeDisabled(); // today is the last day
+  await ap.getByRole('button', { name: 'Previous day' }).click();
+  await admin.close();
+  await setWay(false);
+  expect(problems.filter((p) => !/HTTP 40/.test(p)), problems.join('\n')).toEqual([]);
+});

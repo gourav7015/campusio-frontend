@@ -38,26 +38,29 @@ export function ClassPeriodSummary({ sectionId, range }) {
   const [find, setFind] = useState(''); const [only, setOnly] = useState(false);
   return (
     <Async skeleton="datatable" state={q}>{(d) => {
-      if (!d.totals.marked) return <Empty title="No period was marked in this time">Each student's attendance appears here once teachers submit their period registers.</Empty>;
-      const cols = [...d.subjects].sort((a, b) => a.subject.localeCompare(b.subject));
+      const none = !d.totals.marked; // nothing marked in this time: still show the class, its subjects and its students, never an empty box
+      const cols = none ? (d.planned || []).map((p) => ({ subjectId: p.subjectId, subject: p.subject })) : [...d.subjects].sort((a, b) => a.subject.localeCompare(b.subject));
       const rows = d.students.filter((s) => matches(s, find, only));
       const worst = (s) => cols.map((c) => ({ name: c.subject, v: s.cells?.[c.subjectId] })).filter((c) => c.v != null && c.v < d.target).sort((a, b) => a.v - b.v).slice(0, 3);
       const needs = d.students.filter((s) => s.state === 'low').sort((a, b) => a.percentage - b.percentage).slice(0, 5);
       return (
         <div className="stack">
           <div className="grid g4">
-            <Stat value={fmtPct(d.totals.percentage)} label="Class attendance in lessons" tone={d.totals.percentage >= d.target ? 'green' : 'amber'} sub={`Target ${d.target}%`} />
-            <Stat value={d.totals.students} label="Students" sub={`${d.totals.marked} with lessons marked`} />
-            <Stat value={d.totals.below} label={`Below ${d.target}% overall`} tone={d.totals.below ? 'red' : 'green'} sub={d.totals.below ? 'See "Needs a word"' : 'Everyone is on track'} />
-            <Stat value={d.subjects[0]?.subject || '—'} label="Lowest subject" tone={d.subjects[0]?.percentage < d.target ? 'amber' : ''} sub={d.subjects[0] ? `${d.subjects[0].percentage}%` : undefined} />
+            <Stat value={none ? '—' : fmtPct(d.totals.percentage)} label="Class attendance in lessons" tone={none ? '' : d.totals.percentage >= d.target ? 'green' : 'amber'} sub={none ? 'No lesson marked yet' : `Target ${d.target}%`} />
+            <Stat value={d.totals.students} label="Students" sub={none ? undefined : `${d.totals.marked} with lessons marked`} />
+            <Stat value={none ? (d.planned || []).length : d.totals.below} label={none ? 'Subjects' : `Below ${d.target}% overall`} tone={none ? '' : d.totals.below ? 'red' : 'green'} sub={none ? `${(d.planned || []).reduce((n, p) => n + p.weekly, 0)} lessons a week` : d.totals.below ? 'See "Needs a word"' : 'Everyone is on track'} />
+            <Stat value={none ? '—' : d.subjects[0]?.subject || '—'} label="Lowest subject" tone={!none && d.subjects[0]?.percentage < d.target ? 'amber' : ''} sub={!none && d.subjects[0] ? `${d.subjects[0].percentage}%` : undefined} />
           </div>
           <div className="grid g2">
             <Card title="The class, subject by subject">
-              <div className="stack">{d.subjects.map((s) => (
-                <div key={s.subjectId} className="pg-subj"><div className="row between"><span>{s.subject} {s.teacher && <span className="muted small">· {s.teacher}</span>}</span><b>{s.percentage}%</b></div><div className="pg-bar" role="img" aria-label={`${s.subject} ${s.percentage}%`}><i style={{ width: `${s.percentage}%` }} /></div></div>))}</div>
+              {none ? <div className="stack" style={{ gap: 0 }}>{(d.planned || []).map((p) => (
+                <div key={p.subjectId} className="row between wrap" style={{ gap: 10, padding: '10px 0', borderTop: '1px solid rgb(var(--c-border))' }}><span><b>{p.subject}</b><div className="small muted">{p.teacher || 'No teacher assigned'}</div></span><span className="small muted">{p.weekly} {p.weekly === 1 ? 'lesson' : 'lessons'} a week</span></div>))}
+                {!(d.planned || []).length && <div className="muted small">This class has nothing on its timetable yet.</div>}</div>
+              : <div className="stack">{d.subjects.map((s) => (
+                <div key={s.subjectId} className="pg-subj"><div className="row between"><span>{s.subject} {s.teacher && <span className="muted small">· {s.teacher}</span>}</span><b>{s.percentage}%</b></div><div className="pg-bar" role="img" aria-label={`${s.subject} ${s.percentage}%`}><i style={{ width: `${s.percentage}%` }} /></div></div>))}</div>}
             </Card>
             <Card title="Needs a word">
-              {needs.length ? <div className="stack" style={{ gap: 0 }}>{needs.map((s) => (
+              {none ? <div className="muted small">Students who fall below {d.target}% in a subject are listed here once lessons have been marked.</div> : needs.length ? <div className="stack" style={{ gap: 0 }}>{needs.map((s) => (
                 <div key={s.studentId} className="row between wrap" style={{ gap: 10, padding: '10px 0', borderTop: '1px solid rgb(var(--c-border))' }}>
                   <span><Link to={`${nav}/students/${s.studentId}`}><b>{s.name}</b></Link><div className="small muted">{worst(s).map((w) => `${w.name} ${w.v}%`).join(', ') || 'Below target overall'}</div></span>
                   <Badge tone="red">{s.percentage}%</Badge></div>))}</div> : <div className="muted small">No one is below {d.target}%.</div>}
@@ -79,17 +82,18 @@ export function ClassPeriodSummary({ sectionId, range }) {
 }
 
 /** Attendance taken once a day: every student's days, who needs a word, the class month by month, and where today's register stands. */
-export function ClassDaySummary({ sectionId, range }) {
+export function ClassDaySummary({ sectionId, range, source, quiet, heading }) {
   const { api, nav } = useOffice();
-  const q = useApi(`${api}/sections/${sectionId}/day-attendance`, { range });
+  const q = useApi(`${api}/sections/${sectionId}/day-attendance`, { range, ...(source ? { source } : {}) });
   const [find, setFind] = useState(''); const [only, setOnly] = useState(false);
   return (
     <Async skeleton="datatable" state={q}>{(d) => {
       const t = d.totals;
-      if (!d.students.length || !t.percentage) return <Empty title="No register was submitted in this time">Every student's attendance appears here once the class teacher submits a register.</Empty>;
+      if (!d.students.length || !t.percentage) return quiet ? null : <Empty title="No register was submitted in this time">Every student's attendance appears here once the class teacher submits a register.</Empty>;
       const rows = d.students.filter((s) => matches(s, find, only));
       return (
         <div className="stack">
+          {heading && <div><h3 style={{ margin: 0 }}>{heading}</h3><div className="small muted">{source === 'register' ? `Up to ${fmtDate(d.until, true)}. These days are kept as they were taken; they are not mixed into the lessons above.` : ''}</div></div>}
           <div className="grid g4">
             <Stat value={fmtPct(t.percentage)} label="Class attendance" tone={t.percentage >= d.target ? 'green' : 'amber'} sub={`Target ${d.target}%`} />
             <Stat value={t.registerToday === 'submitted' ? `${t.presentToday} of ${t.markedToday}` : '—'} label="Present today" sub={t.registerToday === 'submitted' ? 'Register submitted' : t.registerToday === 'draft' ? 'Register started, not submitted' : 'Not taken yet today'} />
@@ -136,7 +140,10 @@ export function ClassAttendanceTabs({ sectionId, periodWise = true, daysLabel, c
         <Tabs tabs={[['class', 'Whole class'], ['days', daysLabel || (periodWise ? 'Day by day' : "Today's register")]]} value={tab} onChange={setTab} />
         {tab === 'class' && <Tabs tabs={RANGES} value={range} onChange={setRange} />}
       </div>
-      {tab === 'class' ? <Summary sectionId={sectionId} range={range} /> : children}
+      {tab === 'class' ? <>
+        <Summary sectionId={sectionId} range={range} />
+        {periodWise && <ClassDaySummary sectionId={sectionId} range={range} source="register" quiet heading="Earlier days, when one register was taken for the whole day" />}
+      </> : children}
     </div>
   );
 }
